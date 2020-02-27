@@ -1,0 +1,16 @@
+{
+    "name": "logsuck-fe",
+    "scripts": {
+        "build": "webpack -p",
+        "watch": "webpack -d --watch"
+    },
+    "devDependencies": {
+        "ts-loader": "6.2.1",
+        "typescript": "3.8.2",
+        "webpack": "4.41.6",
+        "webpack-cli": "3.3.11"
+    },
+    "dependencies": {
+        "preact": "10.3.2"
+    }
+}
