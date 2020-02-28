@@ -80,9 +80,8 @@ func (fw *FileWatcher) handleEvents() {
 	split := fw.fileConfig.EventDelimiter.Split(s, -1)
 	for _, raw := range split[:len(split)-1] {
 		evt := events.RawEvent{
-			Raw:       raw,
-			Source:    fw.fileConfig.Filename,
-			Timestamp: time.Now(),
+			Raw:    raw,
+			Source: fw.fileConfig.Filename,
 		}
 		fw.eventPublisher.PublishEvent(evt)
 	}

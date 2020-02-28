@@ -64,7 +64,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                     <form onSubmit={(evt) => { this.onSearch(evt); }}>
                         <label for="searchinput">Search</label>
                         <div class="input-group mb-3">
-                            <textarea id="searchinput" type="text" class="form-control" onChange={(evt) => this.onSearchChanged(evt)} value={this.state.searchString} />
+                            <input id="searchinput" type="text" class="form-control" onChange={(evt) => this.onSearchChanged(evt)} value={this.state.searchString} />
                             <div class="input-group-append">
                                 <button disabled={this.state.state === HomeState.WAITING_FOR_SEARCH} type="submit" class="btn btn-primary">Search</button>
                             </div>
@@ -105,13 +105,26 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                         <thead>
                                             <tr>
                                                 <th scope="col">Time</th>
-                                                <th scope="col">Text</th>
+                                                <th scope="col">Event</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {this.state.searchResult.map(e => <tr>
-                                                <td>{e.timestamp.toLocaleString()}</td>
-                                                <td>{e.raw}</td>
+                                                <td class="event-timestamp">
+                                                    {e.timestamp.toLocaleString()}
+                                                </td>
+                                                <td>
+                                                    <div style="display: flex; flex-direction: column;">
+                                                        <div class="event-raw">{e.raw}</div>
+                                                        <hr style="width: 100%; margin-top: 0.5rem; margin-bottom: 0;" />
+                                                        <div class="event-additional">
+                                                            <dl class="row no-gutters" style="margin-bottom: 0;">
+                                                                <dt class="col-1">source</dt>
+                                                                <dd class="col-1">{e.source}</dd>
+                                                            </dl>
+                                                        </div>
+                                                    </div>
+                                                </td>
                                             </tr>)}
                                         </tbody>
                                     </table>

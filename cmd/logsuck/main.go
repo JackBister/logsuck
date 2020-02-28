@@ -16,6 +16,12 @@ import (
 var cfg = config.Config{
 	IndexedFiles: []config.IndexedFileConfig{},
 
+	FieldExtractors: []*regexp.Regexp{
+		regexp.MustCompile("(\\w+)=(\\w+)"),
+		regexp.MustCompile("^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)"),
+	},
+	TimeLayout: "2006/01/02 15:04:05",
+
 	EnableWeb: true,
 	HttpAddr:  ":8080",
 }
@@ -41,9 +47,9 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fw := files.NewFileWatcher(file, commandChannels[i], events.DebugEventPublisher(events.RepositoryEventPublisher(repo)), f)
+		fw := files.NewFileWatcher(file, commandChannels[i], events.DebugEventPublisher(events.RepositoryEventPublisher(&cfg, repo)), f)
 		go fw.Start()
 	}
 
-	log.Fatal(web.NewWeb(cfg, repo).Serve())
+	log.Fatal(web.NewWeb(&cfg, repo).Serve())
 }

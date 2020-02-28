@@ -16,7 +16,7 @@ type Web interface {
 }
 
 type webImpl struct {
-	cfg       config.Config
+	cfg       *config.Config
 	eventRepo events.Repository
 }
 
@@ -29,7 +29,7 @@ func (w webError) Error() string {
 	return w.err
 }
 
-func NewWeb(cfg config.Config, eventRepo events.Repository) Web {
+func NewWeb(cfg *config.Config, eventRepo events.Repository) Web {
 	return webImpl{
 		cfg:       cfg,
 		eventRepo: eventRepo,
@@ -73,7 +73,7 @@ func (wi *webImpl) executeSearch(queryParams url.Values) ([]events.Event, *webEr
 			code: 400,
 		}
 	}
-	srch, err := search.Parse(strings.TrimSpace(searchStrings[0]))
+	srch, err := search.Parse(strings.TrimSpace(searchStrings[0]), wi.cfg)
 	if err != nil {
 		return nil, &webError{
 			err:  "Got error when parsing search: " + err.Error(),
