@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/jackbister/logsuck/internal/config"
@@ -85,6 +86,9 @@ func (wi *webImpl) executeSearch(queryParams url.Values) ([]events.EventWithExtr
 		}
 	}
 	results := search.FilterEvents(wi.eventRepo, srch, wi.cfg)
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Timestamp.After(results[j].Timestamp)
+	})
 	return results, nil
 }
 
