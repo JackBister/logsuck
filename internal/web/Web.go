@@ -80,6 +80,6 @@ func (wi *webImpl) executeSearch(queryParams url.Values) ([]events.Event, *webEr
 			code: 500,
 		}
 	}
-	results := wi.eventRepo.Search(srch)
+	results := search.FilterEvents(wi.eventRepo, srch, wi.cfg)
 	return results, nil
 }

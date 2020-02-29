@@ -12,5 +12,4 @@ type Event struct {
 	Raw       string
 	Timestamp time.Time
 	Source    string
-	Fields    map[string]string
 }

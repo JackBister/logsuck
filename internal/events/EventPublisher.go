@@ -30,10 +30,7 @@ func (ep *repositoryPublisher) PublishEvent(evt RawEvent) {
 		Source: evt.Source,
 	}
 
-	fields := parser.ExtractFields(strings.ToLower(evt.Raw), ep.cfg)
-	processed.Fields = fields
-	// TODO: This may produce unexpected results if you extract a field named source
-	processed.Fields["source"] = evt.Source
+	fields := parser.ExtractFields(strings.ToLower(evt.Raw), ep.cfg.FieldExtractors)
 	if t, ok := fields["_time"]; ok {
 		parsed, err := time.Parse(ep.cfg.TimeLayout, t)
 		if err != nil {

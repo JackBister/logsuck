@@ -3,7 +3,7 @@ package parser
 import (
 	"errors"
 	"fmt"
-	"github.com/jackbister/logsuck/internal/config"
+	"regexp"
 	"strings"
 )
 
@@ -12,6 +12,8 @@ type ParseResult struct {
 	NotFragments map[string]struct{}
 	Fields       map[string][]string
 	NotFields    map[string][]string
+	Sources      map[string]struct{}
+	NotSources   map[string]struct{}
 }
 
 type parser struct {
@@ -87,9 +89,9 @@ func (p *parser) take() *token {
 	return ret
 }
 
-func ExtractFields(input string, cfg *config.Config) map[string]string {
+func ExtractFields(input string, fieldExtractors []*regexp.Regexp) map[string]string {
 	ret := map[string]string{}
-	for _, rex := range cfg.FieldExtractors {
+	for _, rex := range fieldExtractors {
 		matches := rex.FindAllStringSubmatch(input, -1)
 		for _, match := range matches {
 			if len(match) == 2 && len(rex.SubexpNames()) == 2 {
@@ -117,6 +119,7 @@ func Parse(input string) (*ParseResult, error) {
 		NotFragments: map[string]struct{}{},
 		Fields:       map[string][]string{},
 		NotFields:    map[string][]string{},
+		Sources:      map[string]struct{}{},
 	}
 
 	for len(p.tokens) > 0 {
@@ -188,6 +191,19 @@ func Parse(input string) (*ParseResult, error) {
 				frag := p.take().value
 				ret.NotFragments[frag] = struct{}{}
 			}
+		}
+	}
+
+	if sources, ok := ret.Fields["source"]; ok {
+		ret.Sources = make(map[string]struct{}, len(sources))
+		for _, src := range sources {
+			ret.Sources[src] = struct{}{}
+		}
+	}
+	if sources, ok := ret.NotFields["source"]; ok {
+		ret.NotSources = make(map[string]struct{}, len(sources))
+		for _, src := range sources {
+			ret.NotSources[src] = struct{}{}
 		}
 	}
 
