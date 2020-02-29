@@ -9,6 +9,7 @@ type Search struct {
 	Fragments    map[string]struct{}
 	NotFragments map[string]struct{}
 	Fields       map[string][]string
+	NotFields    map[string][]string
 }
 
 func Parse(searchString string) (*Search, error) {
@@ -21,6 +22,7 @@ func Parse(searchString string) (*Search, error) {
 		Fragments:    res.Fragments,
 		NotFragments: res.NotFragments,
 		Fields:       res.Fields,
+		NotFields:    res.NotFields,
 	}
 
 	return &ret, nil

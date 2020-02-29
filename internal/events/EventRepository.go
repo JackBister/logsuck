@@ -34,6 +34,7 @@ func (repo *inMemoryRepository) Search(srch *search.Search) []Event {
 	compiledFrags := compileFrags(getKeys(srch.Fragments))
 	compiledNotFrags := compileFrags(getKeys(srch.NotFragments))
 	compiledFields := compileFields(srch.Fields)
+	compiledNotFields := compileFields(srch.NotFields)
 	for _, evt := range repo.events {
 		rawLowered := strings.ToLower(evt.Raw)
 
@@ -63,6 +64,22 @@ func (repo *inMemoryRepository) Search(srch *search.Search) []Event {
 				}
 			}
 			if !anyMatch {
+				include = false
+				break
+			}
+		}
+		for key, values := range compiledNotFields {
+			evtValue, ok := evt.Fields[key]
+			if !ok {
+				break
+			}
+			anyMatch := false
+			for _, value := range values {
+				if value.MatchString(evtValue) {
+					anyMatch = true
+				}
+			}
+			if anyMatch {
 				include = false
 				break
 			}

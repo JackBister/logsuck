@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackbister/logsuck/internal/config"
+	"strings"
 )
 
 type ParseResult struct {
 	Fragments    map[string]struct{}
 	NotFragments map[string]struct{}
 	Fields       map[string][]string
+	NotFields    map[string][]string
 }
 
 type parser struct {
@@ -114,6 +116,7 @@ func Parse(input string) (*ParseResult, error) {
 		Fragments:    map[string]struct{}{},
 		NotFragments: map[string]struct{}{},
 		Fields:       map[string][]string{},
+		NotFields:    map[string][]string{},
 	}
 
 	for len(p.tokens) > 0 {
@@ -122,13 +125,25 @@ func Parse(input string) (*ParseResult, error) {
 			break
 		}
 		if tok.typ == tokenString {
+			lowered := strings.ToLower(tok.value)
 			if p.peek() == tokenEquals {
 				p.take()
 				if p.peek() != tokenString && p.peek() != tokenQuotedString {
 					return nil, errors.New("unexpected token, expected string or quoted string after =")
 				}
 				value := p.take()
-				ret.Fields[tok.value] = []string{value.value}
+				ret.Fields[lowered] = []string{value.value}
+			} else if p.peek() == tokenNotEquals {
+				p.take()
+				if p.peek() != tokenString && p.peek() != tokenQuotedString {
+					return nil, errors.New("unexpected token, expected string or quoted string after =")
+				}
+				value := p.take()
+				if existingNots, ok := ret.NotFields[lowered]; ok {
+					ret.NotFields[lowered] = append(existingNots, value.value)
+				} else {
+					ret.NotFields[lowered] = []string{value.value}
+				}
 			} else if p.peek() == tokenWhitespace {
 				p.skipWhitespace()
 				if p.peek() == tokenKeyword && p.peekValue() == "IN" {
@@ -138,7 +153,24 @@ func Parse(input string) (*ParseResult, error) {
 					if err != nil {
 						return nil, fmt.Errorf("error while parsing IN expression: %w", err)
 					}
-					ret.Fields[tok.value] = values
+					ret.Fields[lowered] = values
+				} else if p.peek() == tokenKeyword && p.peekValue() == "NOT" {
+					p.take()
+					p.skipWhitespace()
+					if p.peek() != tokenKeyword || p.peekValue() != "IN" {
+						return nil, errors.New("unexpected token, expected 'IN' after 'NOT'")
+					}
+					p.take()
+					p.skipWhitespace()
+					values, err := p.parseParenList()
+					if err != nil {
+						return nil, fmt.Errorf("error while parsing NOT IN expression: %w", err)
+					}
+					if existingNots, ok := ret.NotFields[lowered]; ok {
+						ret.NotFields[lowered] = append(existingNots, values...)
+					} else {
+						ret.NotFields[lowered] = values
+					}
 				}
 			} else {
 				ret.Fragments[tok.value] = struct{}{}

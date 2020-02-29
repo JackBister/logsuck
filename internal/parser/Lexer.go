@@ -14,11 +14,12 @@ const (
 	tokenQuotedString           = 1
 	tokenWhitespace             = 2
 	tokenEquals                 = 3
-	tokenLparen                 = 4
-	tokenRparen                 = 5
-	tokenPipe                   = 6
-	tokenComma                  = 7
-	tokenKeyword                = 8
+	tokenNotEquals              = 4
+	tokenLparen                 = 5
+	tokenRparen                 = 6
+	tokenPipe                   = 7
+	tokenComma                  = 8
+	tokenKeyword                = 9
 
 	tokenInvalid = 0xBEEF
 )
@@ -39,7 +40,7 @@ var keywords = [...]string{
 	"NOT",
 }
 
-const symbols = "=|(),"
+const symbols = "!=|(),"
 const whiteSpace = " \n\t"
 
 var wordDelimiters = symbols + whiteSpace
@@ -68,6 +69,12 @@ func (tk *tokenizer) tokenize(input string) ([]token, error) {
 				typ:   tokenEquals,
 				value: "=",
 			})
+		} else if strings.HasPrefix(input[i:], "!=") {
+			tk.addToken(token{
+				typ:   tokenNotEquals,
+				value: "!=",
+			})
+			i++
 		} else if r == '(' {
 			tk.addToken(token{
 				typ:   tokenLparen,

@@ -14,6 +14,11 @@ var tokEquals = token{
 	value: "=",
 }
 
+var tokNotEquals = token{
+	typ:   tokenNotEquals,
+	value: "!=",
+}
+
 var tokLparen = token{
 	typ:   tokenLparen,
 	value: "(",
@@ -125,6 +130,11 @@ var tokenTests = []struct {
 	{
 		"=", false, []token{
 			tokEquals,
+		},
+	},
+	{
+		"!=", false, []token{
+			tokNotEquals,
 		},
 	},
 	{
