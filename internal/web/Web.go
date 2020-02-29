@@ -46,7 +46,11 @@ func (wi webImpl) Serve() error {
 			http.Error(w, wErr.err, wErr.code)
 			return
 		}
-		serialized, err := json.Marshal(results)
+		res := SearchResult{
+			Events:     results,
+			FieldCount: aggregateFields(results),
+		}
+		serialized, err := json.Marshal(res)
 		if err != nil {
 			http.Error(w, "Got error when serializing results:"+err.Error(), 500)
 			return
@@ -65,7 +69,7 @@ func (wi webImpl) Serve() error {
 	return s.ListenAndServe()
 }
 
-func (wi *webImpl) executeSearch(queryParams url.Values) ([]events.Event, *webError) {
+func (wi *webImpl) executeSearch(queryParams url.Values) ([]events.EventWithExtractedFields, *webError) {
 	searchStrings, ok := queryParams["searchString"]
 	if !ok || len(searchStrings) < 1 {
 		return nil, &webError{
@@ -82,4 +86,23 @@ func (wi *webImpl) executeSearch(queryParams url.Values) ([]events.Event, *webEr
 	}
 	results := search.FilterEvents(wi.eventRepo, srch, wi.cfg)
 	return results, nil
+}
+
+func aggregateFields(inputEvents []events.EventWithExtractedFields) map[string]int {
+	ret := map[string]int{}
+	for _, evt := range inputEvents {
+		for field := range evt.Fields {
+			if i, ok := ret[field]; ok {
+				ret[field] = i + 1
+			} else {
+				ret[field] = 1
+			}
+		}
+	}
+	return ret
+}
+
+type SearchResult struct {
+	Events     []events.EventWithExtractedFields
+	FieldCount map[string]int
 }

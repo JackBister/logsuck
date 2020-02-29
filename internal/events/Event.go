@@ -13,3 +13,10 @@ type Event struct {
 	Timestamp time.Time
 	Source    string
 }
+
+type EventWithExtractedFields struct {
+	Raw       string
+	Timestamp time.Time
+	Source    string
+	Fields    map[string]string
+}

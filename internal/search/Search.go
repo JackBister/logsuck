@@ -39,9 +39,9 @@ func Parse(searchString string) (*Search, error) {
 // SearchEvents searches a slice of events based on a parsed Search object.
 // It is the callers responsibility to filter by source and time, which should be done before calling SearchEvents since
 // it performs some heavyweight operations
-func FilterEvents(repo events.Repository, srch *Search, cfg *config.Config) []events.Event {
+func FilterEvents(repo events.Repository, srch *Search, cfg *config.Config) []events.EventWithExtractedFields {
 	inputEvents := repo.Filter(srch.Sources, srch.NotSources)
-	ret := make([]events.Event, 0, 1)
+	ret := make([]events.EventWithExtractedFields, 0, 1)
 	compiledFrags := filtering.CompileKeys(srch.Fragments)
 	compiledNotFrags := filtering.CompileKeys(srch.NotFragments)
 	compiledFields := filtering.CompileMap(srch.Fields)
@@ -100,7 +100,12 @@ func FilterEvents(repo events.Repository, srch *Search, cfg *config.Config) []ev
 		}
 
 		if include {
-			ret = append(ret, evt)
+			ret = append(ret, events.EventWithExtractedFields{
+				Raw:       evt.Raw,
+				Timestamp: evt.Timestamp,
+				Source:    evt.Source,
+				Fields:    evtFields,
+			})
 		}
 	}
 	return ret

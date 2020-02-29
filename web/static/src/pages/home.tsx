@@ -1,6 +1,10 @@
 import { Component, h } from "preact";
 import { SearchResult } from "../api/v1";
 import { LogEvent } from "../models/Event";
+import { Popover } from "../components/popover";
+import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
+
+const TOP_FIELDS_COUNT = 15;
 
 interface HomeProps {
     searchApi: (searchString: string) => Promise<SearchResult>;
@@ -35,10 +39,19 @@ interface SearchedError extends HomeStateBase {
     searchError: string;
 }
 
+interface SelectedField {
+    name: string;
+    topValues: TopFieldValueInfo[];
+}
+
 interface SearchedSuccess extends HomeStateBase {
     state: HomeState.SEARCHED_SUCCESS;
 
     searchResult: LogEvent[];
+
+    allFields: { [key: string]: number };
+    topFields: { [key: string]: number };
+    selectedField: SelectedField | null;
 }
 
 export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
@@ -53,7 +66,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
     }
 
     render() {
-        return <div>
+        return <div onClick={(evt) => this.onBodyClicked(evt)}>
             <header>
                 <nav class="navbar navbar-dark bg-dark">
                     <a href="/" class="navbar-brand">logsuck</a>
@@ -94,9 +107,33 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                     <div class="card-header">
                                         Fields
                                     </div>
-                                    <div class="card-body">
-                                        Field aggregations will go here!
-                                    </div>
+                                    {Object.keys(this.state.topFields).length === 0 &&
+                                        <div>No fields extracted</div>}
+                                    {Object.keys(this.state.topFields).length > 0 &&
+                                        <table class="table table-sm table-hover">
+                                            <tbody>
+                                                {Object.keys(this.state.topFields).map(k =>
+                                                    <tr key={k} onClick={(evt) => { evt.stopPropagation(); this.onFieldClicked(k); }} class="test field-row">
+                                                        <td>{k}</td>
+                                                        <td style="text-align: right;">{(this.state as SearchedSuccess).topFields[k]}</td>
+                                                    </tr>)}
+                                            </tbody>
+                                        </table>}
+                                    <Popover
+                                        direction="right"
+                                        isOpen={!!this.state.selectedField}
+                                        heading={this.state.selectedField?.name || ''}
+                                        widthPx={300}>
+                                        <table class="table table-sm table-hover">
+                                            <tbody>
+                                                {this.state.selectedField?.topValues.map(f => <tr key={f.value} onClick={() => this.onFieldValueClicked(f.value)} style="cursor: pointer;">
+                                                    <td class="field-value">{f.value}</td>
+                                                    <td class="field-value-count" style="text-align: right;">{f.count}</td>
+                                                    <td class="field-value-percentage" style="text-align: right;">{(f.percentage * 100).toFixed(2)} %</td>
+                                                </tr>)}
+                                            </tbody>
+                                        </table>
+                                    </Popover>
                                 </div>
                             </div>
                             <div class="col-xl-10">
@@ -109,7 +146,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {this.state.searchResult.map(e => <tr>
+                                            {this.state.searchResult.map(e => <tr key={e.raw}>
                                                 <td class="event-timestamp">
                                                     {e.timestamp.toLocaleString()}
                                                 </td>
@@ -137,22 +174,103 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
         </div>;
     }
 
+    private onBodyClicked(evt: MouseEvent) {
+        if (this.state.state === HomeState.SEARCHED_SUCCESS && this.state.selectedField) {
+            if (!(evt.target as HTMLDivElement).matches('.popover *')) {
+                this.setState({
+                    selectedField: null
+                });
+            }
+        }
+    }
+
+    private onFieldClicked(k: string) {
+        if (this.state.state !== HomeState.SEARCHED_SUCCESS) {
+            // Really weird state. Maybe throw error?
+            return;
+        }
+        if (this.state.selectedField?.name === k) {
+            this.setState({
+                selectedField: null
+            });
+        } else {
+            const topValues = this.calculateTopFieldValues(this.state.searchResult, k);
+            this.setState({
+                selectedField: {
+                    name: k,
+                    topValues: topValues
+                }
+            });
+        }
+    }
+
+    private onFieldValueClicked(value: string) {
+        if (this.state.state !== HomeState.SEARCHED_SUCCESS || this.state.selectedField === null) {
+            return;
+        }
+        this.addFieldQueryAndSearch(this.state.selectedField.name, value);
+    }
+
+    private addFieldQueryAndSearch(key: string, value: string) {
+        this.setState({
+            searchString: `${key}=${value} ` + this.state.searchString
+        }, () => this.onSearch());
+    }
+
+    private calculateTopFieldValues(searchResult: LogEvent[], fieldName: string): TopFieldValueInfo[] {
+        const counts: { [key: string]: number } = {};
+        let totalCount = 0;
+        for (const event of searchResult) {
+            if (!event.fields[fieldName]) {
+                continue;
+            }
+            totalCount++;
+            const value = event.fields[fieldName];
+            if (counts[value]) {
+                counts[value]++;
+            } else {
+                counts[value] = 1;
+            }
+        }
+        return Object.keys(counts)
+            .sort((a, b) => counts[b] - counts[a])
+            .slice(0, TOP_FIELDS_COUNT)
+            .map(k => ({
+                value: k,
+                count: counts[k],
+                percentage: counts[k] / totalCount
+            }));
+    }
+
     private onSearchChanged(evt: any) {
         this.setState({
             searchString: evt.target.value
         });
     }
 
-    private async onSearch(evt: any) {
-        evt.preventDefault();
+    private async onSearch(evt?: any) {
+        if (evt) {
+            evt.preventDefault();
+        }
         this.setState({
             state: HomeState.WAITING_FOR_SEARCH
         });
         try {
             const result = await this.props.searchApi(this.state.searchString);
+            const topFields = Object.keys(result.fieldCount)
+                .sort((a, b) => result.fieldCount[b] - result.fieldCount[a])
+                .filter(k => !HomeComponent.isExcludedFieldName(k))
+                .slice(0, TOP_FIELDS_COUNT)
+                .reduce((acc, curr) => {
+                    acc[curr] = result.fieldCount[curr];
+                    return acc;
+                }, {} as any);
             this.setState({
                 state: HomeState.SEARCHED_SUCCESS,
-                searchResult: result.events
+                searchResult: result.events,
+                topFields: topFields,
+                allFields: result.fieldCount,
+                selectedField: null
             });
         } catch (e) {
             console.log(e);
@@ -161,5 +279,9 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                 searchError: 'Something went wrong.'
             });
         }
+    }
+
+    private static isExcludedFieldName(str: string): boolean {
+        return str === '_time' || str === 'source';
     }
 }

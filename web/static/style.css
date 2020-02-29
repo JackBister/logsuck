@@ -3,6 +3,35 @@
     margin-top: 16px;
 }
 
+.field-row {
+    cursor: pointer;
+}
+
+.field-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 0;
+}
+
+.field-value-count {
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 0;
+    width: 50%;
+}
+
+.field-value-percentage {
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 0;
+    width: 20%;
+}
+
 .search-result-table td {
     border-top: 3px solid #dee2e6;
 }
@@ -20,10 +49,6 @@ td.event-timestamp {
 
 .event-additional {
     font-size: 9pt;
-}
-
-.event-additional dt {
-    
 }
 
 .event-additional dd:last-child {
