@@ -7,8 +7,9 @@ import (
 )
 
 type ParseResult struct {
-	Fragments map[string]struct{}
-	Fields    map[string]string
+	Fragments    map[string]struct{}
+	NotFragments map[string]struct{}
+	Fields       map[string]string
 }
 
 type parser struct {
@@ -66,8 +67,9 @@ func Parse(input string) (*ParseResult, error) {
 	}
 
 	ret := ParseResult{
-		Fragments: map[string]struct{}{},
-		Fields:    map[string]string{},
+		Fragments:    map[string]struct{}{},
+		NotFragments: map[string]struct{}{},
+		Fields:       map[string]string{},
 	}
 
 	for len(p.tokens) > 0 {
@@ -88,6 +90,17 @@ func Parse(input string) (*ParseResult, error) {
 			}
 		} else if tok.typ == tokenQuotedString {
 			ret.Fragments[tok.value] = struct{}{}
+		} else if tok.typ == tokenKeyword {
+			if tok.value == "NOT" {
+				if p.peek() == tokenWhitespace {
+					p.take()
+				}
+				if p.peek() != tokenString && p.peek() != tokenQuotedString {
+					return nil, errors.New("unexpected token, expected string or quoted string after =")
+				}
+				frag := p.take().value
+				ret.NotFragments[frag] = struct{}{}
+			}
 		}
 	}
 

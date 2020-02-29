@@ -145,7 +145,7 @@ var tokenTests = []struct {
 			tokSpace,
 			tokString("testval"),
 			tokSpace,
-			tokKeyword("in"),
+			tokKeyword("IN"),
 			tokSpace,
 			tokLparen,
 			tokQuoted("a bit"),
@@ -157,6 +157,13 @@ var tokenTests = []struct {
 			tokPipe,
 			tokSpace,
 			tokString("everything"),
+		},
+	},
+	{
+		"NOT password", false, []token{
+			tokKeyword("NOT"),
+			tokSpace,
+			tokString("password"),
 		},
 	},
 }

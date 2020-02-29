@@ -32,6 +32,7 @@ func (repo *inMemoryRepository) Add(evt Event) {
 func (repo *inMemoryRepository) Search(srch *search.Search) []Event {
 	ret := make([]Event, 0, 1)
 	compiledFrags := compileFrags(getKeys(srch.Fragments))
+	compiledNotFrags := compileFrags(getKeys(srch.NotFragments))
 	compiledFields := compileFields(srch.Fields)
 	for _, evt := range repo.events {
 		rawLowered := strings.ToLower(evt.Raw)
@@ -39,6 +40,11 @@ func (repo *inMemoryRepository) Search(srch *search.Search) []Event {
 		include := true
 		for _, frag := range compiledFrags {
 			if !frag.MatchString(rawLowered) {
+				include = false
+			}
+		}
+		for _, frag := range compiledNotFrags {
+			if frag.MatchString(rawLowered) {
 				include = false
 			}
 		}

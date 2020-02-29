@@ -35,8 +35,8 @@ type tokenizer struct {
 }
 
 var keywords = [...]string{
-	"in",
-	"not",
+	"IN",
+	"NOT",
 }
 
 const symbols = "=|(),"
@@ -114,10 +114,9 @@ func (tk *tokenizer) tokenize(input string) ([]token, error) {
 				str = remainder[:endLocation]
 			}
 
-			strLowered := strings.ToLower(str)
 			isKeyword := false
 			for _, kw := range keywords {
-				if kw == strLowered {
+				if kw == str {
 					isKeyword = true
 				}
 			}
@@ -125,7 +124,7 @@ func (tk *tokenizer) tokenize(input string) ([]token, error) {
 			if isKeyword {
 				tk.addToken(token{
 					typ:   tokenKeyword,
-					value: strLowered,
+					value: str,
 				})
 			} else {
 				tk.addToken(token{
