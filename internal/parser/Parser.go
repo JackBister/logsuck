@@ -9,7 +9,7 @@ import (
 type ParseResult struct {
 	Fragments    map[string]struct{}
 	NotFragments map[string]struct{}
-	Fields       map[string]string
+	Fields       map[string][]string
 }
 
 type parser struct {
@@ -23,6 +23,13 @@ func (p *parser) peek() tokenType {
 	return p.tokens[0].typ
 }
 
+func (p *parser) peekValue() string {
+	if len(p.tokens) == 0 {
+		return ""
+	}
+	return p.tokens[0].value
+}
+
 func (p *parser) require(expected tokenType) (*token, error) {
 	if len(p.tokens) == 0 {
 		return nil, errors.New("Unexpected end of string, expected tokenType=" + string(expected))
@@ -33,6 +40,43 @@ func (p *parser) require(expected tokenType) (*token, error) {
 	ret := &p.tokens[0]
 	p.tokens = p.tokens[1:]
 	return ret, nil
+}
+
+func (p *parser) parseParenList() ([]string, error) {
+	ret := make([]string, 0)
+	if p.peek() != tokenLparen {
+		return nil, errors.New("unexpected token, expected '(' after 'IN'")
+	}
+	p.take()
+	p.skipWhitespace()
+	for p.peek() == tokenString || p.peek() == tokenQuotedString {
+		tok := p.take()
+		ret = append(ret, tok.value)
+		p.skipWhitespace()
+		if p.peek() != tokenComma && p.peek() != tokenRparen {
+			return nil, errors.New("unexpected token, expected ',' or ')' after string in parenthesis list")
+		}
+		if p.peek() == tokenRparen {
+			break
+		}
+		p.take()
+		p.skipWhitespace()
+		if p.peek() != tokenString && p.peek() != tokenQuotedString {
+			return nil, errors.New("unexpected token, expected string after comma in parenthesis list")
+		}
+	}
+	p.skipWhitespace()
+	if p.peek() != tokenRparen {
+		return nil, errors.New("unexpected token, expected ')' at end of IN expression")
+	}
+	p.take()
+	return ret, nil
+}
+
+func (p *parser) skipWhitespace() {
+	for p.tokens[0].typ == tokenWhitespace {
+		p.tokens = p.tokens[1:]
+	}
 }
 
 func (p *parser) take() *token {
@@ -69,7 +113,7 @@ func Parse(input string) (*ParseResult, error) {
 	ret := ParseResult{
 		Fragments:    map[string]struct{}{},
 		NotFragments: map[string]struct{}{},
-		Fields:       map[string]string{},
+		Fields:       map[string][]string{},
 	}
 
 	for len(p.tokens) > 0 {
@@ -84,7 +128,18 @@ func Parse(input string) (*ParseResult, error) {
 					return nil, errors.New("unexpected token, expected string or quoted string after =")
 				}
 				value := p.take()
-				ret.Fields[tok.value] = value.value
+				ret.Fields[tok.value] = []string{value.value}
+			} else if p.peek() == tokenWhitespace {
+				p.skipWhitespace()
+				if p.peek() == tokenKeyword && p.peekValue() == "IN" {
+					p.take()
+					p.skipWhitespace()
+					values, err := p.parseParenList()
+					if err != nil {
+						return nil, fmt.Errorf("error while parsing IN expression: %w", err)
+					}
+					ret.Fields[tok.value] = values
+				}
 			} else {
 				ret.Fragments[tok.value] = struct{}{}
 			}

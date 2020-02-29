@@ -41,16 +41,30 @@ func (repo *inMemoryRepository) Search(srch *search.Search) []Event {
 		for _, frag := range compiledFrags {
 			if !frag.MatchString(rawLowered) {
 				include = false
+				break
 			}
 		}
 		for _, frag := range compiledNotFrags {
 			if frag.MatchString(rawLowered) {
 				include = false
+				break
 			}
 		}
-		for key, value := range compiledFields {
-			if evtValue, ok := evt.Fields[key]; !ok || !value.MatchString(evtValue) {
+		for key, values := range compiledFields {
+			evtValue, ok := evt.Fields[key]
+			if !ok {
 				include = false
+				break
+			}
+			anyMatch := false
+			for _, value := range values {
+				if value.MatchString(evtValue) {
+					anyMatch = true
+				}
+			}
+			if !anyMatch {
+				include = false
+				break
 			}
 		}
 
@@ -61,15 +75,19 @@ func (repo *inMemoryRepository) Search(srch *search.Search) []Event {
 	return ret
 }
 
-func compileFields(fields map[string]string) map[string]*regexp.Regexp {
-	ret := make(map[string]*regexp.Regexp, len(fields))
-	for key, value := range fields {
-		compiled, err := compileFrag(value)
-		if err != nil {
-			log.Println("Failed to compile fieldValue=" + value + ", err=" + err.Error() + ", fieldValue will not be included")
-		} else {
-			ret[key] = compiled
+func compileFields(fields map[string][]string) map[string][]*regexp.Regexp {
+	ret := make(map[string][]*regexp.Regexp, len(fields))
+	for key, values := range fields {
+		compiledValues := make([]*regexp.Regexp, len(values))
+		for i, value := range values {
+			compiled, err := compileFrag(value)
+			if err != nil {
+				log.Println("Failed to compile fieldValue=" + value + ", err=" + err.Error() + ", fieldValue will not be included")
+			} else {
+				compiledValues[i] = compiled
+			}
 		}
+		ret[key] = compiledValues
 	}
 	return ret
 }

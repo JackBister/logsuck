@@ -8,7 +8,7 @@ import (
 type Search struct {
 	Fragments    map[string]struct{}
 	NotFragments map[string]struct{}
-	Fields       map[string]string
+	Fields       map[string][]string
 }
 
 func Parse(searchString string) (*Search, error) {
