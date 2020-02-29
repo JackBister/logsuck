@@ -2,7 +2,6 @@ package search
 
 import (
 	"fmt"
-	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/parser"
 	"strings"
 )
@@ -12,8 +11,8 @@ type Search struct {
 	Fields    map[string]string
 }
 
-func Parse(searchString string, cfg *config.Config) (*Search, error) {
-	res, err := parser.Parse(strings.ToLower(searchString), parser.ParseModeSearch, cfg)
+func Parse(searchString string) (*Search, error) {
+	res, err := parser.Parse(strings.ToLower(searchString))
 	if err != nil {
 		return nil, fmt.Errorf("error while parsing: %w", err)
 	}

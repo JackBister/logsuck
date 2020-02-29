@@ -1,6 +1,9 @@
 package events
 
 import (
+	"fmt"
+	"log"
+	"regexp"
 	"strings"
 
 	"github.com/jackbister/logsuck/internal/search"
@@ -28,18 +31,19 @@ func (repo *inMemoryRepository) Add(evt Event) {
 
 func (repo *inMemoryRepository) Search(srch *search.Search) []Event {
 	ret := make([]Event, 0, 1)
-	loweredFrags := lowerFrags(srch)
+	compiledFrags := compileFrags(getKeys(srch.Fragments))
+	compiledFields := compileFields(srch.Fields)
 	for _, evt := range repo.events {
 		rawLowered := strings.ToLower(evt.Raw)
 
 		include := true
-		for _, frag := range loweredFrags {
-			if !strings.Contains(rawLowered, frag) {
+		for _, frag := range compiledFrags {
+			if !frag.MatchString(rawLowered) {
 				include = false
 			}
 		}
-		for key, value := range srch.Fields {
-			if evtValue, ok := evt.Fields[key]; !ok || evtValue != value {
+		for key, value := range compiledFields {
+			if evtValue, ok := evt.Fields[key]; !ok || !value.MatchString(evtValue) {
 				include = false
 			}
 		}
@@ -51,12 +55,53 @@ func (repo *inMemoryRepository) Search(srch *search.Search) []Event {
 	return ret
 }
 
-func lowerFrags(srch *search.Search) []string {
-	loweredFrags := make([]string, len(srch.Fragments))
-	i := 0
-	for frag := range srch.Fragments {
-		loweredFrags[i] = strings.ToLower(frag)
-		i++
+func compileFields(fields map[string]string) map[string]*regexp.Regexp {
+	ret := make(map[string]*regexp.Regexp, len(fields))
+	for key, value := range fields {
+		compiled, err := compileFrag(value)
+		if err != nil {
+			log.Println("Failed to compile fieldValue=" + value + ", err=" + err.Error() + ", fieldValue will not be included")
+		} else {
+			ret[key] = compiled
+		}
 	}
-	return loweredFrags
+	return ret
+}
+
+func compileFrags(frags []string) []*regexp.Regexp {
+	ret := make([]*regexp.Regexp, 0, len(frags))
+	for _, frag := range frags {
+		compiled, err := compileFrag(frag)
+		if err != nil {
+			log.Println("Failed to compile fragment=" + frag + ", err=" + err.Error() + ", fragment will not be included")
+		} else {
+			ret = append(ret, compiled)
+		}
+	}
+	return ret
+}
+
+func compileFrag(frag string) (*regexp.Regexp, error) {
+	pre := "(^|\\W)"
+	if strings.HasPrefix(frag, "*") {
+		pre = ""
+	}
+	post := "($|\\W)"
+	if strings.HasSuffix(frag, "*") {
+		post = ""
+	}
+	rexString := pre + strings.Replace(frag, "*", ".*", -1) + post
+	rex, err := regexp.Compile(rexString)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to compile rexString="+rexString+": %w", err)
+	}
+	return rex, nil
+}
+
+func getKeys(fragments map[string]struct{}) []string {
+	ret := make([]string, 0, len(fragments))
+	for k := range fragments {
+		ret = append(ret, k)
+	}
+	return ret
 }

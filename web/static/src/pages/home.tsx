@@ -101,7 +101,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                             </div>
                             <div class="col-xl-10">
                                 <div class="card">
-                                    <table class="table table-hover">
+                                    <table class="table table-hover search-result-table">
                                         <thead>
                                             <tr>
                                                 <th scope="col">Time</th>
@@ -116,7 +116,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                                 <td>
                                                     <div style="display: flex; flex-direction: column;">
                                                         <div class="event-raw">{e.raw}</div>
-                                                        <hr style="width: 100%; margin-top: 0.5rem; margin-bottom: 0;" />
+                                                        <hr style="width: 100%; margin-top: 0.75rem; margin-bottom: 0.5rem;" />
                                                         <div class="event-additional">
                                                             <dl class="row no-gutters" style="margin-bottom: 0;">
                                                                 <dt class="col-1">source</dt>

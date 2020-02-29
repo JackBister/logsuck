@@ -73,7 +73,7 @@ func (wi *webImpl) executeSearch(queryParams url.Values) ([]events.Event, *webEr
 			code: 400,
 		}
 	}
-	srch, err := search.Parse(strings.TrimSpace(searchStrings[0]), wi.cfg)
+	srch, err := search.Parse(strings.TrimSpace(searchStrings[0]))
 	if err != nil {
 		return nil, &webError{
 			err:  "Got error when parsing search: " + err.Error(),

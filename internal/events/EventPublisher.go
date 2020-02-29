@@ -30,29 +30,22 @@ func (ep *repositoryPublisher) PublishEvent(evt RawEvent) {
 		Source: evt.Source,
 	}
 
-	parseResult, err := parser.Parse(strings.ToLower(evt.Raw), parser.ParseModeIngest, ep.cfg)
-	if err != nil {
-		processed.Fields = ep.createDefaultFields(evt)
-		processed.Timestamp = time.Now()
-		log.Println("Parsing failed with error=" + err.Error() + ", event will not be enriched. Raw=" + evt.Raw)
-	} else if parseResult == nil {
-		processed.Fields = ep.createDefaultFields(evt)
-		processed.Timestamp = time.Now()
-		log.Println("Unexpected state: err != nil && parseResult == nil. event will not be enriched. Raw=" + evt.Raw)
+	fields := parser.ExtractFields(strings.ToLower(evt.Raw), ep.cfg)
+	processed.Fields = fields
+	// TODO: This may produce unexpected results if you extract a field named source
+	processed.Fields["source"] = evt.Source
+	if t, ok := fields["_time"]; ok {
+		parsed, err := time.Parse(ep.cfg.TimeLayout, t)
+		if err != nil {
+			processed.Timestamp = time.Now()
+		} else {
+			processed.Timestamp = parsed
+		}
 	} else {
-		processed.Fields = parseResult.Fields
-		processed.Fields["source"] = evt.Source
-		processed.Timestamp = parseResult.Time
+		processed.Timestamp = time.Now()
 	}
 
 	ep.repository.Add(processed)
-}
-
-func (ep *repositoryPublisher) createDefaultFields(evt RawEvent) map[string]string {
-	return map[string]string{
-		"_time":  time.Now().Format(ep.cfg.TimeLayout),
-		"source": evt.Source,
-	}
 }
 
 type debugEventPublisher struct {

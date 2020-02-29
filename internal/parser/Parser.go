@@ -4,20 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackbister/logsuck/internal/config"
-	"time"
-)
-
-type ParseMode int
-
-const (
-	ParseModeIngest ParseMode = 0
-	ParseModeSearch           = 1
 )
 
 type ParseResult struct {
 	Fragments map[string]struct{}
 	Fields    map[string]string
-	Time      time.Time
 }
 
 type parser struct {
@@ -49,7 +40,22 @@ func (p *parser) take() *token {
 	return ret
 }
 
-func Parse(input string, mode ParseMode, cfg *config.Config) (*ParseResult, error) {
+func ExtractFields(input string, cfg *config.Config) map[string]string {
+	ret := map[string]string{}
+	for _, rex := range cfg.FieldExtractors {
+		matches := rex.FindAllStringSubmatch(input, -1)
+		for _, match := range matches {
+			if len(match) == 2 && len(rex.SubexpNames()) == 2 {
+				ret[rex.SubexpNames()[1]] = match[0]
+			} else if len(matches) > 2 {
+				ret[match[1]] = match[2]
+			}
+		}
+	}
+	return ret
+}
+
+func Parse(input string) (*ParseResult, error) {
 	tokens, err := tokenize(input)
 	if err != nil {
 		return nil, fmt.Errorf("error while tokenizing: %w", err)
@@ -64,24 +70,6 @@ func Parse(input string, mode ParseMode, cfg *config.Config) (*ParseResult, erro
 		Fields:    map[string]string{},
 	}
 
-	for _, rex := range cfg.FieldExtractors {
-		matches := rex.FindStringSubmatch(input)
-		if len(matches) == 2 && len(rex.SubexpNames()) == 2 {
-			ret.Fields[rex.SubexpNames()[1]] = matches[0]
-		} else if len(matches) > 2 {
-			ret.Fields[matches[1]] = matches[2]
-		}
-	}
-
-	if _, ok := ret.Fields["_time"]; !ok && mode == ParseModeIngest {
-		ret.Fields["_time"] = time.Now().Format(cfg.TimeLayout)
-	}
-
-	ret.Time, err = time.Parse(cfg.TimeLayout, ret.Fields["_time"])
-	if err != nil {
-		ret.Time = time.Now()
-	}
-
 	for len(p.tokens) > 0 {
 		tok := p.take()
 		if tok == nil {
@@ -90,7 +78,7 @@ func Parse(input string, mode ParseMode, cfg *config.Config) (*ParseResult, erro
 		if tok.typ == tokenString {
 			if p.peek() == tokenEquals {
 				p.take()
-				if mode == ParseModeSearch && p.peek() != tokenString && p.peek() != tokenQuotedString {
+				if p.peek() != tokenString && p.peek() != tokenQuotedString {
 					return nil, errors.New("unexpected token, expected string or quoted string after =")
 				}
 				value := p.take()
@@ -98,6 +86,8 @@ func Parse(input string, mode ParseMode, cfg *config.Config) (*ParseResult, erro
 			} else {
 				ret.Fragments[tok.value] = struct{}{}
 			}
+		} else if tok.typ == tokenQuotedString {
+			ret.Fragments[tok.value] = struct{}{}
 		}
 	}
 

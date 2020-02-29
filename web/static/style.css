@@ -3,15 +3,23 @@
     margin-top: 16px;
 }
 
-.event-timestamp {
+.search-result-table td {
+    border-top: 3px solid #dee2e6;
+}
+
+td.event-timestamp {
     border-right: 1px solid #dee2e6;
+    font-size: 9pt;
+    white-space: pre;
 }
 
 .event-raw {
     font-family: 'Courier New', Courier, monospace;
+    font-size: 9pt;
 }
 
 .event-additional {
+    font-size: 9pt;
 }
 
 .event-additional dt {
