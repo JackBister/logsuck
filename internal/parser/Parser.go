@@ -2,8 +2,8 @@ package parser
 
 import (
 	"errors"
+	"fmt"
 	"github.com/jackbister/logsuck/internal/config"
-	errors2 "github.com/pkg/errors"
 	"time"
 )
 
@@ -52,7 +52,7 @@ func (p *parser) take() *token {
 func Parse(input string, mode ParseMode, cfg *config.Config) (*ParseResult, error) {
 	tokens, err := tokenize(input)
 	if err != nil {
-		return nil, errors2.Wrap(err, "error while tokenizing")
+		return nil, fmt.Errorf("error while tokenizing: %w", err)
 	}
 
 	p := parser{

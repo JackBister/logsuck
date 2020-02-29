@@ -1,9 +1,9 @@
 package search
 
 import (
+	"fmt"
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/parser"
-	"github.com/pkg/errors"
 	"strings"
 )
 
@@ -15,7 +15,7 @@ type Search struct {
 func Parse(searchString string, cfg *config.Config) (*Search, error) {
 	res, err := parser.Parse(strings.ToLower(searchString), parser.ParseModeSearch, cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, "error while parsing")
+		return nil, fmt.Errorf("error while parsing: %w", err)
 	}
 
 	ret := Search{
