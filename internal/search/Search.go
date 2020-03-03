@@ -7,9 +7,12 @@ import (
 	"github.com/jackbister/logsuck/internal/filtering"
 	"github.com/jackbister/logsuck/internal/parser"
 	"strings"
+	"time"
 )
 
 type Search struct {
+	StartTime, EndTime *time.Time
+
 	Fragments    map[string]struct{}
 	NotFragments map[string]struct{}
 	Fields       map[string][]string
@@ -18,13 +21,16 @@ type Search struct {
 	NotSources   map[string]struct{}
 }
 
-func Parse(searchString string) (*Search, error) {
+func Parse(searchString string, startTime, endTime *time.Time) (*Search, error) {
 	res, err := parser.Parse(searchString)
 	if err != nil {
 		return nil, fmt.Errorf("error while parsing: %w", err)
 	}
 
 	ret := Search{
+		StartTime: startTime,
+		EndTime:   endTime,
+
 		Fragments:    res.Fragments,
 		NotFragments: res.NotFragments,
 		Fields:       res.Fields,
@@ -40,7 +46,7 @@ func Parse(searchString string) (*Search, error) {
 // It is the callers responsibility to filter by source and time, which should be done before calling SearchEvents since
 // it performs some heavyweight operations
 func FilterEvents(repo events.Repository, srch *Search, cfg *config.Config) []events.EventWithExtractedFields {
-	inputEvents := repo.Filter(srch.Sources, srch.NotSources)
+	inputEvents := repo.Filter(srch.Sources, srch.NotSources, srch.StartTime, srch.EndTime)
 	ret := make([]events.EventWithExtractedFields, 0, 1)
 	compiledFrags := filtering.CompileKeys(srch.Fragments)
 	compiledNotFrags := filtering.CompileKeys(srch.NotFragments)

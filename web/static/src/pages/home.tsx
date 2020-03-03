@@ -3,11 +3,13 @@ import { SearchResult } from "../api/v1";
 import { LogEvent } from "../models/Event";
 import { Popover } from "../components/popover";
 import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
+import { TimeSelect } from "../components/TimeSelect";
+import { TimeSelection } from "../models/TimeSelection";
 
 const TOP_FIELDS_COUNT = 15;
 
 interface HomeProps {
-    searchApi: (searchString: string) => Promise<SearchResult>;
+    searchApi: (searchString: string, timeSelection: TimeSelection) => Promise<SearchResult>;
 }
 
 export enum HomeState {
@@ -21,6 +23,7 @@ interface HomeStateBase {
     state: HomeState;
 
     searchString: string;
+    selectedTime: TimeSelection;
 }
 
 export type HomeStateStruct = HaventSearched | WaitingForSearch | SearchedError | SearchedSuccess;
@@ -61,7 +64,8 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
 
         this.state = {
             state: HomeState.HAVENT_SEARCHED,
-            searchString: ''
+            searchString: '',
+            selectedTime: {}
         };
     }
 
@@ -75,10 +79,11 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
             <main role="main" class="container-fluid">
                 <div class="search-container">
                     <form onSubmit={(evt) => { this.onSearch(evt); }}>
-                        <label for="searchinput">Search</label>
+                        <label htmlFor="searchinput">Search</label>
                         <div class="input-group mb-3">
                             <input id="searchinput" type="text" class="form-control" onChange={(evt) => this.onSearchChanged(evt)} value={this.state.searchString} />
                             <div class="input-group-append">
+                                <TimeSelect onTimeSelected={(ts) => this.setState({ selectedTime: ts })} />
                                 <button disabled={this.state.state === HomeState.WAITING_FOR_SEARCH} type="submit" class="btn btn-primary">Search</button>
                             </div>
                         </div>
@@ -115,7 +120,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                                 {Object.keys(this.state.topFields).map(k =>
                                                     <tr key={k} onClick={(evt) => { evt.stopPropagation(); this.onFieldClicked(k); }} class="test field-row">
                                                         <td>{k}</td>
-                                                        <td style="text-align: right;">{(this.state as SearchedSuccess).topFields[k]}</td>
+                                                        <td style={{ textAlign: "right" }}>{(this.state as SearchedSuccess).topFields[k]}</td>
                                                     </tr>)}
                                             </tbody>
                                         </table>}
@@ -126,10 +131,10 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                         widthPx={300}>
                                         <table class="table table-sm table-hover">
                                             <tbody>
-                                                {this.state.selectedField?.topValues.map(f => <tr key={f.value} onClick={() => this.onFieldValueClicked(f.value)} style="cursor: pointer;">
+                                                {this.state.selectedField?.topValues.map(f => <tr key={f.value} onClick={() => this.onFieldValueClicked(f.value)} style={{ cursor: "pointer" }}>
                                                     <td class="field-value">{f.value}</td>
-                                                    <td class="field-value-count" style="text-align: right;">{f.count}</td>
-                                                    <td class="field-value-percentage" style="text-align: right;">{(f.percentage * 100).toFixed(2)} %</td>
+                                                    <td class="field-value-count" style={{ textAlign: "right" }}>{f.count}</td>
+                                                    <td class="field-value-percentage" style={{ textAlign: "right" }}>{(f.percentage * 100).toFixed(2)} %</td>
                                                 </tr>)}
                                             </tbody>
                                         </table>
@@ -151,11 +156,11 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                                     {e.timestamp.toLocaleString()}
                                                 </td>
                                                 <td>
-                                                    <div style="display: flex; flex-direction: column;">
+                                                    <div style={{ display: "flex", flexDirection: "column" }}>
                                                         <div class="event-raw">{e.raw}</div>
-                                                        <hr style="width: 100%; margin-top: 0.75rem; margin-bottom: 0.5rem;" />
+                                                        <hr style={{ width: "100%", marginTop: "0.75rem", marginBottom: "0.5rem" }} />
                                                         <div class="event-additional">
-                                                            <dl class="row no-gutters" style="margin-bottom: 0;">
+                                                            <dl class="row no-gutters" style={{ marginBottom: 0 }}>
                                                                 <dt class="col-1">source</dt>
                                                                 <dd class="col-1">{e.source}</dd>
                                                             </dl>
@@ -174,10 +179,11 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
         </div>;
     }
 
-    private onBodyClicked(evt: MouseEvent) {
+    private onBodyClicked(evt: any) {
         if (this.state.state === HomeState.SEARCHED_SUCCESS && this.state.selectedField) {
             if (!(evt.target as HTMLDivElement).matches('.popover *')) {
                 this.setState({
+                    ...this.state,
                     selectedField: null
                 });
             }
@@ -191,11 +197,13 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
         }
         if (this.state.selectedField?.name === k) {
             this.setState({
+                ...this.state,
                 selectedField: null
             });
         } else {
             const topValues = this.calculateTopFieldValues(this.state.searchResult, k);
             this.setState({
+                ...this.state,
                 selectedField: {
                     name: k,
                     topValues: topValues
@@ -256,7 +264,9 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
             state: HomeState.WAITING_FOR_SEARCH
         });
         try {
-            const result = await this.props.searchApi(this.state.searchString);
+            const result = await this.props.searchApi(this.state.searchString, {
+                relativeTime: this.state.selectedTime.relativeTime
+            });
             const topFields = Object.keys(result.fieldCount)
                 .sort((a, b) => result.fieldCount[b] - result.fieldCount[a])
                 .filter(k => !HomeComponent.isExcludedFieldName(k))
@@ -266,6 +276,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                     return acc;
                 }, {} as any);
             this.setState({
+                ...this.state,
                 state: HomeState.SEARCHED_SUCCESS,
                 searchResult: result.events,
                 topFields: topFields,
@@ -275,6 +286,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
         } catch (e) {
             console.log(e);
             this.setState({
+                ...this.state,
                 state: HomeState.SEARCHED_ERROR,
                 searchError: 'Something went wrong.'
             });

@@ -1,4 +1,4 @@
-import { render, h } from "preact"
+import { h, render } from "preact";
 import { HomeComponent } from "./pages/home";
 import { search } from "./api/v1";
 

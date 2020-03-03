@@ -42,8 +42,8 @@ func NewFileWatcher(
 		eventPublisher: eventPublisher,
 		fileReader:     fileReader,
 
-		readBuf:    make([]byte, 8),
-		workingBuf: make([]byte, 0),
+		readBuf:    make([]byte, 4096),
+		workingBuf: make([]byte, 0, 4096),
 	}
 }
 

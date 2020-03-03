@@ -47,7 +47,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fw := files.NewFileWatcher(file, commandChannels[i], events.DebugEventPublisher(events.RepositoryEventPublisher(&cfg, repo)), f)
+		fw := files.NewFileWatcher(file, commandChannels[i], events.RepositoryEventPublisher(&cfg, repo), f)
 		go fw.Start()
 	}
 

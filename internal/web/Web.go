@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
@@ -78,7 +79,11 @@ func (wi *webImpl) executeSearch(queryParams url.Values) ([]events.EventWithExtr
 			code: 400,
 		}
 	}
-	srch, err := search.Parse(strings.TrimSpace(searchStrings[0]))
+	startTime, endTime, wErr := parseTimeParameters(queryParams)
+	if wErr != nil {
+		return nil, wErr
+	}
+	srch, err := search.Parse(strings.TrimSpace(searchStrings[0]), startTime, endTime)
 	if err != nil {
 		return nil, &webError{
 			err:  "Got error when parsing search: " + err.Error(),
@@ -90,6 +95,55 @@ func (wi *webImpl) executeSearch(queryParams url.Values) ([]events.EventWithExtr
 		return results[i].Timestamp.After(results[j].Timestamp)
 	})
 	return results, nil
+}
+
+func parseTimeParameters(queryParams url.Values) (*time.Time, *time.Time, *webError) {
+	relativeTimes, hasRelativeTimes := queryParams["relativeTime"]
+	absoluteStarts, hasAbsoluteStarts := queryParams["startTime"]
+	absoluteEnds, hasAbsoluteEnds := queryParams["endTime"]
+
+	if hasRelativeTimes && len(relativeTimes) > 0 {
+		relative, err := time.ParseDuration(relativeTimes[0])
+		if err != nil {
+			return nil, nil, &webError{
+				err:  "Got error when parsing relativeTime: " + err.Error(),
+				code: 400,
+			}
+		}
+		startTime := time.Now().Add(relative)
+		return &startTime, nil, nil
+	}
+	var startTime *time.Time
+	var endTime *time.Time
+	if hasAbsoluteStarts && len(absoluteStarts) > 0 {
+		t, err := time.Parse(time.RFC3339, absoluteStarts[0])
+		if err != nil {
+			return nil, nil, &webError{
+				err:  "Got error when parsing startTime: " + err.Error(),
+				code: 400,
+			}
+		}
+		startTime = &t
+	}
+	if hasAbsoluteEnds && len(absoluteEnds) > 0 {
+		t, err := time.Parse(time.RFC3339, absoluteEnds[0])
+		if err != nil {
+			return nil, nil, &webError{
+				err:  "Got error when parsing endTime: " + err.Error(),
+				code: 400,
+			}
+		}
+		endTime = &t
+	}
+
+	if startTime == nil && endTime == nil {
+		return nil, nil, &webError{
+			err:  "One of relativeTime, startTime or endTime must be specified",
+			code: 400,
+		}
+	}
+
+	return startTime, endTime, nil
 }
 
 func aggregateFields(inputEvents []events.EventWithExtractedFields) map[string]int {

@@ -1,4 +1,5 @@
 import { LogEvent } from "../models/Event"
+import { TimeSelection } from "../models/TimeSelection";
 
 export interface SearchResult {
     events: LogEvent[];
@@ -17,8 +18,17 @@ interface RestSearchResult {
     FieldCount: { [key: string]: number }
 }
 
-export function search(searchString: string): Promise<SearchResult> {
-    const queryParams = `?searchString=${searchString}`;
+export function search(searchString: string, timeSelection: TimeSelection): Promise<SearchResult> {
+    let queryParams = `?searchString=${searchString}`;
+    if (timeSelection.relativeTime) {
+        queryParams += `&relativeTime=${timeSelection.relativeTime}`;
+    }
+    if (timeSelection.startTime) {
+        queryParams += `&startTime=${timeSelection.startTime.toISOString()}`;
+    }
+    if (timeSelection.endTime) {
+        queryParams += `&endTime=${timeSelection.endTime.toISOString()}`;
+    }
     return fetch('/api/v1/search' + queryParams)
         .then(r => r.json())
         .then((j: RestSearchResult) => {
