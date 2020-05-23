@@ -1,32 +1,44 @@
 package events
 
 import (
+	"errors"
 	"github.com/jackbister/logsuck/internal/filtering"
+	"regexp"
+	"strings"
 	"time"
 )
 
 type Repository interface {
-	Add(evt Event)
-	Filter(sources, notSources map[string]struct{}, startTime, endTime *time.Time) []Event
+	Add(evt Event) (id *int64, err error)
+	Filter(sources, notSources map[string]struct{}, startTime, endTime *time.Time) []EventWithId
+	FilterStream(sources, notSources map[string]struct{}, startTime, endTime *time.Time) <-chan EventWithId
+	GetByIds(ids []int64) ([]EventWithId, error)
 }
 
 type inMemoryRepository struct {
-	events []Event
+	events map[int64]EventWithId
 }
 
 func InMemoryRepository() Repository {
 	return &inMemoryRepository{
-		events: make([]Event, 0),
+		events: map[int64]EventWithId{},
 	}
 }
 
-func (repo *inMemoryRepository) Add(evt Event) {
+func (repo *inMemoryRepository) Add(evt Event) (*int64, error) {
 	// TODO: thread safety
-	repo.events = append(repo.events, evt)
+	id := int64(len(repo.events))
+	repo.events[id] = EventWithId{
+		Id:        id,
+		Raw:       evt.Raw,
+		Timestamp: evt.Timestamp,
+		Source:    evt.Source,
+	}
+	return &id, nil
 }
 
-func (repo *inMemoryRepository) Filter(sources, notSources map[string]struct{}, startTime, endTime *time.Time) []Event {
-	ret := make([]Event, 0)
+func (repo *inMemoryRepository) Filter(sources, notSources map[string]struct{}, startTime, endTime *time.Time) []EventWithId {
+	ret := make([]EventWithId, 0)
 	// TODO you can shortcut here if not using wildcards - need to measure if this is useful
 	compiledSources := filtering.CompileKeys(sources)
 	compiledNotSources := filtering.CompileKeys(notSources)
@@ -42,29 +54,67 @@ func (repo *inMemoryRepository) Filter(sources, notSources map[string]struct{}, 
 		})
 	*/
 	for _, evt := range repo.events {
-		if startTime != nil && evt.Timestamp.Before(*startTime) {
-			continue
-		}
-		if endTime != nil && evt.Timestamp.After(*endTime) {
-			continue
-		}
-		include := false
-		for _, rex := range compiledSources {
-			if rex.MatchString(evt.Source) {
-				include = true
-				break
-			}
-		}
-		exclude := false
-		for _, rex := range compiledNotSources {
-			if rex.MatchString(evt.Source) {
-				exclude = true
-				break
-			}
-		}
-		if (len(sources) == 0 && !exclude) || (include && !exclude) {
+		if shouldIncludeEvent(&evt, compiledSources, compiledNotSources, startTime, endTime) {
 			ret = append(ret, evt)
 		}
 	}
 	return ret
+}
+
+func (repo *inMemoryRepository) FilterStream(sources, notSources map[string]struct{}, startTime, endTime *time.Time) <-chan EventWithId {
+	ret := make(chan EventWithId)
+	go func() {
+		compiledSources := filtering.CompileKeys(sources)
+		compiledNotSources := filtering.CompileKeys(notSources)
+		for _, evt := range repo.events {
+			if shouldIncludeEvent(&evt, compiledSources, compiledNotSources, startTime, endTime) {
+				ret <- evt
+			}
+		}
+		close(ret)
+	}()
+	return ret
+}
+
+func shouldIncludeEvent(evt *EventWithId, compiledSources, compiledNotSources []*regexp.Regexp, startTime, endTime *time.Time) bool {
+	if startTime != nil && evt.Timestamp.Before(*startTime) {
+		return false
+	}
+	if endTime != nil && evt.Timestamp.After(*endTime) {
+		return false
+	}
+	include := false
+	for _, rex := range compiledSources {
+		if rex.MatchString(evt.Source) {
+			include = true
+			break
+		}
+	}
+	exclude := false
+	for _, rex := range compiledNotSources {
+		if rex.MatchString(evt.Source) {
+			exclude = true
+			break
+		}
+	}
+	return (len(compiledSources) == 0 && !exclude) || (include && !exclude)
+}
+
+func (repo *inMemoryRepository) GetByIds(ids []int64) ([]EventWithId, error) {
+	ret := make([]EventWithId, 0, len(ids))
+	missingIds := make([]string, 0)
+
+	for _, id := range ids {
+		if evt, ok := repo.events[id]; !ok {
+			missingIds = append(missingIds, string(id))
+		} else {
+			ret = append(ret, evt)
+		}
+	}
+
+	if len(missingIds) > 0 {
+		return nil, errors.New("did not find events with ids=[" + strings.Join(missingIds, ", ") + "]")
+	}
+
+	return ret, nil
 }

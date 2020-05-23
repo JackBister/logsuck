@@ -14,9 +14,22 @@ type Event struct {
 	Source    string
 }
 
+type EventWithId struct {
+	Id        int64
+	Raw       string
+	Timestamp time.Time
+	Source    string
+}
+
 type EventWithExtractedFields struct {
+	Id        int64
 	Raw       string
 	Timestamp time.Time
 	Source    string
 	Fields    map[string]string
+}
+
+type EventIdAndTimestamp struct {
+	Id        int64
+	Timestamp time.Time
 }

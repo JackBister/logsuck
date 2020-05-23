@@ -1,10 +1,14 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/jackbister/logsuck/internal/jobs"
+	"log"
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,8 +22,10 @@ type Web interface {
 }
 
 type webImpl struct {
-	cfg       *config.Config
-	eventRepo events.Repository
+	cfg        *config.Config
+	eventRepo  events.Repository
+	jobRepo    jobs.Repository
+	jobCancels map[int64]func()
 }
 
 type webError struct {
@@ -31,10 +37,12 @@ func (w webError) Error() string {
 	return w.err
 }
 
-func NewWeb(cfg *config.Config, eventRepo events.Repository) Web {
+func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Repository) Web {
 	return webImpl{
-		cfg:       cfg,
-		eventRepo: eventRepo,
+		cfg:        cfg,
+		eventRepo:  eventRepo,
+		jobRepo:    jobRepo,
+		jobCancels: map[int64]func(){},
 	}
 }
 
@@ -53,6 +61,190 @@ func (wi webImpl) Serve() error {
 			FieldCount: aggregateFields(results),
 		}
 		serialized, err := json.Marshal(res)
+		if err != nil {
+			http.Error(w, "Got error when serializing results:"+err.Error(), 500)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(serialized)
+		if err != nil {
+			http.Error(w, "Got error when writing results:"+err.Error(), 500)
+		}
+	})
+
+	http.HandleFunc("/api/v1/startJob", func(w http.ResponseWriter, r *http.Request) {
+		queryParams := r.URL.Query()
+		searchStrings, ok := queryParams["searchString"]
+		if !ok || len(searchStrings) < 1 {
+			http.Error(w, "searchString must be specified as a query parameter", 400)
+			return
+		}
+		startTime, endTime, wErr := parseTimeParameters(queryParams)
+		if wErr != nil {
+			http.Error(w, wErr.err, wErr.code)
+			return
+		}
+		srch, err := search.Parse(strings.TrimSpace(searchStrings[0]), startTime, endTime)
+		if err != nil {
+			http.Error(w, "Got error when parsing search: "+err.Error(), 500)
+			return
+		}
+		id, err := wi.jobRepo.Insert(searchStrings[0], startTime, endTime)
+		if err != nil {
+			http.Error(w, "Got error when creating job: "+err.Error(), 500)
+			return
+		}
+		serialized, err := json.Marshal(id)
+		if err != nil {
+			http.Error(w, "Got error when serializing results:"+err.Error(), 500)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(serialized)
+		if err != nil {
+			http.Error(w, "Got error when writing results:"+err.Error(), 500)
+			return
+		}
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		wi.jobCancels[*id] = cancelFunc
+		go func() {
+			done := ctx.Done()
+			// TODO: This should probably be batched
+			results := search.FilterEventsStream(ctx, wi.eventRepo, srch, wi.cfg)
+			wasCancelled := false
+		out:
+			for {
+				select {
+				case evt, ok := <-results:
+					time.Sleep(time.Millisecond * 100)
+					if !ok {
+						break out
+					}
+					err := wi.jobRepo.AddResult(*id, events.EventIdAndTimestamp{
+						Id:        evt.Id,
+						Timestamp: evt.Timestamp,
+					})
+					if err != nil {
+						log.Println("Failed to add eventId=" + string(evt.Id) + " to jobId=" + string(*id))
+						// TODO: Retry?
+						continue
+					}
+				case <-done:
+					wasCancelled = true
+					break out
+				}
+			}
+			wi.jobCancels[*id] = nil
+			job, err := wi.jobRepo.Get(*id)
+			if err != nil {
+				// TODO: Retry?
+				log.Println("Failed to get jobId=" + string(*id) + " when updating to finished state. err=" + err.Error())
+			}
+			if wasCancelled {
+				job.State = jobs.JobStateAborted
+			} else {
+				job.State = jobs.JobStateFinished
+			}
+			err = wi.jobRepo.Update(*job)
+			if err != nil {
+				log.Println("Failed to update jobId=" + string(*id) + " when updating to finished state. err=" + err.Error())
+			}
+		}()
+	})
+
+	http.HandleFunc("/api/v1/abortJob", func(w http.ResponseWriter, r *http.Request) {
+		queryParams := r.URL.Query()
+		jobIdString, ok := queryParams["jobId"]
+		if !ok || len(jobIdString) < 1 {
+			http.Error(w, "jobId must be specified as a query parameter", 400)
+			return
+		}
+		jobId, err := strconv.ParseInt(jobIdString[0], 10, 64)
+		if err != nil {
+			http.Error(w, "jobId must be an integer", 400)
+			return
+		}
+		if fn, ok := wi.jobCancels[jobId]; !ok {
+			http.Error(w, "no cancel for jobId="+string(jobId)+" found. Already finished?", 400)
+			return
+		} else {
+			fn()
+		}
+	})
+
+	http.HandleFunc("/api/v1/jobStats", func(w http.ResponseWriter, r *http.Request) {
+		queryParams := r.URL.Query()
+		jobIdString, ok := queryParams["jobId"]
+		if !ok || len(jobIdString) < 1 {
+			http.Error(w, "jobId must be specified as a query parameter", 400)
+			return
+		}
+		jobId, err := strconv.ParseInt(jobIdString[0], 10, 64)
+		if err != nil {
+			http.Error(w, "jobId must be an integer", 400)
+			return
+		}
+		job, err := wi.jobRepo.Get(jobId)
+		if err != nil {
+			http.Error(w, "got error when retrieving job: "+err.Error(), 500)
+			return
+		}
+		serialized, err := json.Marshal(job)
+		if err != nil {
+			http.Error(w, "Got error when serializing results:"+err.Error(), 500)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(serialized)
+		if err != nil {
+			http.Error(w, "Got error when writing results:"+err.Error(), 500)
+			return
+		}
+	})
+
+	http.HandleFunc("/api/v1/jobResults", func(w http.ResponseWriter, r *http.Request) {
+		queryParams := r.URL.Query()
+		jobIdString, ok := queryParams["jobId"]
+		if !ok || len(jobIdString) < 1 {
+			http.Error(w, "jobId must be specified as a query parameter", 400)
+			return
+		}
+		jobId, err := strconv.ParseInt(jobIdString[0], 10, 64)
+		if err != nil {
+			http.Error(w, "jobId must be an integer", 400)
+			return
+		}
+		skipString, ok := queryParams["skip"]
+		if !ok || len(skipString) < 1 {
+			http.Error(w, "skip must be specified as a query parameter", 400)
+			return
+		}
+		skip, err := strconv.Atoi(skipString[0])
+		if err != nil {
+			http.Error(w, "skip must be an integer", 400)
+			return
+		}
+		takeString, ok := queryParams["take"]
+		if !ok || len(takeString) < 1 {
+			http.Error(w, "take must be specified as a query parameter", 400)
+			return
+		}
+		take, err := strconv.Atoi(takeString[0])
+		if err != nil {
+			http.Error(w, "take must be an integer", 400)
+			return
+		}
+		eventIds, err := wi.jobRepo.GetResults(jobId, skip, take)
+		if err != nil {
+			http.Error(w, "got error when getting eventIds, err="+err.Error(), 500)
+			return
+		}
+		results, err := wi.eventRepo.GetByIds(eventIds)
+		if err != nil {
+			http.Error(w, "got error when getting events, err="+err.Error(), 500)
+			return
+		}
+		serialized, err := json.Marshal(results)
 		if err != nil {
 			http.Error(w, "Got error when serializing results:"+err.Error(), 500)
 			return

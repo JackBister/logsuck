@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/jackbister/logsuck/internal/jobs"
 	"log"
 	"os"
 	"regexp"
@@ -40,6 +41,7 @@ func main() {
 
 	commandChannels := make([]chan files.FileWatcherCommand, len(cfg.IndexedFiles))
 	repo := events.InMemoryRepository()
+	jobRepo := jobs.InMemoryRepository()
 
 	for i, file := range cfg.IndexedFiles {
 		commandChannels[i] = make(chan files.FileWatcherCommand)
@@ -48,8 +50,9 @@ func main() {
 			log.Fatal(err)
 		}
 		fw := files.NewFileWatcher(file, commandChannels[i], events.RepositoryEventPublisher(&cfg, repo), f)
+		log.Println("Starting FileWatcher for filename=" + file.Filename)
 		go fw.Start()
 	}
 
-	log.Fatal(web.NewWeb(&cfg, repo).Serve())
+	log.Fatal(web.NewWeb(&cfg, repo, jobRepo).Serve())
 }

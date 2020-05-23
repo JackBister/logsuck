@@ -1,11 +1,13 @@
 package search
 
 import (
+	"context"
 	"fmt"
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/filtering"
 	"github.com/jackbister/logsuck/internal/parser"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -42,9 +44,6 @@ func Parse(searchString string, startTime, endTime *time.Time) (*Search, error) 
 	return &ret, nil
 }
 
-// SearchEvents searches a slice of events based on a parsed Search object.
-// It is the callers responsibility to filter by source and time, which should be done before calling SearchEvents since
-// it performs some heavyweight operations
 func FilterEvents(repo events.Repository, srch *Search, cfg *config.Config) []events.EventWithExtractedFields {
 	inputEvents := repo.Filter(srch.Sources, srch.NotSources, srch.StartTime, srch.EndTime)
 	ret := make([]events.EventWithExtractedFields, 0, 1)
@@ -53,60 +52,11 @@ func FilterEvents(repo events.Repository, srch *Search, cfg *config.Config) []ev
 	compiledFields := filtering.CompileMap(srch.Fields)
 	compiledNotFields := filtering.CompileMap(srch.NotFields)
 	for _, evt := range inputEvents {
-		rawLowered := strings.ToLower(evt.Raw)
-		evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), cfg.FieldExtractors)
-		// TODO: This could produce unexpected results
-		evtFields["source"] = evt.Source
-
-		include := true
-		for _, frag := range compiledFrags {
-			if !frag.MatchString(rawLowered) {
-				include = false
-				break
-			}
-		}
-		for _, frag := range compiledNotFrags {
-			if frag.MatchString(rawLowered) {
-				include = false
-				break
-			}
-		}
-		for key, values := range compiledFields {
-			evtValue, ok := evtFields[key]
-			if !ok {
-				include = false
-				break
-			}
-			anyMatch := false
-			for _, value := range values {
-				if value.MatchString(evtValue) {
-					anyMatch = true
-				}
-			}
-			if !anyMatch {
-				include = false
-				break
-			}
-		}
-		for key, values := range compiledNotFields {
-			evtValue, ok := evtFields[key]
-			if !ok {
-				break
-			}
-			anyMatch := false
-			for _, value := range values {
-				if value.MatchString(evtValue) {
-					anyMatch = true
-				}
-			}
-			if anyMatch {
-				include = false
-				break
-			}
-		}
+		evtFields, include := shouldIncludeEvent(evt, cfg, compiledFrags, compiledNotFrags, compiledFields, compiledNotFields)
 
 		if include {
 			ret = append(ret, events.EventWithExtractedFields{
+				Id:        evt.Id,
 				Raw:       evt.Raw,
 				Timestamp: evt.Timestamp,
 				Source:    evt.Source,
@@ -115,4 +65,89 @@ func FilterEvents(repo events.Repository, srch *Search, cfg *config.Config) []ev
 		}
 	}
 	return ret
+}
+
+func FilterEventsStream(ctx context.Context, repo events.Repository, srch *Search, cfg *config.Config) <-chan events.EventWithExtractedFields {
+	ret := make(chan events.EventWithExtractedFields)
+
+	go func() {
+		inputEvents := repo.Filter(srch.Sources, srch.NotSources, srch.StartTime, srch.EndTime)
+		compiledFrags := filtering.CompileKeys(srch.Fragments)
+		compiledNotFrags := filtering.CompileKeys(srch.NotFragments)
+		compiledFields := filtering.CompileMap(srch.Fields)
+		compiledNotFields := filtering.CompileMap(srch.NotFields)
+
+		for _, evt := range inputEvents {
+			evtFields, include := shouldIncludeEvent(evt, cfg, compiledFrags, compiledNotFrags, compiledFields, compiledNotFields)
+			if include {
+				ret <- events.EventWithExtractedFields{
+					Id:        evt.Id,
+					Raw:       evt.Raw,
+					Timestamp: evt.Timestamp,
+					Source:    evt.Source,
+					Fields:    evtFields,
+				}
+			}
+		}
+		close(ret)
+	}()
+	return ret
+}
+
+func shouldIncludeEvent(evt events.EventWithId,
+	cfg *config.Config,
+	compiledFrags []*regexp.Regexp, compiledNotFrags []*regexp.Regexp,
+	compiledFields map[string][]*regexp.Regexp, compiledNotFields map[string][]*regexp.Regexp) (map[string]string, bool) {
+	rawLowered := strings.ToLower(evt.Raw)
+	evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), cfg.FieldExtractors)
+	// TODO: This could produce unexpected results
+	evtFields["source"] = evt.Source
+
+	include := true
+	for _, frag := range compiledFrags {
+		if !frag.MatchString(rawLowered) {
+			include = false
+			break
+		}
+	}
+	for _, frag := range compiledNotFrags {
+		if frag.MatchString(rawLowered) {
+			include = false
+			break
+		}
+	}
+	for key, values := range compiledFields {
+		evtValue, ok := evtFields[key]
+		if !ok {
+			include = false
+			break
+		}
+		anyMatch := false
+		for _, value := range values {
+			if value.MatchString(evtValue) {
+				anyMatch = true
+			}
+		}
+		if !anyMatch {
+			include = false
+			break
+		}
+	}
+	for key, values := range compiledNotFields {
+		evtValue, ok := evtFields[key]
+		if !ok {
+			break
+		}
+		anyMatch := false
+		for _, value := range values {
+			if value.MatchString(evtValue) {
+				anyMatch = true
+			}
+		}
+		if anyMatch {
+			include = false
+			break
+		}
+	}
+	return evtFields, include
 }

@@ -1,8 +1,8 @@
 package files
 
 import (
-	"fmt"
 	"io"
+	"log"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
@@ -65,7 +65,7 @@ out:
 func (fw *FileWatcher) readToEnd() {
 	for read, err := fw.fileReader.Read(fw.readBuf); read != 0; read, err = fw.fileReader.Read(fw.readBuf) {
 		if err != nil && err != io.EOF {
-			fmt.Println("Unexpected error", err)
+			log.Println("Unexpected error=" + err.Error() + ", will abort FileWatcher for filename=" + fw.fileConfig.Filename)
 			break
 		}
 		fw.workingBuf = append(fw.workingBuf, fw.readBuf[:read]...)
