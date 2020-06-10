@@ -2,9 +2,10 @@ package jobs
 
 import (
 	"errors"
+	"time"
+
 	"github.com/emirpasic/gods/sets/treeset"
 	"github.com/jackbister/logsuck/internal/events"
-	"time"
 )
 
 type Repository interface {
@@ -39,13 +40,16 @@ func resultComparator(a, b interface{}) int {
 }
 
 func (repo *inMemoryRepository) AddResult(id int64, event events.EventIdAndTimestamp) error {
-	if _, ok := repo.jobs[id]; !ok {
+	job, ok := repo.jobs[id]
+	if !ok {
 		return errors.New("job with Id=" + string(id) + " not found")
 	}
 	if _, ok := repo.results[id]; !ok {
 		repo.results[id] = treeset.NewWith(resultComparator)
 	}
 	repo.results[id].Add(event)
+	job.Stats.NumMatchedEvents++
+	repo.jobs[id] = job
 	return nil
 }
 

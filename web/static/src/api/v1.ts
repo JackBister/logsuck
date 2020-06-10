@@ -44,3 +44,81 @@ export function search(searchString: string, timeSelection: TimeSelection): Prom
             };
         })
 }
+
+export interface StartJobResult {
+    id: number;
+}
+
+export function startJob(searchString: string, timeSelection: TimeSelection): Promise<StartJobResult> {
+    let queryParams = `?searchString=${searchString}`;
+    if (timeSelection.relativeTime) {
+        queryParams += `&relativeTime=${timeSelection.relativeTime}`;
+    }
+    if (timeSelection.startTime) {
+        queryParams += `&startTime=${timeSelection.startTime.toISOString()}`;
+    }
+    if (timeSelection.endTime) {
+        queryParams += `&endTime=${timeSelection.endTime.toISOString()}`;
+    }
+    return fetch('/api/v1/startJob' + queryParams)
+        .then(r => r.json())
+        .then((r: number) => ({ id: r }));
+}
+
+export enum JobState {
+    RUNNING = 1,
+    FINISHED = 2,
+    ABORTED = 3,
+}
+
+interface RestJobStats {
+    EstimatedProgress: number;
+    NumMatchedEvents: number;
+    FieldCount: { [key: string]: number };
+}
+
+interface RestPollJobResult {
+    Id: number;
+    State: JobState;
+    Query: string;
+    StartTime: string;
+    EndTime: string | null;
+    Stats: RestJobStats;
+}
+
+export interface JobStats {
+    estimatedProgress: number;
+    numMatchedEvents: number;
+    fieldCount: { [key: string]: number };
+}
+
+export interface PollJobResult {
+    state: JobState;
+    stats: JobStats;
+}
+
+export function pollJob(jobId: number): Promise<PollJobResult> {
+    const queryParams = `?jobId=${jobId}`;
+    return fetch('/api/v1/jobStats' + queryParams)
+        .then(r => r.json())
+        .then((r: RestPollJobResult) => ({
+            state: r.State,
+            stats: {
+                estimatedProgress: r.Stats.EstimatedProgress,
+                numMatchedEvents: r.Stats.NumMatchedEvents,
+                fieldCount: r.Stats.FieldCount
+            }
+        }));
+}
+
+export function getResults(jobId: number, skip: number, take: number): Promise<LogEvent[]> {
+    const queryParams = `?jobId=${jobId}&skip=${skip}&take=${take}`;
+    return fetch('/api/v1/jobResults' + queryParams)
+        .then(r => r.json())
+        .then((r: RestEvent[]) => r.map(e => ({
+            raw: e.Raw,
+            timestamp: new Date(e.Timestamp),
+            source: e.Source,
+            fields: e.Fields
+        })));
+}

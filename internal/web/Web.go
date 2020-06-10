@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"encoding/json"
-	"github.com/jackbister/logsuck/internal/jobs"
 	"log"
 	"net/http"
 	"net/url"
@@ -12,8 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackbister/logsuck/internal/jobs"
+
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/parser"
 	"github.com/jackbister/logsuck/internal/search"
 )
 
@@ -116,7 +118,6 @@ func (wi webImpl) Serve() error {
 			for {
 				select {
 				case evt, ok := <-results:
-					time.Sleep(time.Millisecond * 100)
 					if !ok {
 						break out
 					}
@@ -244,7 +245,20 @@ func (wi webImpl) Serve() error {
 			http.Error(w, "got error when getting events, err="+err.Error(), 500)
 			return
 		}
-		serialized, err := json.Marshal(results)
+
+		retResults := make([]events.EventWithExtractedFields, 0, len(results))
+		for _, r := range results {
+			fields := parser.ExtractFields(r.Raw, wi.cfg.FieldExtractors)
+			retResults = append(retResults, events.EventWithExtractedFields{
+				Id:        r.Id,
+				Raw:       r.Raw,
+				Source:    r.Source,
+				Timestamp: r.Timestamp,
+				Fields:    fields,
+			})
+		}
+
+		serialized, err := json.Marshal(retResults)
 		if err != nil {
 			http.Error(w, "Got error when serializing results:"+err.Error(), 500)
 			return

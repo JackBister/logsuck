@@ -34,7 +34,9 @@ func main() {
 			for {
 				randRow := gofakeit.RandString(logRows)
 				logger.Println(gofakeit.Generate(randRow))
-				time.Sleep(*sleepTime)
+				if sleepTime.Nanoseconds() != 0 {
+					time.Sleep(*sleepTime)
+				}
 			}
 		}()
 	}

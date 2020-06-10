@@ -1,5 +1,5 @@
 import { Component, h } from "preact";
-import { SearchResult } from "../api/v1";
+import { SearchResult, StartJobResult, PollJobResult, startJob, JobState } from "../api/v1";
 import { LogEvent } from "../models/Event";
 import { Popover } from "../components/popover";
 import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
@@ -10,12 +10,16 @@ const TOP_FIELDS_COUNT = 15;
 
 interface HomeProps {
     searchApi: (searchString: string, timeSelection: TimeSelection) => Promise<SearchResult>;
+    startJob: (searchString: string, timeSelection: TimeSelection) => Promise<StartJobResult>
+    pollJob: (jobId: number) => Promise<PollJobResult>;
+    getResults: (jobId: number, skip: number, take: number) => Promise<LogEvent[]>;
 }
 
 export enum HomeState {
     HAVENT_SEARCHED,
     WAITING_FOR_SEARCH,
     SEARCHED_ERROR,
+    SEARCHED_POLLING,
     SEARCHED_SUCCESS
 }
 
@@ -26,7 +30,7 @@ interface HomeStateBase {
     selectedTime: TimeSelection;
 }
 
-export type HomeStateStruct = HaventSearched | WaitingForSearch | SearchedError | SearchedSuccess;
+export type HomeStateStruct = HaventSearched | WaitingForSearch | SearchedError | SearchedPolling | SearchedSuccess;
 
 interface HaventSearched extends HomeStateBase {
     state: HomeState.HAVENT_SEARCHED;
@@ -40,6 +44,20 @@ interface SearchedError extends HomeStateBase {
     state: HomeState.SEARCHED_ERROR;
 
     searchError: string;
+}
+
+interface SearchedPolling extends HomeStateBase {
+    state: HomeState.SEARCHED_POLLING;
+
+    jobId: number;
+    poller: number;
+
+    searchResult: LogEvent[];
+    numMatched: number;
+
+    // allFields: { [key: string]: number };
+    // topFields: { [key: string]: number };
+    // selectedField: SelectedField | null;
 }
 
 interface SelectedField {
@@ -102,7 +120,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                         <div>
                             Loading... There should be a spinner here!
                         </div>}
-                    {this.state.state === HomeState.SEARCHED_SUCCESS && <div>
+                    {this.state.state === HomeState.SEARCHED_POLLING && <div>
                         {this.state.searchResult.length === 0 && <div class="alert alert-info">
                             No results found. Try a different search?
                             </div>}
@@ -112,6 +130,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                     <div class="card-header">
                                         Fields
                                     </div>
+                                    {/*
                                     {Object.keys(this.state.topFields).length === 0 &&
                                         <div>No fields extracted</div>}
                                     {Object.keys(this.state.topFields).length > 0 &&
@@ -139,6 +158,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                             </tbody>
                                         </table>
                                     </Popover>
+                                                */}
                                 </div>
                             </div>
                             <div class="col-xl-10">
@@ -264,24 +284,37 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
             state: HomeState.WAITING_FOR_SEARCH
         });
         try {
-            const result = await this.props.searchApi(this.state.searchString, {
+            const startJobResult = await this.props.startJob(this.state.searchString, {
                 relativeTime: this.state.selectedTime.relativeTime
             });
-            const topFields = Object.keys(result.fieldCount)
-                .sort((a, b) => result.fieldCount[b] - result.fieldCount[a])
-                .filter(k => !HomeComponent.isExcludedFieldName(k))
-                .slice(0, TOP_FIELDS_COUNT)
-                .reduce((acc, curr) => {
-                    acc[curr] = result.fieldCount[curr];
-                    return acc;
-                }, {} as any);
             this.setState({
                 ...this.state,
-                state: HomeState.SEARCHED_SUCCESS,
-                searchResult: result.events,
-                topFields: topFields,
-                allFields: result.fieldCount,
-                selectedField: null
+                state: HomeState.SEARCHED_POLLING,
+                jobId: startJobResult.id,
+                poller: window.setInterval(async () => {
+                    if (this.state.state !== HomeState.SEARCHED_POLLING) {
+                        throw new Error("Really weird state! In poller but state != SEARCHED_POLLING");
+                    }
+                    try {
+                        const pollResult = await this.props.pollJob(startJobResult.id);
+                        this.setState({
+                            numMatched: pollResult.stats.numMatchedEvents
+                        });
+                        if (this.state.searchResult.length < 20) {
+                            this.setState({
+                                searchResult: await this.props.getResults(startJobResult.id, 0, 20)
+                            });
+                        }
+                        if (pollResult.state == JobState.ABORTED || pollResult.state == JobState.FINISHED) {
+                            window.clearInterval(this.state.poller);
+                            // TODO: Change state
+                        }
+                    } catch (e) {
+                        console.log(e);
+                    }
+                }, 500),
+                searchResult: [],
+                numMatched: 0
             });
         } catch (e) {
             console.log(e);
