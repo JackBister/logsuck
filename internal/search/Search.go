@@ -3,13 +3,14 @@ package search
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/filtering"
 	"github.com/jackbister/logsuck/internal/parser"
-	"regexp"
-	"strings"
-	"time"
 )
 
 type Search struct {
@@ -71,13 +72,13 @@ func FilterEventsStream(ctx context.Context, repo events.Repository, srch *Searc
 	ret := make(chan events.EventWithExtractedFields)
 
 	go func() {
-		inputEvents := repo.Filter(srch.Sources, srch.NotSources, srch.StartTime, srch.EndTime)
+		inputEvents := repo.FilterStream(srch.Sources, srch.NotSources, srch.StartTime, srch.EndTime)
 		compiledFrags := filtering.CompileKeys(srch.Fragments)
 		compiledNotFrags := filtering.CompileKeys(srch.NotFragments)
 		compiledFields := filtering.CompileMap(srch.Fields)
 		compiledNotFields := filtering.CompileMap(srch.NotFields)
 
-		for _, evt := range inputEvents {
+		for evt := range inputEvents {
 			evtFields, include := shouldIncludeEvent(evt, cfg, compiledFrags, compiledNotFrags, compiledFields, compiledNotFields)
 			if include {
 				ret <- events.EventWithExtractedFields{

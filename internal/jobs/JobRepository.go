@@ -76,7 +76,9 @@ func (repo *inMemoryRepository) GetResults(id int64, skip int, take int) ([]int6
 		for i := 0; i < take; i++ {
 			evt := it.Value().(events.EventIdAndTimestamp)
 			ret = append(ret, evt.Id)
-			it.Next()
+			if !it.Next() {
+				break
+			}
 		}
 		return ret, nil
 	}

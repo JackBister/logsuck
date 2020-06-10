@@ -5,7 +5,9 @@ import { Popover } from "../components/popover";
 import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
 import { TimeSelect } from "../components/TimeSelect";
 import { TimeSelection } from "../models/TimeSelection";
+import { Pagination } from "../components/Pagination";
 
+const EVENTS_PER_PAGE = 25;
 const TOP_FIELDS_COUNT = 15;
 
 interface HomeProps {
@@ -54,6 +56,8 @@ interface SearchedPolling extends HomeStateBase {
 
     searchResult: LogEvent[];
     numMatched: number;
+
+    currentPageIndex: number;
 
     // allFields: { [key: string]: number };
     // topFields: { [key: string]: number };
@@ -162,6 +166,11 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                 </div>
                             </div>
                             <div class="col-xl-10">
+                                <Pagination
+                                    currentPageIndex={this.state.currentPageIndex}
+                                    numberOfPages={Math.ceil(this.state.numMatched / EVENTS_PER_PAGE)}
+                                    onPageChanged={(n) => this.onPageChanged(n)}>
+                                </Pagination>
                                 <div class="card">
                                     <table class="table table-hover search-result-table">
                                         <thead>
@@ -270,6 +279,21 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
             }));
     }
 
+    private async onPageChanged(newPageIndex: number) {
+        if (this.state.state !== HomeState.SEARCHED_POLLING) {
+            throw new Error("Weird state");
+        }
+        try {
+            const newEvents = await this.props.getResults(this.state.jobId, newPageIndex * EVENTS_PER_PAGE, EVENTS_PER_PAGE);
+            this.setState({
+                searchResult: newEvents,
+                currentPageIndex: newPageIndex
+            });
+        } catch (e) {
+            console.log(e);
+        }
+    }
+
     private onSearchChanged(evt: any) {
         this.setState({
             searchString: evt.target.value
@@ -300,9 +324,9 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                         this.setState({
                             numMatched: pollResult.stats.numMatchedEvents
                         });
-                        if (this.state.searchResult.length < 20) {
+                        if (this.state.searchResult.length < EVENTS_PER_PAGE) {
                             this.setState({
-                                searchResult: await this.props.getResults(startJobResult.id, 0, 20)
+                                searchResult: await this.props.getResults(startJobResult.id, 0, EVENTS_PER_PAGE)
                             });
                         }
                         if (pollResult.state == JobState.ABORTED || pollResult.state == JobState.FINISHED) {
@@ -314,7 +338,8 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                     }
                 }, 500),
                 searchResult: [],
-                numMatched: 0
+                numMatched: 0,
+                currentPageIndex: 0
             });
         } catch (e) {
             console.log(e);
