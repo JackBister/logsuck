@@ -190,7 +190,15 @@ func (wi webImpl) Serve() error {
 			http.Error(w, "got error when retrieving job: "+err.Error(), 500)
 			return
 		}
-		serialized, err := json.Marshal(job)
+		stats, err := wi.jobRepo.GetStats(jobId)
+		if err != nil {
+			http.Error(w, "Got error when getting stats:"+err.Error(), 500)
+		}
+		ret := PollResult{
+			State: job.State,
+			Stats: *stats,
+		}
+		serialized, err := json.Marshal(ret)
 		if err != nil {
 			http.Error(w, "Got error when serializing results:"+err.Error(), 500)
 			return
@@ -364,6 +372,11 @@ func aggregateFields(inputEvents []events.EventWithExtractedFields) map[string]i
 		}
 	}
 	return ret
+}
+
+type PollResult struct {
+	State jobs.JobState
+	Stats jobs.JobStats
 }
 
 type SearchResult struct {

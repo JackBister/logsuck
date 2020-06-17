@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/emirpasic/gods/sets/treeset"
@@ -12,6 +13,7 @@ type Repository interface {
 	AddResult(id int64, event events.EventIdAndTimestamp) error
 	Get(id int64) (*Job, error)
 	GetResults(id int64, skip int, take int) (eventIds []int64, err error)
+	GetStats(id int64) (*JobStats, error)
 	Insert(query string, startTime, endTime *time.Time) (id *int64, err error)
 	Update(j Job) error
 }
@@ -19,12 +21,14 @@ type Repository interface {
 type inMemoryRepository struct {
 	jobs    map[int64]Job
 	results map[int64]*treeset.Set // tree of EventIdAndTimestamp ordered in descending timestamp order
+	stats   map[int64]JobStats
 }
 
 func InMemoryRepository() Repository {
 	return &inMemoryRepository{
 		jobs:    map[int64]Job{},
 		results: map[int64]*treeset.Set{},
+		stats:   map[int64]JobStats{},
 	}
 }
 
@@ -40,7 +44,7 @@ func resultComparator(a, b interface{}) int {
 }
 
 func (repo *inMemoryRepository) AddResult(id int64, event events.EventIdAndTimestamp) error {
-	job, ok := repo.jobs[id]
+	stats, ok := repo.stats[id]
 	if !ok {
 		return errors.New("job with Id=" + string(id) + " not found")
 	}
@@ -48,8 +52,8 @@ func (repo *inMemoryRepository) AddResult(id int64, event events.EventIdAndTimes
 		repo.results[id] = treeset.NewWith(resultComparator)
 	}
 	repo.results[id].Add(event)
-	job.Stats.NumMatchedEvents++
-	repo.jobs[id] = job
+	stats.NumMatchedEvents++
+	repo.stats[id] = stats
 	return nil
 }
 
@@ -61,9 +65,17 @@ func (repo *inMemoryRepository) Get(id int64) (*Job, error) {
 	}
 }
 
+func (repo *inMemoryRepository) GetStats(id int64) (*JobStats, error) {
+	if stats, ok := repo.stats[id]; !ok {
+		return nil, errors.New("job with Id=" + strconv.FormatInt(id, 10) + " not found")
+	} else {
+		return &stats, nil
+	}
+}
+
 func (repo *inMemoryRepository) GetResults(id int64, skip int, take int) ([]int64, error) {
 	if results, ok := repo.results[id]; !ok {
-		return nil, errors.New("job with Id=" + string(id) + " not found")
+		return []int64{}, nil
 	} else if results.Size() < skip {
 		return nil, errors.New("out of bounds, there are fewer than skip=" + string(skip) + " elements in the job results (length=" + string(results.Size()) + ")")
 	} else {
@@ -92,11 +104,11 @@ func (repo *inMemoryRepository) Insert(query string, startTime, endTime *time.Ti
 		Query:     query,
 		StartTime: startTime,
 		EndTime:   endTime,
-		Stats: JobStats{
-			EstimatedProgress: 0,
-			NumMatchedEvents:  0,
-			FieldCount:        map[string]int{},
-		},
+	}
+	repo.stats[id] = JobStats{
+		EstimatedProgress: 0,
+		NumMatchedEvents:  0,
+		FieldCount:        map[string]int{},
 	}
 	return &id, nil
 }

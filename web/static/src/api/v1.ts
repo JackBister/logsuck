@@ -78,11 +78,7 @@ interface RestJobStats {
 }
 
 interface RestPollJobResult {
-    Id: number;
     State: JobState;
-    Query: string;
-    StartTime: string;
-    EndTime: string | null;
     Stats: RestJobStats;
 }
 

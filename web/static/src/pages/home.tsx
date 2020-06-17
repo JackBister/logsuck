@@ -324,14 +324,14 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                         this.setState({
                             numMatched: pollResult.stats.numMatchedEvents
                         });
+                        if (pollResult.state == JobState.ABORTED || pollResult.state == JobState.FINISHED) {
+                            window.clearInterval(this.state.poller);
+                            // TODO: Change state
+                        }
                         if (this.state.searchResult.length < EVENTS_PER_PAGE) {
                             this.setState({
                                 searchResult: await this.props.getResults(startJobResult.id, 0, EVENTS_PER_PAGE)
                             });
-                        }
-                        if (pollResult.state == JobState.ABORTED || pollResult.state == JobState.FINISHED) {
-                            window.clearInterval(this.state.poller);
-                            // TODO: Change state
                         }
                     } catch (e) {
                         console.log(e);

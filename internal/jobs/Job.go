@@ -15,7 +15,6 @@ type Job struct {
 	State              JobState
 	Query              string
 	StartTime, EndTime *time.Time
-	Stats              JobStats
 }
 
 type JobStats struct {
