@@ -105,7 +105,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                     <form onSubmit={(evt) => { this.onSearch(evt); }}>
                         <label htmlFor="searchinput">Search</label>
                         <div class="input-group mb-3">
-                            <input id="searchinput" type="text" class="form-control" onChange={(evt) => this.onSearchChanged(evt)} value={this.state.searchString} />
+                            <input id="searchinput" type="text" class="form-control" onInput={(evt) => this.onSearchChanged(evt)} value={this.state.searchString} />
                             <div class="input-group-append">
                                 <TimeSelect onTimeSelected={(ts) => this.setState({ selectedTime: ts })} />
                                 <button disabled={this.state.state === HomeState.WAITING_FOR_SEARCH} type="submit" class="btn btn-primary">Search</button>
