@@ -118,3 +118,8 @@ export function getResults(jobId: number, skip: number, take: number): Promise<L
             fields: e.Fields
         })));
 }
+
+export function abortJob(jobId: number): Promise<{}> {
+    const queryParams = `?jobId=${jobId}`;
+    return fetch('/api/v1/abortJob' + queryParams);
+}

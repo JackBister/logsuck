@@ -24,7 +24,6 @@ export class Pagination extends Component<PaginationProps, PaginationState> {
     }
 
     render() {
-        console.log(this.props.currentPageIndex, this.props.numberOfPages);
         return <ul class="pagination">
             <li class={this.props.currentPageIndex === 0 ? DISABLED_CLASS : ENABLED_CLASS}>
                 <button class="page-link"

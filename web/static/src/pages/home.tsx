@@ -15,6 +15,7 @@ interface HomeProps {
     startJob: (searchString: string, timeSelection: TimeSelection) => Promise<StartJobResult>
     pollJob: (jobId: number) => Promise<PollJobResult>;
     getResults: (jobId: number, skip: number, take: number) => Promise<LogEvent[]>;
+    abortJob: (jobId: number) => Promise<{}>;
 }
 
 export enum HomeState {
@@ -22,7 +23,7 @@ export enum HomeState {
     WAITING_FOR_SEARCH,
     SEARCHED_ERROR,
     SEARCHED_POLLING,
-    SEARCHED_SUCCESS
+    SEARCHED_POLLING_FINISHED
 }
 
 interface HomeStateBase {
@@ -32,7 +33,7 @@ interface HomeStateBase {
     selectedTime: TimeSelection;
 }
 
-export type HomeStateStruct = HaventSearched | WaitingForSearch | SearchedError | SearchedPolling | SearchedSuccess;
+export type HomeStateStruct = HaventSearched | WaitingForSearch | SearchedError | SearchedPolling | SearchedPollingFinished;
 
 interface HaventSearched extends HomeStateBase {
     state: HomeState.HAVENT_SEARCHED;
@@ -64,19 +65,20 @@ interface SearchedPolling extends HomeStateBase {
     // selectedField: SelectedField | null;
 }
 
+interface SearchedPollingFinished extends HomeStateBase {
+    state: HomeState.SEARCHED_POLLING_FINISHED;
+
+    jobId: number;
+
+    searchResult: LogEvent[];
+    numMatched: number;
+
+    currentPageIndex: number;
+}
+
 interface SelectedField {
     name: string;
     topValues: TopFieldValueInfo[];
-}
-
-interface SearchedSuccess extends HomeStateBase {
-    state: HomeState.SEARCHED_SUCCESS;
-
-    searchResult: LogEvent[];
-
-    allFields: { [key: string]: number };
-    topFields: { [key: string]: number };
-    selectedField: SelectedField | null;
 }
 
 export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
@@ -124,7 +126,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                         <div>
                             Loading... There should be a spinner here!
                         </div>}
-                    {this.state.state === HomeState.SEARCHED_POLLING && <div>
+                    {(this.state.state === HomeState.SEARCHED_POLLING || this.state.state === HomeState.SEARCHED_POLLING_FINISHED) && <div>
                         {this.state.searchResult.length === 0 && <div class="alert alert-info">
                             No results found. Try a different search?
                             </div>}
@@ -166,11 +168,23 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                 </div>
                             </div>
                             <div class="col-xl-10">
-                                <Pagination
-                                    currentPageIndex={this.state.currentPageIndex}
-                                    numberOfPages={Math.ceil(this.state.numMatched / EVENTS_PER_PAGE)}
-                                    onPageChanged={(n) => this.onPageChanged(n)}>
-                                </Pagination>
+                                <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
+                                    <Pagination
+                                        currentPageIndex={this.state.currentPageIndex}
+                                        numberOfPages={Math.ceil(this.state.numMatched / EVENTS_PER_PAGE)}
+                                        onPageChanged={(n) => this.onPageChanged(n)}>
+                                    </Pagination>
+                                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                                        {
+                                            this.state.state === HomeState.SEARCHED_POLLING && <button type="button" class="btn btn-link" onClick={() => this.onCancel()}>
+                                                Cancel
+                                        </button>
+                                        }
+                                        <span>
+                                            {this.state.numMatched} events matched
+                                        </span>
+                                    </div>
+                                </div>
                                 <div class="card">
                                     <table class="table table-hover search-result-table">
                                         <thead>
@@ -205,11 +219,12 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                     </div>}
                 </div>
             </main>
-        </div>;
+        </div >;
     }
 
     private onBodyClicked(evt: any) {
-        if (this.state.state === HomeState.SEARCHED_SUCCESS && this.state.selectedField) {
+        /*
+        if ((this.state.state === HomeState.SEARCHED_POLLING || this.state.state === HomeState.SEARCHED_POLLING_FINISHED) && this.state.selectedField) {
             if (!(evt.target as HTMLDivElement).matches('.popover *')) {
                 this.setState({
                     ...this.state,
@@ -217,10 +232,12 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                 });
             }
         }
+        */
     }
 
     private onFieldClicked(k: string) {
-        if (this.state.state !== HomeState.SEARCHED_SUCCESS) {
+        /*
+        if (this.state.state !== HomeState.SEARCHED_POLLING && this.state.state !== HomeState.SEARCHED_POLLING_FINISHED) {
             // Really weird state. Maybe throw error?
             return;
         }
@@ -239,13 +256,16 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                 }
             });
         }
+        */
     }
 
     private onFieldValueClicked(value: string) {
-        if (this.state.state !== HomeState.SEARCHED_SUCCESS || this.state.selectedField === null) {
+        /*
+        if ((this.state.state !== HomeState.SEARCHED_POLLING && this.state.state !== HomeState.SEARCHED_POLLING_FINISHED) || this.state.selectedField === null) {
             return;
         }
         this.addFieldQueryAndSearch(this.state.selectedField.name, value);
+        */
     }
 
     private addFieldQueryAndSearch(key: string, value: string) {
@@ -294,6 +314,22 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
         }
     }
 
+    private async onCancel() {
+        if (this.state.state === HomeState.SEARCHED_POLLING_FINISHED) {
+            // Polling already finished so there is nothing to cancel, but it's not an error
+            return;
+        }
+        if (this.state.state !== HomeState.SEARCHED_POLLING) {
+            throw new Error("Weird state");
+        }
+        await this.props.abortJob(this.state.jobId);
+        window.clearInterval(this.state.poller);
+        this.setState({
+            ...this.state,
+            state: HomeState.SEARCHED_POLLING_FINISHED
+        });
+    }
+
     private onSearchChanged(evt: any) {
         this.setState({
             searchString: evt.target.value
@@ -303,6 +339,14 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
     private async onSearch(evt?: any) {
         if (evt) {
             evt.preventDefault();
+        }
+        if (this.state.state === HomeState.SEARCHED_POLLING) {
+            try {
+                window.clearInterval(this.state.poller);
+                await this.props.abortJob(this.state.jobId);
+            } catch (e) {
+                console.warn(`failed to abort previous jobId=${this.state.jobId}, will continue with new search`)
+            }
         }
         this.setState({
             state: HomeState.WAITING_FOR_SEARCH
@@ -326,7 +370,10 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                         });
                         if (pollResult.state == JobState.ABORTED || pollResult.state == JobState.FINISHED) {
                             window.clearInterval(this.state.poller);
-                            // TODO: Change state
+                            this.setState({
+                                ...this.state,
+                                state: HomeState.SEARCHED_POLLING_FINISHED
+                            });
                         }
                         if (this.state.searchResult.length < EVENTS_PER_PAGE) {
                             this.setState({
