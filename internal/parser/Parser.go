@@ -174,6 +174,8 @@ func Parse(input string) (*ParseResult, error) {
 					} else {
 						ret.NotFields[lowered] = values
 					}
+				} else {
+					ret.Fragments[tok.value] = struct{}{}
 				}
 			} else {
 				ret.Fragments[tok.value] = struct{}{}
