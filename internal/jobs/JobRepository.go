@@ -22,17 +22,17 @@ type Repository interface {
 }
 
 type inMemoryRepository struct {
-	jobs        map[int64]Job
+	jobs        map[int64]*Job
 	results     map[int64]*treeset.Set // tree of EventIdAndTimestamp ordered in descending timestamp order
-	stats       map[int64]JobStats
+	stats       map[int64]*JobStats
 	statMutexes map[int64]*sync.RWMutex
 }
 
 func InMemoryRepository() Repository {
 	return &inMemoryRepository{
-		jobs:        map[int64]Job{},
+		jobs:        map[int64]*Job{},
 		results:     map[int64]*treeset.Set{},
-		stats:       map[int64]JobStats{},
+		stats:       map[int64]*JobStats{},
 		statMutexes: map[int64]*sync.RWMutex{},
 	}
 }
@@ -64,7 +64,7 @@ func (repo *inMemoryRepository) AddResult(id int64, event events.EventIdAndTimes
 func (repo *inMemoryRepository) AddFieldStats(id int64, fields map[string]string) error {
 	stats, ok := repo.stats[id]
 	if !ok {
-		return errors.New("job with Id=")
+		return errors.New("job with Id=" + string(rune(id)) + " not found")
 	}
 	repo.statMutexes[id].Lock()
 	defer repo.statMutexes[id].Unlock()
@@ -84,7 +84,7 @@ func (repo *inMemoryRepository) Get(id int64) (*Job, error) {
 	if job, ok := repo.jobs[id]; !ok {
 		return nil, errors.New("job with Id=" + string(id) + " not found")
 	} else {
-		return &job, nil
+		return job, nil
 	}
 }
 
@@ -135,14 +135,14 @@ func (repo *inMemoryRepository) GetResults(id int64, skip int, take int) ([]int6
 
 func (repo *inMemoryRepository) Insert(query string, startTime, endTime *time.Time) (*int64, error) {
 	id := int64(len(repo.jobs))
-	repo.jobs[id] = Job{
+	repo.jobs[id] = &Job{
 		Id:        id,
 		State:     JobStateRunning,
 		Query:     query,
 		StartTime: startTime,
 		EndTime:   endTime,
 	}
-	repo.stats[id] = JobStats{
+	repo.stats[id] = &JobStats{
 		EstimatedProgress:    0,
 		NumMatchedEvents:     0,
 		FieldOccurences:      map[string]int{},
@@ -156,6 +156,6 @@ func (repo *inMemoryRepository) Update(j Job) error {
 	if _, ok := repo.jobs[j.Id]; !ok {
 		return errors.New("job with Id=" + string(j.Id) + " not found")
 	}
-	repo.jobs[j.Id] = j
+	repo.jobs[j.Id] = &j
 	return nil
 }
