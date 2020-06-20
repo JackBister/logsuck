@@ -130,6 +130,12 @@ func (wi webImpl) Serve() error {
 						// TODO: Retry?
 						continue
 					}
+					err = wi.jobRepo.AddFieldStats(*id, evt.Fields)
+					if err != nil {
+						log.Println("Failed to add field stats for eventId=" + string(rune(evt.Id)) + " to jobId=" + string(rune(*id)))
+						// TODO: Retry?
+						continue
+					}
 				case <-done:
 					wasCancelled = true
 					break out
@@ -190,13 +196,20 @@ func (wi webImpl) Serve() error {
 			http.Error(w, "got error when retrieving job: "+err.Error(), 500)
 			return
 		}
-		stats, err := wi.jobRepo.GetStats(jobId)
+		fieldCount, err := wi.jobRepo.GetFieldOccurences(jobId)
 		if err != nil {
-			http.Error(w, "Got error when getting stats:"+err.Error(), 500)
+			http.Error(w, "Got error when getting field occurences:"+err.Error(), 500)
+			return
+		}
+		numMatched, err := wi.jobRepo.GetNumMatchedEvents(jobId)
+		if err != nil {
+			http.Error(w, "Got error when getting number of matched events:"+err.Error(), 500)
+			return
 		}
 		ret := PollResult{
-			State: job.State,
-			Stats: *stats,
+			State:            job.State,
+			FieldCount:       fieldCount,
+			NumMatchedEvents: numMatched,
 		}
 		serialized, err := json.Marshal(ret)
 		if err != nil {
@@ -375,8 +388,9 @@ func aggregateFields(inputEvents []events.EventWithExtractedFields) map[string]i
 }
 
 type PollResult struct {
-	State jobs.JobState
-	Stats jobs.JobStats
+	State            jobs.JobState
+	FieldCount       map[string]int
+	NumMatchedEvents int64
 }
 
 type SearchResult struct {

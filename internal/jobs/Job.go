@@ -18,7 +18,8 @@ type Job struct {
 }
 
 type JobStats struct {
-	EstimatedProgress float32
-	NumMatchedEvents  int64
-	FieldCount        map[string]int
+	EstimatedProgress    float32
+	NumMatchedEvents     int64
+	FieldOccurences      map[string]int
+	FieldValueOccurences map[string]map[string]int
 }

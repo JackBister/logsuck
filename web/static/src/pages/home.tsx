@@ -60,8 +60,8 @@ interface SearchedPolling extends HomeStateBase {
 
     currentPageIndex: number;
 
-    // allFields: { [key: string]: number };
-    // topFields: { [key: string]: number };
+    allFields: { [key: string]: number };
+    topFields: { [key: string]: number };
     // selectedField: SelectedField | null;
 }
 
@@ -74,6 +74,9 @@ interface SearchedPollingFinished extends HomeStateBase {
     numMatched: number;
 
     currentPageIndex: number;
+
+    allFields: { [key: string]: number };
+    topFields: { [key: string]: number };
 }
 
 interface SelectedField {
@@ -136,7 +139,6 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                     <div class="card-header">
                                         Fields
                                     </div>
-                                    {/*
                                     {Object.keys(this.state.topFields).length === 0 &&
                                         <div>No fields extracted</div>}
                                     {Object.keys(this.state.topFields).length > 0 &&
@@ -145,10 +147,13 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                                 {Object.keys(this.state.topFields).map(k =>
                                                     <tr key={k} onClick={(evt) => { evt.stopPropagation(); this.onFieldClicked(k); }} class="test field-row">
                                                         <td>{k}</td>
-                                                        <td style={{ textAlign: "right" }}>{(this.state as SearchedSuccess).topFields[k]}</td>
+                                                        {(this.state.state === HomeState.SEARCHED_POLLING || this.state.state === HomeState.SEARCHED_POLLING_FINISHED) &&
+                                                            <td style={{ textAlign: "right" }}>{this.state.topFields[k]}</td>
+                                                        }
                                                     </tr>)}
                                             </tbody>
                                         </table>}
+                                    {/*
                                     <Popover
                                         direction="right"
                                         isOpen={!!this.state.selectedField}
@@ -164,7 +169,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                             </tbody>
                                         </table>
                                     </Popover>
-                                                */}
+                                    */}
                                 </div>
                             </div>
                             <div class="col-xl-10">
@@ -365,8 +370,17 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                     }
                     try {
                         const pollResult = await this.props.pollJob(startJobResult.id);
+                        const topFields = Object.keys(pollResult.stats.fieldCount)
+                            .sort((a, b) => pollResult.stats.fieldCount[a] - pollResult.stats.fieldCount[b])
+                            .slice(0, TOP_FIELDS_COUNT)
+                            .reduce((prev, k) => {
+                                prev[k] = pollResult.stats.fieldCount[k];
+                                return prev;
+                            }, {} as any);
                         this.setState({
-                            numMatched: pollResult.stats.numMatchedEvents
+                            numMatched: pollResult.stats.numMatchedEvents,
+                            allFields: pollResult.stats.fieldCount,
+                            topFields: topFields
                         });
                         if (pollResult.state == JobState.ABORTED || pollResult.state == JobState.FINISHED) {
                             window.clearInterval(this.state.poller);

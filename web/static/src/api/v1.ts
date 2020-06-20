@@ -71,19 +71,14 @@ export enum JobState {
     ABORTED = 3,
 }
 
-interface RestJobStats {
-    EstimatedProgress: number;
+interface RestPollJobResult {
+    State: JobState;
     NumMatchedEvents: number;
     FieldCount: { [key: string]: number };
 }
 
-interface RestPollJobResult {
-    State: JobState;
-    Stats: RestJobStats;
-}
-
 export interface JobStats {
-    estimatedProgress: number;
+    // estimatedProgress: number;
     numMatchedEvents: number;
     fieldCount: { [key: string]: number };
 }
@@ -100,9 +95,9 @@ export function pollJob(jobId: number): Promise<PollJobResult> {
         .then((r: RestPollJobResult) => ({
             state: r.State,
             stats: {
-                estimatedProgress: r.Stats.EstimatedProgress,
-                numMatchedEvents: r.Stats.NumMatchedEvents,
-                fieldCount: r.Stats.FieldCount
+                //estimatedProgress: r.Stats.EstimatedProgress,
+                numMatchedEvents: r.NumMatchedEvents,
+                fieldCount: r.FieldCount
             }
         }));
 }
