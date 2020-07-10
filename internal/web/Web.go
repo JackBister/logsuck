@@ -291,6 +291,39 @@ func (wi webImpl) Serve() error {
 		}
 	})
 
+	http.HandleFunc("/api/v1/jobFieldStats", func(w http.ResponseWriter, r *http.Request) {
+		queryParams := r.URL.Query()
+		jobIdString, ok := queryParams["jobId"]
+		if !ok || len(jobIdString) < 1 {
+			http.Error(w, "jobId must be specified as a query parameter", 400)
+			return
+		}
+		jobId, err := strconv.ParseInt(jobIdString[0], 10, 64)
+		if err != nil {
+			http.Error(w, "jobId must be an integer", 400)
+			return
+		}
+		fieldName, ok := queryParams["fieldName"]
+		if !ok || len(fieldName) < 1 {
+			http.Error(w, "fieldName must be specified as a query parameter", 400)
+			return
+		}
+		values, err := wi.jobRepo.GetFieldValues(jobId, fieldName[0])
+		if err != nil {
+			http.Error(w, "Got error when getting field values:"+err.Error(), 500)
+		}
+		serialized, err := json.Marshal(values)
+		if err != nil {
+			http.Error(w, "Got error when serializing results:"+err.Error(), 500)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(serialized)
+		if err != nil {
+			http.Error(w, "Got error when writing results:"+err.Error(), 500)
+		}
+	})
+
 	s := http.Server{
 		Addr: ":8080",
 	}

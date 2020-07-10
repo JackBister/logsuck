@@ -1,5 +1,5 @@
 import { Component, h } from "preact";
-import { SearchResult, StartJobResult, PollJobResult, startJob, JobState } from "../api/v1";
+import { SearchResult, StartJobResult, PollJobResult, startJob, JobState, FieldValueCounts } from "../api/v1";
 import { LogEvent } from "../models/Event";
 import { Popover } from "../components/popover";
 import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
@@ -16,6 +16,7 @@ interface HomeProps {
     pollJob: (jobId: number) => Promise<PollJobResult>;
     getResults: (jobId: number, skip: number, take: number) => Promise<LogEvent[]>;
     abortJob: (jobId: number) => Promise<{}>;
+    getFieldValueCounts: (jobId: number, fieldName: string) => Promise<FieldValueCounts>;
 }
 
 export enum HomeState {
@@ -62,7 +63,7 @@ interface SearchedPolling extends HomeStateBase {
 
     allFields: { [key: string]: number };
     topFields: { [key: string]: number };
-    // selectedField: SelectedField | null;
+    selectedField: SelectedField | null;
 }
 
 interface SearchedPollingFinished extends HomeStateBase {
@@ -77,6 +78,7 @@ interface SearchedPollingFinished extends HomeStateBase {
 
     allFields: { [key: string]: number };
     topFields: { [key: string]: number };
+    selectedField: SelectedField | null;
 }
 
 interface SelectedField {
@@ -153,23 +155,23 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                                     </tr>)}
                                             </tbody>
                                         </table>}
-                                    {/*
-                                    <Popover
-                                        direction="right"
-                                        isOpen={!!this.state.selectedField}
-                                        heading={this.state.selectedField?.name || ''}
-                                        widthPx={300}>
-                                        <table class="table table-sm table-hover">
-                                            <tbody>
-                                                {this.state.selectedField?.topValues.map(f => <tr key={f.value} onClick={() => this.onFieldValueClicked(f.value)} style={{ cursor: "pointer" }}>
-                                                    <td class="field-value">{f.value}</td>
-                                                    <td class="field-value-count" style={{ textAlign: "right" }}>{f.count}</td>
-                                                    <td class="field-value-percentage" style={{ textAlign: "right" }}>{(f.percentage * 100).toFixed(2)} %</td>
-                                                </tr>)}
-                                            </tbody>
-                                        </table>
-                                    </Popover>
-                                    */}
+                                    {
+                                        <Popover
+                                            direction="right"
+                                            isOpen={!!this.state.selectedField}
+                                            heading={this.state.selectedField?.name || ''}
+                                            widthPx={300}>
+                                            <table class="table table-sm table-hover">
+                                                <tbody>
+                                                    {this.state.selectedField?.topValues.map(f => <tr key={f.value} onClick={() => this.onFieldValueClicked(f.value)} style={{ cursor: "pointer" }}>
+                                                        <td class="field-value">{f.value}</td>
+                                                        <td class="field-value-count" style={{ textAlign: "right" }}>{f.count}</td>
+                                                        <td class="field-value-percentage" style={{ textAlign: "right" }}>{(f.percentage * 100).toFixed(2)} %</td>
+                                                    </tr>)}
+                                                </tbody>
+                                            </table>
+                                        </Popover>
+                                    }
                                 </div>
                             </div>
                             <div class="col-xl-10">
@@ -228,7 +230,6 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
     }
 
     private onBodyClicked(evt: any) {
-        /*
         if ((this.state.state === HomeState.SEARCHED_POLLING || this.state.state === HomeState.SEARCHED_POLLING_FINISHED) && this.state.selectedField) {
             if (!(evt.target as HTMLDivElement).matches('.popover *')) {
                 this.setState({
@@ -237,75 +238,56 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                 });
             }
         }
-        */
     }
 
-    private onFieldClicked(k: string) {
-        /*
+    private async onFieldClicked(fieldName: string) {
         if (this.state.state !== HomeState.SEARCHED_POLLING && this.state.state !== HomeState.SEARCHED_POLLING_FINISHED) {
             // Really weird state. Maybe throw error?
             return;
         }
-        if (this.state.selectedField?.name === k) {
+        if (this.state.selectedField?.name === fieldName) {
             this.setState({
                 ...this.state,
                 selectedField: null
             });
         } else {
-            const topValues = this.calculateTopFieldValues(this.state.searchResult, k);
+            const fieldValues = await this.props.getFieldValueCounts(this.state.jobId, fieldName);
+            const keys = Object.keys(fieldValues);
+            const totalCount = keys.reduce((acc, k) => acc + fieldValues[k], 0);
+            const topValues = keys.sort((a, b) => fieldValues[b] - fieldValues[a])
+                .slice(0, TOP_FIELDS_COUNT)
+                .map(k => ({
+                    value: k,
+                    count: fieldValues[k],
+                    percentage: fieldValues[k] / totalCount
+                }));
+            console.log(topValues);
             this.setState({
                 ...this.state,
                 selectedField: {
-                    name: k,
+                    name: fieldName,
                     topValues: topValues
                 }
             });
         }
-        */
     }
 
     private onFieldValueClicked(value: string) {
-        /*
         if ((this.state.state !== HomeState.SEARCHED_POLLING && this.state.state !== HomeState.SEARCHED_POLLING_FINISHED) || this.state.selectedField === null) {
             return;
         }
         this.addFieldQueryAndSearch(this.state.selectedField.name, value);
-        */
     }
 
     private addFieldQueryAndSearch(key: string, value: string) {
         this.setState({
-            searchString: `${key}=${value} ` + this.state.searchString
+            searchString: `${key}=${value} ` + this.state.searchString,
+            selectedField: null
         }, () => this.onSearch());
     }
 
-    private calculateTopFieldValues(searchResult: LogEvent[], fieldName: string): TopFieldValueInfo[] {
-        const counts: { [key: string]: number } = {};
-        let totalCount = 0;
-        for (const event of searchResult) {
-            if (!event.fields[fieldName]) {
-                continue;
-            }
-            totalCount++;
-            const value = event.fields[fieldName];
-            if (counts[value]) {
-                counts[value]++;
-            } else {
-                counts[value] = 1;
-            }
-        }
-        return Object.keys(counts)
-            .sort((a, b) => counts[b] - counts[a])
-            .slice(0, TOP_FIELDS_COUNT)
-            .map(k => ({
-                value: k,
-                count: counts[k],
-                percentage: counts[k] / totalCount
-            }));
-    }
-
     private async onPageChanged(newPageIndex: number) {
-        if (this.state.state !== HomeState.SEARCHED_POLLING) {
+        if (this.state.state !== HomeState.SEARCHED_POLLING && this.state.state !== HomeState.SEARCHED_POLLING_FINISHED) {
             throw new Error("Weird state");
         }
         try {
@@ -371,29 +353,27 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                     try {
                         const pollResult = await this.props.pollJob(startJobResult.id);
                         const topFields = Object.keys(pollResult.stats.fieldCount)
-                            .sort((a, b) => pollResult.stats.fieldCount[a] - pollResult.stats.fieldCount[b])
+                            .sort((a, b) => pollResult.stats.fieldCount[b] - pollResult.stats.fieldCount[a])
                             .slice(0, TOP_FIELDS_COUNT)
                             .reduce((prev, k) => {
                                 prev[k] = pollResult.stats.fieldCount[k];
                                 return prev;
                             }, {} as any);
-                        this.setState({
+                        const nextState: any = {
+                            ...this.state,
+
                             numMatched: pollResult.stats.numMatchedEvents,
                             allFields: pollResult.stats.fieldCount,
                             topFields: topFields
-                        });
+                        }
                         if (pollResult.state == JobState.ABORTED || pollResult.state == JobState.FINISHED) {
                             window.clearInterval(this.state.poller);
-                            this.setState({
-                                ...this.state,
-                                state: HomeState.SEARCHED_POLLING_FINISHED
-                            });
+                            nextState.state = HomeState.SEARCHED_POLLING_FINISHED;
                         }
                         if (this.state.searchResult.length < EVENTS_PER_PAGE) {
-                            this.setState({
-                                searchResult: await this.props.getResults(startJobResult.id, 0, EVENTS_PER_PAGE)
-                            });
+                            nextState.searchResult = await this.props.getResults(startJobResult.id, 0, EVENTS_PER_PAGE);
                         }
+                        this.setState(nextState);
                     } catch (e) {
                         console.log(e);
                     }
@@ -410,9 +390,5 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                 searchError: 'Something went wrong.'
             });
         }
-    }
-
-    private static isExcludedFieldName(str: string): boolean {
-        return str === '_time' || str === 'source';
     }
 }

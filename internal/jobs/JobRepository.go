@@ -16,6 +16,7 @@ type Repository interface {
 	Get(id int64) (*Job, error)
 	GetResults(id int64, skip int, take int) (eventIds []int64, err error)
 	GetFieldOccurences(id int64) (map[string]int, error)
+	GetFieldValues(id int64, fieldName string) (map[string]int, error)
 	GetNumMatchedEvents(id int64) (int64, error)
 	Insert(query string, startTime, endTime *time.Time) (id *int64, err error)
 	Update(j Job) error
@@ -69,10 +70,13 @@ func (repo *inMemoryRepository) AddFieldStats(id int64, fields map[string]string
 	repo.statMutexes[id].Lock()
 	defer repo.statMutexes[id].Unlock()
 	for k, v := range fields {
-		stats.FieldOccurences[k]++
 		if _, ok := stats.FieldValueOccurences[k]; ok {
+			if _, ok = stats.FieldValueOccurences[k][v]; !ok {
+				stats.FieldOccurences[k]++
+			}
 			stats.FieldValueOccurences[k][v]++
 		} else {
+			stats.FieldOccurences[k]++
 			stats.FieldValueOccurences[k] = map[string]int{}
 			stats.FieldValueOccurences[k][v]++
 		}
@@ -99,6 +103,20 @@ func (repo *inMemoryRepository) GetFieldOccurences(id int64) (map[string]int, er
 			copiedFieldOccurences[k] = v
 		}
 		return copiedFieldOccurences, nil
+	}
+}
+
+func (repo *inMemoryRepository) GetFieldValues(id int64, fieldName string) (map[string]int, error) {
+	if stats, ok := repo.stats[id]; !ok {
+		return nil, errors.New("job with ID=" + strconv.FormatInt(id, 10) + " not found")
+	} else {
+		repo.statMutexes[id].RLock()
+		defer repo.statMutexes[id].RUnlock()
+		values, ok := stats.FieldValueOccurences[fieldName]
+		if !ok {
+			return map[string]int{}, nil
+		}
+		return values, nil
 	}
 }
 

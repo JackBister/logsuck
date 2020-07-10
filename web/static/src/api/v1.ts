@@ -118,3 +118,12 @@ export function abortJob(jobId: number): Promise<{}> {
     const queryParams = `?jobId=${jobId}`;
     return fetch('/api/v1/abortJob' + queryParams);
 }
+
+export type FieldValueCounts = { [key: string]: number };
+
+export function getFieldValueCounts(jobId: number, fieldName: string): Promise<FieldValueCounts> {
+    const queryParams = `?jobId=${jobId}&fieldName=${fieldName}`;
+    return fetch('/api/v1/jobFieldStats' + queryParams)
+        .then(r => r.json())
+        .then((f: FieldValueCounts) => f);
+}
