@@ -45,29 +45,6 @@ func Parse(searchString string, startTime, endTime *time.Time) (*Search, error) 
 	return &ret, nil
 }
 
-func FilterEvents(repo events.Repository, srch *Search, cfg *config.Config) []events.EventWithExtractedFields {
-	inputEvents := repo.Filter(srch.Sources, srch.NotSources, srch.StartTime, srch.EndTime)
-	ret := make([]events.EventWithExtractedFields, 0, 1)
-	compiledFrags := filtering.CompileKeys(srch.Fragments)
-	compiledNotFrags := filtering.CompileKeys(srch.NotFragments)
-	compiledFields := filtering.CompileMap(srch.Fields)
-	compiledNotFields := filtering.CompileMap(srch.NotFields)
-	for _, evt := range inputEvents {
-		evtFields, include := shouldIncludeEvent(evt, cfg, compiledFrags, compiledNotFrags, compiledFields, compiledNotFields)
-
-		if include {
-			ret = append(ret, events.EventWithExtractedFields{
-				Id:        evt.Id,
-				Raw:       evt.Raw,
-				Timestamp: evt.Timestamp,
-				Source:    evt.Source,
-				Fields:    evtFields,
-			})
-		}
-	}
-	return ret
-}
-
 func FilterEventsStream(ctx context.Context, repo events.Repository, srch *Search, cfg *config.Config) <-chan events.EventWithExtractedFields {
 	ret := make(chan events.EventWithExtractedFields)
 

@@ -16,6 +16,8 @@ type Config struct {
 	// The default is "2006/01/02 15:04:05"
 	TimeLayout string
 
+	DatabaseFile string
+
 	EnableWeb bool
 	HttpAddr  string
 }

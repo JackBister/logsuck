@@ -288,7 +288,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
 
     private async onPageChanged(newPageIndex: number) {
         if (this.state.state !== HomeState.SEARCHED_POLLING && this.state.state !== HomeState.SEARCHED_POLLING_FINISHED) {
-            throw new Error("Weird state");
+            throw new Error("Weird state, state=" + this.state.state + ", but attempted to change page");
         }
         try {
             const newEvents = await this.props.getResults(this.state.jobId, newPageIndex * EVENTS_PER_PAGE, EVENTS_PER_PAGE);

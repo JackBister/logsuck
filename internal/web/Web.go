@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -50,29 +49,6 @@ func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Reposi
 
 func (wi webImpl) Serve() error {
 	http.Handle("/", http.FileServer(http.Dir("web/static")))
-
-	http.HandleFunc("/api/v1/search", func(w http.ResponseWriter, r *http.Request) {
-		queryParams := r.URL.Query()
-		results, wErr := wi.executeSearch(queryParams)
-		if wErr != nil {
-			http.Error(w, wErr.err, wErr.code)
-			return
-		}
-		res := SearchResult{
-			Events:     results,
-			FieldCount: aggregateFields(results),
-		}
-		serialized, err := json.Marshal(res)
-		if err != nil {
-			http.Error(w, "Got error when serializing results:"+err.Error(), 500)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, err = w.Write(serialized)
-		if err != nil {
-			http.Error(w, "Got error when writing results:"+err.Error(), 500)
-		}
-	})
 
 	http.HandleFunc("/api/v1/startJob", func(w http.ResponseWriter, r *http.Request) {
 		queryParams := r.URL.Query()
@@ -329,32 +305,6 @@ func (wi webImpl) Serve() error {
 	}
 
 	return s.ListenAndServe()
-}
-
-func (wi *webImpl) executeSearch(queryParams url.Values) ([]events.EventWithExtractedFields, *webError) {
-	searchStrings, ok := queryParams["searchString"]
-	if !ok || len(searchStrings) < 1 {
-		return nil, &webError{
-			err:  "searchString must be specified as a query parameter",
-			code: 400,
-		}
-	}
-	startTime, endTime, wErr := parseTimeParameters(queryParams)
-	if wErr != nil {
-		return nil, wErr
-	}
-	srch, err := search.Parse(strings.TrimSpace(searchStrings[0]), startTime, endTime)
-	if err != nil {
-		return nil, &webError{
-			err:  "Got error when parsing search: " + err.Error(),
-			code: 500,
-		}
-	}
-	results := search.FilterEvents(wi.eventRepo, srch, wi.cfg)
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Timestamp.After(results[j].Timestamp)
-	})
-	return results, nil
 }
 
 func parseTimeParameters(queryParams url.Values) (*time.Time, *time.Time, *webError) {

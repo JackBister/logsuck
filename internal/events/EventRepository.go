@@ -2,15 +2,19 @@ package events
 
 import (
 	"errors"
-	"github.com/jackbister/logsuck/internal/filtering"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/jackbister/logsuck/internal/filtering"
 )
+
+type BatchAddableRepository interface {
+	AddBatch(events []Event) ([]int64, error)
+}
 
 type Repository interface {
 	Add(evt Event) (id *int64, err error)
-	Filter(sources, notSources map[string]struct{}, startTime, endTime *time.Time) []EventWithId
 	FilterStream(sources, notSources map[string]struct{}, startTime, endTime *time.Time) <-chan EventWithId
 	GetByIds(ids []int64) ([]EventWithId, error)
 }
@@ -35,30 +39,6 @@ func (repo *inMemoryRepository) Add(evt Event) (*int64, error) {
 		Source:    evt.Source,
 	}
 	return &id, nil
-}
-
-func (repo *inMemoryRepository) Filter(sources, notSources map[string]struct{}, startTime, endTime *time.Time) []EventWithId {
-	ret := make([]EventWithId, 0)
-	// TODO you can shortcut here if not using wildcards - need to measure if this is useful
-	compiledSources := filtering.CompileKeys(sources)
-	compiledNotSources := filtering.CompileKeys(notSources)
-	/*
-		startIdx := sort.Search(len(repo.events), func(i int) bool {
-			if startTime != nil && repo.events[i].Timestamp.Before(*startTime) {
-				return false
-			}
-			if endTime != nil && repo.events[i].Timestamp.After(*endTime) {
-				return false
-			}
-			return true
-		})
-	*/
-	for _, evt := range repo.events {
-		if shouldIncludeEvent(&evt, compiledSources, compiledNotSources, startTime, endTime) {
-			ret = append(ret, evt)
-		}
-	}
-	return ret
 }
 
 func (repo *inMemoryRepository) FilterStream(sources, notSources map[string]struct{}, startTime, endTime *time.Time) <-chan EventWithId {

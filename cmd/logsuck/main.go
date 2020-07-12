@@ -2,11 +2,12 @@ package main
 
 import (
 	"flag"
-	"github.com/jackbister/logsuck/internal/jobs"
 	"log"
 	"os"
 	"regexp"
 	"time"
+
+	"github.com/jackbister/logsuck/internal/jobs"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
@@ -22,6 +23,8 @@ var cfg = config.Config{
 		regexp.MustCompile("^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)"),
 	},
 	TimeLayout: "2006/01/02 15:04:05",
+
+	DatabaseFile: ":memory:",
 
 	EnableWeb: true,
 	HttpAddr:  ":8080",
@@ -40,7 +43,11 @@ func main() {
 	}
 
 	commandChannels := make([]chan files.FileWatcherCommand, len(cfg.IndexedFiles))
-	repo := events.InMemoryRepository()
+	repo, err := events.SqliteRepository(cfg.DatabaseFile)
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+	publisher := events.BatchedRepositoryPublisher(&cfg, repo)
 	jobRepo := jobs.InMemoryRepository()
 
 	for i, file := range cfg.IndexedFiles {
@@ -49,7 +56,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fw := files.NewFileWatcher(file, commandChannels[i], events.RepositoryEventPublisher(&cfg, repo), f)
+		fw := files.NewFileWatcher(file, commandChannels[i], publisher, f)
 		log.Println("Starting FileWatcher for filename=" + file.Filename)
 		go fw.Start()
 	}
