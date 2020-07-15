@@ -16,16 +16,17 @@ type sqliteRepository struct {
 	db *sql.DB
 }
 
-func SqliteRepository(db *sql.DB) (*sqliteRepository, error) {
+func SqliteRepository(db *sql.DB) (Repository, error) {
 	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY, source TEXT, timestamp DATETIME);")
 	if err != nil {
 		return nil, fmt.Errorf("error creating events table: %w", err)
 	}
-	_, err = db.Exec("CREATE INDEX IX_Events_Timestamp ON Events(timestamp);")
+	_, err = db.Exec("CREATE INDEX IF NOT EXISTS IX_Events_Timestamp ON Events(timestamp);")
 	if err != nil {
 		return nil, fmt.Errorf("error creating events timestamp index: %w", err)
 	}
-	_, err = db.Exec("CREATE VIRTUAL TABLE IF NOT EXISTS EventRaws USING fts3 (raw TEXT);")
+	// It seems we have to use FTS4 instead of FTS5? - I could not find an option equivalent to order=DESC for FTS5 and order=DESC makes queries 8-9x faster...
+	_, err = db.Exec("CREATE VIRTUAL TABLE IF NOT EXISTS EventRaws USING fts4 (raw TEXT, order=DESC);")
 	if err != nil {
 		return nil, fmt.Errorf("error creating eventraws table: %w", err)
 	}
@@ -96,7 +97,7 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 	return ret, nil
 }
 
-func (repo *sqliteRepository) FilterStream(sources, notSources map[string]struct{}, startTime, endTime *time.Time) <-chan []EventWithId {
+func (repo *sqliteRepository) FilterStream(sources, notSources map[string]struct{}, fragments map[string]struct{}, startTime, endTime *time.Time) <-chan []EventWithId {
 	ret := make(chan []EventWithId)
 	go func() {
 		defer close(ret)
@@ -133,6 +134,9 @@ func (repo *sqliteRepository) FilterStream(sources, notSources map[string]struct
 			for s := range notSources {
 				compiledSource := strings.Replace(s, "*", "%", -1)
 				stmt += " AND e.source NOT LIKE '" + compiledSource + "'"
+			}
+			for frag := range fragments {
+				stmt += " AND r.raw MATCH '" + frag + "'"
 			}
 			stmt += " ORDER BY e.timestamp DESC, e.id DESC LIMIT " + strconv.Itoa(filterStreamPageSize) + " OFFSET " + strconv.Itoa(offset) + ";"
 			log.Println("executing stmt", stmt)

@@ -2,6 +2,7 @@ package events
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -9,13 +10,10 @@ import (
 	"github.com/jackbister/logsuck/internal/filtering"
 )
 
-type BatchAddableRepository interface {
-	AddBatch(events []Event) ([]int64, error)
-}
-
 type Repository interface {
 	Add(evt Event) (id *int64, err error)
-	FilterStream(sources, notSources map[string]struct{}, startTime, endTime *time.Time) <-chan []EventWithId
+	AddBatch(events []Event) ([]int64, error)
+	FilterStream(sources, notSources map[string]struct{}, fragments map[string]struct{}, startTime, endTime *time.Time) <-chan []EventWithId
 	GetByIds(ids []int64) ([]EventWithId, error)
 }
 
@@ -41,7 +39,20 @@ func (repo *inMemoryRepository) Add(evt Event) (*int64, error) {
 	return &id, nil
 }
 
-func (repo *inMemoryRepository) FilterStream(sources, notSources map[string]struct{}, startTime, endTime *time.Time) <-chan []EventWithId {
+func (repo *inMemoryRepository) AddBatch(evts []Event) ([]int64, error) {
+	ret := make([]int64, len(evts))
+	for i, evt := range evts {
+		id, err := repo.Add(evt)
+		if err != nil {
+			// Can't actually happen?
+			return nil, fmt.Errorf("error when adding batch: %w", err)
+		}
+		ret[i] = *id
+	}
+	return ret, nil
+}
+
+func (repo *inMemoryRepository) FilterStream(sources, notSources map[string]struct{}, fragments map[string]struct{}, startTime, endTime *time.Time) <-chan []EventWithId {
 	ret := make(chan []EventWithId)
 	go func() {
 		compiledSources := filtering.CompileKeys(sources)

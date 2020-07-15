@@ -15,12 +15,12 @@ type EventPublisher interface {
 
 type batchedRepositoryPublisher struct {
 	cfg  *config.Config
-	repo BatchAddableRepository
+	repo Repository
 
 	adder chan<- Event
 }
 
-func BatchedRepositoryPublisher(cfg *config.Config, repo BatchAddableRepository) EventPublisher {
+func BatchedRepositoryPublisher(cfg *config.Config, repo Repository) EventPublisher {
 	adder := make(chan Event)
 
 	go func() {

@@ -27,7 +27,7 @@ var cfg = config.Config{
 	},
 	TimeLayout: "2006/01/02 15:04:05",
 
-	DatabaseFile: ":memory:",
+	DatabaseFile: "logsuck.db",
 
 	EnableWeb: true,
 	HttpAddr:  ":8080",

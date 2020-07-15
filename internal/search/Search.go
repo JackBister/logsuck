@@ -50,7 +50,7 @@ func FilterEventsStream(ctx context.Context, repo events.Repository, srch *Searc
 
 	go func() {
 		defer close(ret)
-		inputEvents := repo.FilterStream(srch.Sources, srch.NotSources, srch.StartTime, srch.EndTime)
+		inputEvents := repo.FilterStream(srch.Sources, srch.NotSources, srch.Fragments, srch.StartTime, srch.EndTime)
 		compiledFrags := filtering.CompileKeys(srch.Fragments)
 		compiledNotFrags := filtering.CompileKeys(srch.NotFragments)
 		compiledFields := filtering.CompileMap(srch.Fields)

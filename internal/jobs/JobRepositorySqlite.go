@@ -13,7 +13,7 @@ type sqliteRepository struct {
 	db *sql.DB
 }
 
-func SqliteRepository(db *sql.DB) (*sqliteRepository, error) {
+func SqliteRepository(db *sql.DB) (Repository, error) {
 	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Jobs (id INTEGER NOT NULL PRIMARY KEY, state INTEGER NOT NULL, query TEXT NOT NULL, start_time DATETIME, end_time DATETIME);")
 	if err != nil {
 		return nil, fmt.Errorf("error when creating Jobs table: %w", err)

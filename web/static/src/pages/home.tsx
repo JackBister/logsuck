@@ -310,7 +310,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
             throw new Error("Weird state");
         }
         await this.props.abortJob(this.state.jobId);
-        window.clearInterval(this.state.poller);
+        window.clearTimeout(this.state.poller);
         this.setState({
             ...this.state,
             state: HomeState.SEARCHED_POLLING_FINISHED
@@ -330,6 +330,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
         if (this.state.state === HomeState.SEARCHED_POLLING) {
             try {
                 await this.props.abortJob(this.state.jobId);
+                window.clearTimeout(this.state.poller);
             } catch (e) {
                 console.warn(`failed to abort previous jobId=${this.state.jobId}, will continue with new search`)
             }
@@ -381,12 +382,12 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                 topFields: topFields
             }
             if (pollResult.state == JobState.ABORTED || pollResult.state == JobState.FINISHED) {
-                window.clearInterval(this.state.poller);
+                window.clearTimeout(this.state.poller);
                 nextState.state = HomeState.SEARCHED_POLLING_FINISHED;
             } else {
                 nextState.poller = window.setTimeout(() => this.poll(id), 500);
             }
-            if (this.state.searchResult.length < EVENTS_PER_PAGE) {
+            if (this.state.searchResult.length < EVENTS_PER_PAGE && pollResult.stats.numMatchedEvents > this.state.searchResult.length) {
                 nextState.searchResult = await this.props.getResults(id, 0, EVENTS_PER_PAGE);
             }
             this.setState(nextState);
