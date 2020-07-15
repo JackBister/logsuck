@@ -45,29 +45,33 @@ func Parse(searchString string, startTime, endTime *time.Time) (*Search, error) 
 	return &ret, nil
 }
 
-func FilterEventsStream(ctx context.Context, repo events.Repository, srch *Search, cfg *config.Config) <-chan events.EventWithExtractedFields {
-	ret := make(chan events.EventWithExtractedFields)
+func FilterEventsStream(ctx context.Context, repo events.Repository, srch *Search, cfg *config.Config) <-chan []events.EventWithExtractedFields {
+	ret := make(chan []events.EventWithExtractedFields)
 
 	go func() {
+		defer close(ret)
 		inputEvents := repo.FilterStream(srch.Sources, srch.NotSources, srch.StartTime, srch.EndTime)
 		compiledFrags := filtering.CompileKeys(srch.Fragments)
 		compiledNotFrags := filtering.CompileKeys(srch.NotFragments)
 		compiledFields := filtering.CompileMap(srch.Fields)
 		compiledNotFields := filtering.CompileMap(srch.NotFields)
 
-		for evt := range inputEvents {
-			evtFields, include := shouldIncludeEvent(evt, cfg, compiledFrags, compiledNotFrags, compiledFields, compiledNotFields)
-			if include {
-				ret <- events.EventWithExtractedFields{
-					Id:        evt.Id,
-					Raw:       evt.Raw,
-					Timestamp: evt.Timestamp,
-					Source:    evt.Source,
-					Fields:    evtFields,
+		for evts := range inputEvents {
+			retEvts := make([]events.EventWithExtractedFields, 0)
+			for _, evt := range evts {
+				evtFields, include := shouldIncludeEvent(evt, cfg, compiledFrags, compiledNotFrags, compiledFields, compiledNotFields)
+				if include {
+					retEvts = append(retEvts, events.EventWithExtractedFields{
+						Id:        evt.Id,
+						Raw:       evt.Raw,
+						Timestamp: evt.Timestamp,
+						Source:    evt.Source,
+						Fields:    evtFields,
+					})
 				}
 			}
+			ret <- retEvts
 		}
-		close(ret)
 	}()
 	return ret
 }

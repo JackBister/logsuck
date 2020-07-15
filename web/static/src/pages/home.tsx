@@ -329,7 +329,6 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
         }
         if (this.state.state === HomeState.SEARCHED_POLLING) {
             try {
-                window.clearInterval(this.state.poller);
                 await this.props.abortJob(this.state.jobId);
             } catch (e) {
                 console.warn(`failed to abort previous jobId=${this.state.jobId}, will continue with new search`)
@@ -346,38 +345,7 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                 ...this.state,
                 state: HomeState.SEARCHED_POLLING,
                 jobId: startJobResult.id,
-                poller: window.setInterval(async () => {
-                    if (this.state.state !== HomeState.SEARCHED_POLLING) {
-                        throw new Error("Really weird state! In poller but state != SEARCHED_POLLING");
-                    }
-                    try {
-                        const pollResult = await this.props.pollJob(startJobResult.id);
-                        const topFields = Object.keys(pollResult.stats.fieldCount)
-                            .sort((a, b) => pollResult.stats.fieldCount[b] - pollResult.stats.fieldCount[a])
-                            .slice(0, TOP_FIELDS_COUNT)
-                            .reduce((prev, k) => {
-                                prev[k] = pollResult.stats.fieldCount[k];
-                                return prev;
-                            }, {} as any);
-                        const nextState: any = {
-                            ...this.state,
-
-                            numMatched: pollResult.stats.numMatchedEvents,
-                            allFields: pollResult.stats.fieldCount,
-                            topFields: topFields
-                        }
-                        if (pollResult.state == JobState.ABORTED || pollResult.state == JobState.FINISHED) {
-                            window.clearInterval(this.state.poller);
-                            nextState.state = HomeState.SEARCHED_POLLING_FINISHED;
-                        }
-                        if (this.state.searchResult.length < EVENTS_PER_PAGE) {
-                            nextState.searchResult = await this.props.getResults(startJobResult.id, 0, EVENTS_PER_PAGE);
-                        }
-                        this.setState(nextState);
-                    } catch (e) {
-                        console.log(e);
-                    }
-                }, 500),
+                poller: window.setTimeout(async () => this.poll(startJobResult.id), 500),
                 searchResult: [],
                 numMatched: 0,
                 currentPageIndex: 0
@@ -389,6 +357,41 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                 state: HomeState.SEARCHED_ERROR,
                 searchError: 'Something went wrong.'
             });
+        }
+    }
+
+    private async poll(id: number) {
+        if (this.state.state !== HomeState.SEARCHED_POLLING) {
+            throw new Error("Really weird state! In poller but state != SEARCHED_POLLING");
+        }
+        try {
+            const pollResult = await this.props.pollJob(id);
+            const topFields = Object.keys(pollResult.stats.fieldCount)
+                .sort((a, b) => pollResult.stats.fieldCount[b] - pollResult.stats.fieldCount[a])
+                .slice(0, TOP_FIELDS_COUNT)
+                .reduce((prev, k) => {
+                    prev[k] = pollResult.stats.fieldCount[k];
+                    return prev;
+                }, {} as any);
+            const nextState: any = {
+                ...this.state,
+
+                numMatched: pollResult.stats.numMatchedEvents,
+                allFields: pollResult.stats.fieldCount,
+                topFields: topFields
+            }
+            if (pollResult.state == JobState.ABORTED || pollResult.state == JobState.FINISHED) {
+                window.clearInterval(this.state.poller);
+                nextState.state = HomeState.SEARCHED_POLLING_FINISHED;
+            } else {
+                nextState.poller = window.setTimeout(() => this.poll(id), 500);
+            }
+            if (this.state.searchResult.length < EVENTS_PER_PAGE) {
+                nextState.searchResult = await this.props.getResults(id, 0, EVENTS_PER_PAGE);
+            }
+            this.setState(nextState);
+        } catch (e) {
+            console.log(e);
         }
     }
 }

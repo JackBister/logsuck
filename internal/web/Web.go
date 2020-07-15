@@ -93,24 +93,30 @@ func (wi webImpl) Serve() error {
 		out:
 			for {
 				select {
-				case evt, ok := <-results:
+				case evts, ok := <-results:
 					if !ok {
 						break out
 					}
-					err := wi.jobRepo.AddResult(*id, events.EventIdAndTimestamp{
-						Id:        evt.Id,
-						Timestamp: evt.Timestamp,
-					})
-					if err != nil {
-						log.Println("Failed to add eventId=" + string(evt.Id) + " to jobId=" + string(*id))
-						// TODO: Retry?
-						continue
-					}
-					err = wi.jobRepo.AddFieldStats(*id, evt.Fields)
-					if err != nil {
-						log.Println("Failed to add field stats for eventId=" + string(rune(evt.Id)) + " to jobId=" + string(rune(*id)))
-						// TODO: Retry?
-						continue
+					log.Println("got", len(evts), "matching events")
+					if len(evts) > 0 {
+						converted := make([]events.EventIdAndTimestamp, len(evts))
+						for i, evt := range evts {
+							converted[i] = events.EventIdAndTimestamp{
+								Id:        evt.Id,
+								Timestamp: evt.Timestamp,
+							}
+						}
+						err := wi.jobRepo.AddResults(*id, converted)
+						if err != nil {
+							log.Println("Failed to add events to jobId=" + strconv.FormatInt(*id, 10) + ", error: " + err.Error())
+							// TODO: Retry?
+							continue
+						}
+						fields := gatherFieldStats(evts)
+						err = wi.jobRepo.AddFieldStats(*id, fields)
+						if err != nil {
+							log.Println("Failed to add field stats to jobId=" + strconv.FormatInt(*id, 10) + ", error: " + err.Error())
+						}
 					}
 				case <-done:
 					wasCancelled = true
@@ -118,17 +124,13 @@ func (wi webImpl) Serve() error {
 				}
 			}
 			wi.jobCancels[*id] = nil
-			job, err := wi.jobRepo.Get(*id)
-			if err != nil {
-				// TODO: Retry?
-				log.Println("Failed to get jobId=" + string(*id) + " when updating to finished state. err=" + err.Error())
-			}
+			var state jobs.JobState
 			if wasCancelled {
-				job.State = jobs.JobStateAborted
+				state = jobs.JobStateAborted
 			} else {
-				job.State = jobs.JobStateFinished
+				state = jobs.JobStateFinished
 			}
-			err = wi.jobRepo.Update(*job)
+			err = wi.jobRepo.UpdateState(*id, state)
 			if err != nil {
 				log.Println("Failed to update jobId=" + string(*id) + " when updating to finished state. err=" + err.Error())
 			}
@@ -354,6 +356,36 @@ func parseTimeParameters(queryParams url.Values) (*time.Time, *time.Time, *webEr
 	}
 
 	return startTime, endTime, nil
+}
+
+func gatherFieldStats(evts []events.EventWithExtractedFields) []jobs.FieldStats {
+	m := map[string]map[string]int{}
+	size := 0
+	for _, evt := range evts {
+		for k, v := range evt.Fields {
+			if _, ok := m[k]; !ok {
+				size++
+				m[k] = map[string]int{}
+				m[k][v] = 1
+			} else if _, ok := m[k][v]; !ok {
+				m[k][v] = 1
+			} else {
+				m[k][v]++
+			}
+		}
+	}
+
+	ret := make([]jobs.FieldStats, 0, size)
+	for k, vm := range m {
+		for v, o := range vm {
+			ret = append(ret, jobs.FieldStats{
+				Key:         k,
+				Value:       v,
+				Occurrences: o,
+			})
+		}
+	}
+	return ret
 }
 
 func aggregateFields(inputEvents []events.EventWithExtractedFields) map[string]int {

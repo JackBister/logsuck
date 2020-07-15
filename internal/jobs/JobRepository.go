@@ -11,15 +11,21 @@ import (
 )
 
 type Repository interface {
-	AddResult(id int64, event events.EventIdAndTimestamp) error
-	AddFieldStats(id int64, fields map[string]string) error
+	AddResults(id int64, events []events.EventIdAndTimestamp) error
+	AddFieldStats(id int64, fields []FieldStats) error
 	Get(id int64) (*Job, error)
 	GetResults(id int64, skip int, take int) (eventIds []int64, err error)
 	GetFieldOccurences(id int64) (map[string]int, error)
 	GetFieldValues(id int64, fieldName string) (map[string]int, error)
 	GetNumMatchedEvents(id int64) (int64, error)
 	Insert(query string, startTime, endTime *time.Time) (id *int64, err error)
-	Update(j Job) error
+	UpdateState(id int64, state JobState) error
+}
+
+type FieldStats struct {
+	Key         string
+	Value       string
+	Occurrences int
 }
 
 type inMemoryRepository struct {
@@ -62,23 +68,33 @@ func (repo *inMemoryRepository) AddResult(id int64, event events.EventIdAndTimes
 	return nil
 }
 
-func (repo *inMemoryRepository) AddFieldStats(id int64, fields map[string]string) error {
+func (repo *inMemoryRepository) AddResults(id int64, events []events.EventIdAndTimestamp) error {
+	for _, evt := range events {
+		err := repo.AddResult(id, evt)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (repo *inMemoryRepository) AddFieldStats(id int64, fields []FieldStats) error {
 	stats, ok := repo.stats[id]
 	if !ok {
 		return errors.New("job with Id=" + string(rune(id)) + " not found")
 	}
 	repo.statMutexes[id].Lock()
 	defer repo.statMutexes[id].Unlock()
-	for k, v := range fields {
-		if _, ok := stats.FieldValueOccurences[k]; ok {
-			if _, ok = stats.FieldValueOccurences[k][v]; !ok {
-				stats.FieldOccurences[k]++
+	for _, f := range fields {
+		if _, ok := stats.FieldValueOccurences[f.Key]; ok {
+			if _, ok := stats.FieldValueOccurences[f.Key][f.Value]; !ok {
+				stats.FieldOccurences[f.Key]++
 			}
-			stats.FieldValueOccurences[k][v]++
+			stats.FieldValueOccurences[f.Key][f.Value] += f.Occurrences
 		} else {
-			stats.FieldOccurences[k]++
-			stats.FieldValueOccurences[k] = map[string]int{}
-			stats.FieldValueOccurences[k][v]++
+			stats.FieldOccurences[f.Key]++
+			stats.FieldValueOccurences[f.Key] = map[string]int{}
+			stats.FieldValueOccurences[f.Key][f.Value] = f.Occurrences
 		}
 	}
 	return nil
@@ -170,10 +186,10 @@ func (repo *inMemoryRepository) Insert(query string, startTime, endTime *time.Ti
 	return &id, nil
 }
 
-func (repo *inMemoryRepository) Update(j Job) error {
-	if _, ok := repo.jobs[j.Id]; !ok {
-		return errors.New("job with Id=" + string(j.Id) + " not found")
+func (repo *inMemoryRepository) UpdateState(id int64, state JobState) error {
+	if _, ok := repo.jobs[id]; !ok {
+		return errors.New("job with Id=" + string(id) + " not found")
 	}
-	repo.jobs[j.Id] = &j
+	repo.jobs[id].State = state
 	return nil
 }

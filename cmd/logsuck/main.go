@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
 	"log"
 	"os"
@@ -13,6 +14,8 @@ import (
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/files"
 	"github.com/jackbister/logsuck/internal/web"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var cfg = config.Config{
@@ -43,12 +46,20 @@ func main() {
 	}
 
 	commandChannels := make([]chan files.FileWatcherCommand, len(cfg.IndexedFiles))
-	repo, err := events.SqliteRepository(cfg.DatabaseFile)
+	db, err := sql.Open("sqlite3", cfg.DatabaseFile+"?cache=shared")
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+	db.SetMaxOpenConns(1)
+	repo, err := events.SqliteRepository(db)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
 	publisher := events.BatchedRepositoryPublisher(&cfg, repo)
-	jobRepo := jobs.InMemoryRepository()
+	jobRepo, err := jobs.SqliteRepository(db)
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
 
 	for i, file := range cfg.IndexedFiles {
 		commandChannels[i] = make(chan files.FileWatcherCommand)

@@ -40,7 +40,7 @@ func BatchedRepositoryPublisher(cfg *config.Config, repo BatchAddableRepository)
 					_, err := repo.AddBatch(accumulated)
 					if err != nil {
 						// TODO: Error handling
-						log.Println("error when adding events: %v", err)
+						log.Println("error when adding events:", err)
 					}
 					accumulated = accumulated[:0]
 					timeout = time.After(1 * time.Second)

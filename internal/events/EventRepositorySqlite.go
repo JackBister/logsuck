@@ -8,42 +8,29 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	_ "github.com/mattn/go-sqlite3"
 )
+
+const filterStreamPageSize = 1000
 
 type sqliteRepository struct {
 	db *sql.DB
-
-	addRawStmt *sql.Stmt
-	addStmt    *sql.Stmt
 }
 
-func SqliteRepository(fileName string) (*sqliteRepository, error) {
-	db, err := sql.Open("sqlite3", fileName)
-	if err != nil {
-		return nil, fmt.Errorf("error opening sqlite database: %w", err)
-	}
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY, source TEXT, timestamp DATETIME);")
+func SqliteRepository(db *sql.DB) (*sqliteRepository, error) {
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY, source TEXT, timestamp DATETIME);")
 	if err != nil {
 		return nil, fmt.Errorf("error creating events table: %w", err)
+	}
+	_, err = db.Exec("CREATE INDEX IX_Events_Timestamp ON Events(timestamp);")
+	if err != nil {
+		return nil, fmt.Errorf("error creating events timestamp index: %w", err)
 	}
 	_, err = db.Exec("CREATE VIRTUAL TABLE IF NOT EXISTS EventRaws USING fts3 (raw TEXT);")
 	if err != nil {
 		return nil, fmt.Errorf("error creating eventraws table: %w", err)
 	}
-	addRawStmt, err := db.Prepare("INSERT INTO EventRaws (raw) VALUES(?);")
-	if err != nil {
-		return nil, fmt.Errorf("error preparing add raw statement: %w", err)
-	}
-	addStmt, err := db.Prepare("INSERT INTO Events(id, source, timestamp) SELECT LAST_INSERT_ROWID(), ?, ?;")
-	if err != nil {
-		return nil, fmt.Errorf("error preparing add statement: %w", err)
-	}
 	return &sqliteRepository{
-		db:         db,
-		addRawStmt: addRawStmt,
-		addStmt:    addStmt,
+		db: db,
 	}, nil
 }
 
@@ -53,7 +40,7 @@ func (repo *sqliteRepository) Add(evt Event) (*int64, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error starting transaction for adding event: %w", err)
 	}
-	res, err := tx.Stmt(repo.addRawStmt).Exec(evt.Raw)
+	res, err := tx.Exec("INSERT INTO EventRaws (raw) VALUES(?);", evt.Raw)
 	if err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("error executing add raw statement: %w", err)
@@ -63,7 +50,7 @@ func (repo *sqliteRepository) Add(evt Event) (*int64, error) {
 		tx.Rollback()
 		return nil, fmt.Errorf("error getting event id after insert: %w", err)
 	}
-	_, err = tx.Stmt(repo.addStmt).Exec(evt.Source, evt.Timestamp)
+	_, err = tx.Exec("INSERT INTO Events(id, source, timestamp) SELECT LAST_INSERT_ROWID(), ?, ?;", evt.Source, evt.Timestamp)
 	if err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("error executing add statement: %w", err)
@@ -84,7 +71,7 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 		return nil, fmt.Errorf("error starting transaction for adding event: %w", err)
 	}
 	for i, evt := range events {
-		res, err := tx.Stmt(repo.addRawStmt).Exec(evt.Raw)
+		res, err := tx.Exec("INSERT INTO EventRaws (raw) VALUES(?);", evt.Raw)
 		if err != nil {
 			tx.Rollback()
 			return nil, fmt.Errorf("error executing add raw statement: %w", err)
@@ -94,7 +81,7 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 			tx.Rollback()
 			return nil, fmt.Errorf("error getting event id after insert: %w", err)
 		}
-		_, err = tx.Stmt(repo.addStmt).Exec(evt.Source, evt.Timestamp)
+		_, err = tx.Exec("INSERT INTO Events(id, source, timestamp) SELECT LAST_INSERT_ROWID(), ?, ?;", evt.Source, evt.Timestamp)
 		if err != nil {
 			tx.Rollback()
 			return nil, fmt.Errorf("error executing add statement: %w", err)
@@ -109,39 +96,69 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 	return ret, nil
 }
 
-func (repo *sqliteRepository) FilterStream(sources, notSources map[string]struct{}, startTime, endTime *time.Time) <-chan EventWithId {
-	ret := make(chan EventWithId)
+func (repo *sqliteRepository) FilterStream(sources, notSources map[string]struct{}, startTime, endTime *time.Time) <-chan []EventWithId {
+	ret := make(chan []EventWithId)
 	go func() {
 		defer close(ret)
-		stmt := "SELECT e.id, e.source, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE 1=1"
-		if startTime != nil {
-			stmt += " AND e.timestamp >= '" + startTime.String() + "'"
-		}
-		if endTime != nil {
-			stmt += " AND e.timestamp <= '" + endTime.String() + "'"
-		}
-		for s := range sources {
-			compiledSource := strings.Replace(s, "*", "%", -1)
-			stmt += " AND e.source LIKE '" + compiledSource + "'"
-		}
-		for s := range notSources {
-			compiledSource := strings.Replace(s, "*", "%", -1)
-			stmt += " AND e.source NOT LIKE '" + compiledSource + "'"
-		}
-		stmt += " ORDER BY e.timestamp DESC"
-		log.Println("executing stmt", stmt)
-		res, err := repo.db.Query(stmt)
+		res, err := repo.db.Query("SELECT MAX(id) FROM Events;")
 		if err != nil {
+			log.Println("error when getting max(id) from Events table in FilterStream:", err)
 			return
 		}
-		for res.Next() {
-			var evt EventWithId
-			err := res.Scan(&evt.Id, &evt.Source, &evt.Timestamp, &evt.Raw)
-			if err != nil {
-				log.Printf("error when scanning result in FilterStream: %v\n", err)
-			} else {
-				ret <- evt
+		if !res.Next() {
+			res.Close()
+			log.Println("weird state in FilterStream, expected one result when getting max(id) from Events but got 0")
+			return
+		}
+		var maxID int
+		err = res.Scan(&maxID)
+		res.Close()
+		if err != nil {
+			log.Println("error when scanning max(id) in FilterStream:", err)
+			return
+		}
+		offset := 0
+		for {
+			stmt := "SELECT e.id, e.source, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id < " + strconv.Itoa(maxID)
+			if startTime != nil {
+				stmt += " AND e.timestamp >= '" + startTime.String() + "'"
 			}
+			if endTime != nil {
+				stmt += " AND e.timestamp <= '" + endTime.String() + "'"
+			}
+			for s := range sources {
+				compiledSource := strings.Replace(s, "*", "%", -1)
+				stmt += " AND e.source LIKE '" + compiledSource + "'"
+			}
+			for s := range notSources {
+				compiledSource := strings.Replace(s, "*", "%", -1)
+				stmt += " AND e.source NOT LIKE '" + compiledSource + "'"
+			}
+			stmt += " ORDER BY e.timestamp DESC, e.id DESC LIMIT " + strconv.Itoa(filterStreamPageSize) + " OFFSET " + strconv.Itoa(offset) + ";"
+			log.Println("executing stmt", stmt)
+			res, err = repo.db.Query(stmt)
+			if err != nil {
+				log.Println("error when getting filtered events in FilterStream:", err)
+				return
+			}
+			evts := make([]EventWithId, 0, filterStreamPageSize)
+			eventsInPage := 0
+			for res.Next() {
+				var evt EventWithId
+				err := res.Scan(&evt.Id, &evt.Source, &evt.Timestamp, &evt.Raw)
+				if err != nil {
+					log.Printf("error when scanning result in FilterStream: %v\n", err)
+				} else {
+					evts = append(evts, evt)
+				}
+				eventsInPage++
+			}
+			res.Close()
+			ret <- evts
+			if eventsInPage < filterStreamPageSize {
+				return
+			}
+			offset += filterStreamPageSize
 		}
 	}()
 	return ret
