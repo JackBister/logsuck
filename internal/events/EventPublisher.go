@@ -61,6 +61,7 @@ func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent) {
 	processed := Event{
 		Raw:    evt.Raw,
 		Source: evt.Source,
+		Offset: evt.Offset,
 	}
 
 	fields := parser.ExtractFields(strings.ToLower(evt.Raw), ep.cfg.FieldExtractors)
@@ -81,34 +82,6 @@ func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent) {
 type repositoryPublisher struct {
 	cfg        *config.Config
 	repository Repository
-}
-
-func RepositoryEventPublisher(cfg *config.Config, repository Repository) EventPublisher {
-	return &repositoryPublisher{
-		cfg:        cfg,
-		repository: repository,
-	}
-}
-
-func (ep *repositoryPublisher) PublishEvent(evt RawEvent) {
-	processed := Event{
-		Raw:    evt.Raw,
-		Source: evt.Source,
-	}
-
-	fields := parser.ExtractFields(strings.ToLower(evt.Raw), ep.cfg.FieldExtractors)
-	if t, ok := fields["_time"]; ok {
-		parsed, err := time.Parse(ep.cfg.TimeLayout, t)
-		if err != nil {
-			processed.Timestamp = time.Now()
-		} else {
-			processed.Timestamp = parsed
-		}
-	} else {
-		processed.Timestamp = time.Now()
-	}
-
-	ep.repository.Add(processed)
 }
 
 type debugEventPublisher struct {

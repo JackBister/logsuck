@@ -6,12 +6,14 @@ import "time"
 type RawEvent struct {
 	Raw    string
 	Source string
+	Offset int64
 }
 
 type Event struct {
 	Raw       string
 	Timestamp time.Time
 	Source    string
+	Offset    int64
 }
 
 type EventWithId struct {

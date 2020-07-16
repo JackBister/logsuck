@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+const expectedConstraintViolationForDuplicates = "UNIQUE constraint failed: Events.source, Events.timestamp, Events.offset"
 const filterStreamPageSize = 1000
 
 type sqliteRepository struct {
@@ -17,7 +18,7 @@ type sqliteRepository struct {
 }
 
 func SqliteRepository(db *sql.DB) (Repository, error) {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY, source TEXT, timestamp DATETIME);")
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY, source TEXT NOT NULL, timestamp DATETIME NOT NULL, offset BIGINT NOT NULL, UNIQUE(source, timestamp, offset));")
 	if err != nil {
 		return nil, fmt.Errorf("error creating events table: %w", err)
 	}
@@ -35,35 +36,6 @@ func SqliteRepository(db *sql.DB) (Repository, error) {
 	}, nil
 }
 
-func (repo *sqliteRepository) Add(evt Event) (*int64, error) {
-	startTime := time.Now()
-	tx, err := repo.db.BeginTx(context.TODO(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("error starting transaction for adding event: %w", err)
-	}
-	res, err := tx.Exec("INSERT INTO EventRaws (raw) VALUES(?);", evt.Raw)
-	if err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("error executing add raw statement: %w", err)
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("error getting event id after insert: %w", err)
-	}
-	_, err = tx.Exec("INSERT INTO Events(id, source, timestamp) SELECT LAST_INSERT_ROWID(), ?, ?;", evt.Source, evt.Timestamp)
-	if err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("error executing add statement: %w", err)
-	}
-	err = tx.Commit()
-	if err != nil {
-		// TODO: Hmm?
-	}
-	log.Printf("added event in timeInMs=%v\n", time.Now().Sub(startTime).Milliseconds())
-	return &id, nil
-}
-
 func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 	startTime := time.Now()
 	ret := make([]int64, len(events))
@@ -71,25 +43,34 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error starting transaction for adding event: %w", err)
 	}
+	numberOfDuplicates := map[string]int64{}
 	for i, evt := range events {
-		res, err := tx.Exec("INSERT INTO EventRaws (raw) VALUES(?);", evt.Raw)
+		res, err := tx.Exec("INSERT INTO Events(source, timestamp, offset) VALUES(?, ?, ?);", evt.Source, evt.Timestamp, evt.Offset)
+		// Surely this can't be the right way to check for this error...
+		if err != nil && err.Error() == expectedConstraintViolationForDuplicates {
+			numberOfDuplicates[evt.Source]++
+			continue
+		}
 		if err != nil {
 			tx.Rollback()
-			return nil, fmt.Errorf("error executing add raw statement: %w", err)
+			return nil, fmt.Errorf("error executing add statement: %w", err)
 		}
 		id, err := res.LastInsertId()
 		if err != nil {
 			tx.Rollback()
 			return nil, fmt.Errorf("error getting event id after insert: %w", err)
 		}
-		_, err = tx.Exec("INSERT INTO Events(id, source, timestamp) SELECT LAST_INSERT_ROWID(), ?, ?;", evt.Source, evt.Timestamp)
+		_, err = tx.Exec("INSERT INTO EventRaws (rowid, raw) SELECT LAST_INSERT_ROWID(), ?;", evt.Raw)
 		if err != nil {
 			tx.Rollback()
-			return nil, fmt.Errorf("error executing add statement: %w", err)
+			return nil, fmt.Errorf("error executing add raw statement: %w", err)
 		}
 		ret[i] = id
 	}
 	err = tx.Commit()
+	for k, v := range numberOfDuplicates {
+		log.Printf("Skipped adding numEvents=%v from source=%v because they appear to be duplicates (same source, offset and timestamp as an existing event)\n", v, k)
+	}
 	if err != nil {
 		// TODO: Hmm?
 	}

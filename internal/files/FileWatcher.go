@@ -25,8 +25,9 @@ type FileWatcher struct {
 	eventPublisher events.EventPublisher
 	fileReader     io.Reader
 
-	readBuf    []byte
-	workingBuf []byte
+	currentOffset int64
+	readBuf       []byte
+	workingBuf    []byte
 }
 
 // NewFileWatcher returns a FileWatcher which will watch a file and publish events according to the IndexedFileConfig
@@ -42,8 +43,9 @@ func NewFileWatcher(
 		eventPublisher: eventPublisher,
 		fileReader:     fileReader,
 
-		readBuf:    make([]byte, 4096),
-		workingBuf: make([]byte, 0, 4096),
+		currentOffset: 0,
+		readBuf:       make([]byte, 4096),
+		workingBuf:    make([]byte, 0, 4096),
 	}
 }
 
@@ -77,13 +79,19 @@ func (fw *FileWatcher) readToEnd() {
 
 func (fw *FileWatcher) handleEvents() {
 	s := string(fw.workingBuf)
+	// TODO: Maybe EventDelimiter should just be a string so we don't have to do this
+	// Currently the delimiter between each event could in theory have a different length every time
+	// so we need to look them up to get the offset right
+	delimiters := fw.fileConfig.EventDelimiter.FindAllString(s, -1)
 	split := fw.fileConfig.EventDelimiter.Split(s, -1)
-	for _, raw := range split[:len(split)-1] {
+	for i, raw := range split[:len(split)-1] {
 		evt := events.RawEvent{
 			Raw:    raw,
 			Source: fw.fileConfig.Filename,
+			Offset: fw.currentOffset,
 		}
 		fw.eventPublisher.PublishEvent(evt)
+		fw.currentOffset += int64(len(raw)) + int64(len(delimiters[i]))
 	}
 	fw.workingBuf = fw.workingBuf[:0]
 	fw.workingBuf = append(fw.workingBuf, []byte(split[len(split)-1])...)
