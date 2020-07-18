@@ -10,7 +10,7 @@ import (
 )
 
 type EventPublisher interface {
-	PublishEvent(evt RawEvent)
+	PublishEvent(evt RawEvent, timeLayout string)
 }
 
 type batchedRepositoryPublisher struct {
@@ -57,7 +57,7 @@ func BatchedRepositoryPublisher(cfg *config.Config, repo Repository) EventPublis
 	}
 }
 
-func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent) {
+func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout string) {
 	processed := Event{
 		Raw:    evt.Raw,
 		Source: evt.Source,
@@ -66,7 +66,7 @@ func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent) {
 
 	fields := parser.ExtractFields(strings.ToLower(evt.Raw), ep.cfg.FieldExtractors)
 	if t, ok := fields["_time"]; ok {
-		parsed, err := time.Parse(ep.cfg.TimeLayout, t)
+		parsed, err := time.Parse(timeLayout, t)
 		if err != nil {
 			processed.Timestamp = time.Now()
 		} else {
@@ -94,10 +94,10 @@ func DebugEventPublisher(wrapped EventPublisher) EventPublisher {
 	}
 }
 
-func (ep *debugEventPublisher) PublishEvent(evt RawEvent) {
+func (ep *debugEventPublisher) PublishEvent(evt RawEvent, timeLayout string) {
 	log.Println("Received event:", evt)
 	if ep.wrapped != nil {
-		ep.wrapped.PublishEvent(evt)
+		ep.wrapped.PublishEvent(evt, timeLayout)
 	}
 }
 
@@ -108,4 +108,4 @@ func NopEventPublisher() EventPublisher {
 	return &nopEventPublisher{}
 }
 
-func (ep *nopEventPublisher) PublishEvent(_ RawEvent) {}
+func (ep *nopEventPublisher) PublishEvent(_ RawEvent, _ string) {}

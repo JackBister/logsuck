@@ -90,7 +90,7 @@ func (fw *FileWatcher) handleEvents() {
 			Source: fw.fileConfig.Filename,
 			Offset: fw.currentOffset,
 		}
-		fw.eventPublisher.PublishEvent(evt)
+		fw.eventPublisher.PublishEvent(evt, fw.fileConfig.TimeLayout)
 		fw.currentOffset += int64(len(raw)) + int64(len(delimiters[i]))
 	}
 	fw.workingBuf = fw.workingBuf[:0]

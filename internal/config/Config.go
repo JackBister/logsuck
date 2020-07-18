@@ -12,12 +12,8 @@ type Config struct {
 	// The defaults are [ "(\w+)=(\w+)", "^(?P<_time>\d\d\d\d\/\d\d\/\d\d \d\d:\d\d:\d\d.\d\d\d\d\d\d)"]
 	// If a field with the name _time is extracted, it will be matched against TimeLayout
 	FieldExtractors []*regexp.Regexp
-	// TimeLayout is the layout of the _time field if it is extracted, following Go's time.Parse style https://golang.org/pkg/time/#Parse
-	// The default is "2006/01/02 15:04:05"
-	TimeLayout string
 
-	DatabaseFile string
+	SQLite *SqliteConfig
 
-	EnableWeb bool
-	HttpAddr  string
+	Web *WebConfig
 }

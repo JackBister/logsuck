@@ -303,7 +303,7 @@ func (wi webImpl) Serve() error {
 	})
 
 	s := http.Server{
-		Addr: ":8080",
+		Addr: wi.cfg.Web.Address,
 	}
 
 	return s.ListenAndServe()

@@ -16,4 +16,7 @@ type IndexedFileConfig struct {
 	// A lower duration will make events arrive faster in the search engine, but will consume more CPU.
 	// The default is 10 * time.Second.
 	ReadInterval time.Duration
+	// TimeLayout is the layout of the _time field if it is extracted, following Go's time.Parse style https://golang.org/pkg/time/#Parse
+	// The default is "2006/01/02 15:04:05"
+	TimeLayout string
 }
