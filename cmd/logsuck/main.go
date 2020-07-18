@@ -48,6 +48,7 @@ func (i *flagStringArray) Set(value string) error {
 	return nil
 }
 
+var cfgFileFlag string
 var databaseFileFlag string
 var eventDelimiterFlag string
 var fieldExtractorFlags flagStringArray
@@ -55,6 +56,7 @@ var timeLayoutFlag string
 var webAddrFlag string
 
 func main() {
+	flag.StringVar(&cfgFileFlag, "config", "logsuck.json", "The name of the file containing the configuration for logsuck. If a config file exists, all command line configuration will be ignored.")
 	flag.StringVar(&databaseFileFlag, "dbfile", "logsuck.db", "The name of the file in which logsuck will store its data. If the name ':memory:' is used, no file will be created and everything will be stored in memory.")
 	flag.StringVar(&eventDelimiterFlag, "delimiter", "\n", "The delimiter between events in the log. Usually \\n.")
 	flag.Var(&fieldExtractorFlags, "fieldextractor",
@@ -69,30 +71,41 @@ func main() {
 	flag.StringVar(&webAddrFlag, "webaddr", ":8080", "The address on which the search GUI will be exposed.")
 	flag.Parse()
 
-	if databaseFileFlag != "" {
-		cfg.SQLite.DatabaseFile = databaseFileFlag
-	}
-	if len(fieldExtractorFlags) > 0 {
-		cfg.FieldExtractors = make([]*regexp.Regexp, len(fieldExtractorFlags))
-		for i, fe := range fieldExtractorFlags {
-			re, err := regexp.Compile(fe)
-			if err != nil {
-				log.Fatalf("failed to compile regex '%v': %v\n", fe, err)
-			}
-			cfg.FieldExtractors[i] = re
+	cfgFile, err := os.Open(cfgFileFlag)
+	if err == nil {
+		newCfg, err := config.FromJSON(cfgFile)
+		if err != nil {
+			log.Fatalf("error parsing configuration from file '%v': %v", cfgFileFlag, err)
 		}
-	}
-	if webAddrFlag != "" {
-		cfg.Web.Address = webAddrFlag
-	}
+		cfg = *newCfg
+		log.Printf("Using configuration from file '%v': %v\n", cfgFileFlag, cfg)
+	} else {
+		log.Printf("Could not open config file '%v', will use command line configuration\n", cfgFileFlag)
+		if databaseFileFlag != "" {
+			cfg.SQLite.DatabaseFile = databaseFileFlag
+		}
+		if len(fieldExtractorFlags) > 0 {
+			cfg.FieldExtractors = make([]*regexp.Regexp, len(fieldExtractorFlags))
+			for i, fe := range fieldExtractorFlags {
+				re, err := regexp.Compile(fe)
+				if err != nil {
+					log.Fatalf("failed to compile regex '%v': %v\n", fe, err)
+				}
+				cfg.FieldExtractors[i] = re
+			}
+		}
+		if webAddrFlag != "" {
+			cfg.Web.Address = webAddrFlag
+		}
 
-	cfg.IndexedFiles = make([]config.IndexedFileConfig, len(flag.Args()))
-	for i, file := range flag.Args() {
-		cfg.IndexedFiles[i] = config.IndexedFileConfig{
-			Filename:       file,
-			EventDelimiter: regexp.MustCompile(eventDelimiterFlag),
-			ReadInterval:   1 * time.Second,
-			TimeLayout:     timeLayoutFlag,
+		cfg.IndexedFiles = make([]config.IndexedFileConfig, len(flag.Args()))
+		for i, file := range flag.Args() {
+			cfg.IndexedFiles[i] = config.IndexedFileConfig{
+				Filename:       file,
+				EventDelimiter: regexp.MustCompile(eventDelimiterFlag),
+				ReadInterval:   1 * time.Second,
+				TimeLayout:     timeLayoutFlag,
+			}
 		}
 	}
 

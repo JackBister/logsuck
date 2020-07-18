@@ -1,0 +1,68 @@
+{
+    "$schema": "https://json-schema.org/draft/2019-09/schema",
+    "$id": "https://github.com/jackbister/logsuck/logsuck-config.schema.json",
+    "title": "Logsuck Config",
+    "description": "Configuration for logsuck",
+    "type": "object",
+    "properties": {
+        "files": {
+            "description": "The files which should be indexed.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fileName": {
+                        "description": "The name of the file.",
+                        "type": "string"
+                    },
+                    "eventDelimiter": {
+                        "description": "A regex specifying the delimiter between events. For example, if the file contains one event per row this should be '\\n'. Default '\\n'.",
+                        "type": "string"
+                    },
+                    "readInterval": {
+                        "description": "The duration between checking the file for updates. A low value will make the events searchable sooner at the cost of using more CPU and doing more disk reads. Default '1s'.",
+                        "type": "string"
+                    },
+                    "timeLayout": {
+                        "description": "The layout of the _time field which will be extracted from this file. If no _time field is extracted or it doesn't match this layout, the time when the event was read will be used as the timestamp for that event. Default '2006/01/02 15:04:05'.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "fileName"
+                ]
+            }
+        },
+        "fieldExtractors": {
+            "description": "Regular expressions which will be used to extract field values from events.\nCan be given in two variants:\n1. An expression with a single, named capture group. The name of the capture group will be used as the field name and the captured string will be used as the value.\n2. An expression with two unnamed capture groups. The first capture group will be used as the field name and the second group as the value.\nIf a field with the name '_time' is extracted and matches the given timelayout, it will be used as the timestamp of the event. Otherwise the time the event was read will be used.\nMultiple extractors can be specified by using the fieldextractor flag multiple times. Defaults \"(\\w+)=(\\w+)\" and \"(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)\")",
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "sqlite": {
+            "description": "Configuration for the SQLite database where logsuck will store its data.",
+            "type": "object",
+            "properties": {
+                "fileName": {
+                    "description": "The file name which will be used for the SQLite database. Default 'logsuck.db'.",
+                    "type": "string"
+                }
+            }
+        },
+        "web": {
+            "description": "Configuration for the web GUI used to access logsuck.",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Whether the web server should run. Defaults to true unless the configuration specifies that this logsuck instance should run in forwarder mode.",
+                    "type": "boolean"
+                },
+                "address": {
+                    "description": "The address where the web server will be exposed. Default ':8080'",
+                    "type": "string"
+                }
+            }
+        }
+    }
+}
