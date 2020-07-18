@@ -128,7 +128,7 @@ func (repo *sqliteRepository) GetFieldValues(id int64, fieldName string) (map[st
 		return nil, fmt.Errorf("error when getting field values for jobId=%v and fieldName=%v: %w", id, fieldName, err)
 	}
 	defer res.Close()
-	var m map[string]int
+	m := map[string]int{}
 	for res.Next() {
 		var value string
 		var count int
