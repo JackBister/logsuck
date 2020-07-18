@@ -14,13 +14,14 @@ var TestConfig = config.IndexedFileConfig{
 	Filename:       "testlog",
 	EventDelimiter: regexp.MustCompile("\n"),
 	ReadInterval:   time.Millisecond,
+	TimeLayout:     "2006/01/02 15:04:05",
 }
 
 type testEventPublisher struct {
 	events []events.RawEvent
 }
 
-func (ep *testEventPublisher) PublishEvent(evt events.RawEvent) {
+func (ep *testEventPublisher) PublishEvent(evt events.RawEvent, _ string) {
 	ep.events = append(ep.events, evt)
 }
 
