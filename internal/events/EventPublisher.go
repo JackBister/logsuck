@@ -68,6 +68,7 @@ func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout stri
 	if t, ok := fields["_time"]; ok {
 		parsed, err := time.Parse(timeLayout, t)
 		if err != nil {
+			log.Printf("failed to parse _time field, will use current time as timestamp: %v\n", err)
 			processed.Timestamp = time.Now()
 		} else {
 			processed.Timestamp = parsed

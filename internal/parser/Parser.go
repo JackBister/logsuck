@@ -3,6 +3,7 @@ package parser
 import (
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 )
@@ -92,12 +93,23 @@ func (p *parser) take() *token {
 func ExtractFields(input string, fieldExtractors []*regexp.Regexp) map[string]string {
 	ret := map[string]string{}
 	for _, rex := range fieldExtractors {
+		subExpNames := rex.SubexpNames()[1:]
+		isNamedOnlyExtractor := true
+		for _, name := range subExpNames {
+			if name == "" {
+				isNamedOnlyExtractor = false
+			}
+		}
 		matches := rex.FindAllStringSubmatch(input, -1)
 		for _, match := range matches {
-			if len(match) == 2 && len(rex.SubexpNames()) == 2 {
-				ret[rex.SubexpNames()[1]] = match[0]
-			} else if len(matches) > 2 {
+			if isNamedOnlyExtractor && len(rex.SubexpNames()) == len(match) {
+				for j, name := range subExpNames {
+					ret[name] = match[j+1]
+				}
+			} else if len(match) == 3 {
 				ret[match[1]] = match[2]
+			} else {
+				log.Printf("Malformed field extractor '%v': If there are any unnamed capture groups in the regex, there must be exactly two capture groups.\n", rex)
 			}
 		}
 	}

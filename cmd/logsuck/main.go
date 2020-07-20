@@ -62,7 +62,7 @@ func main() {
 	flag.Var(&fieldExtractorFlags, "fieldextractor",
 		"A regular expression which will be used to extract field values from events.\n"+
 			"Can be given in two variants:\n"+
-			"1. An expression with a single, named capture group. The name of the capture group will be used as the field name and the captured string will be used as the value.\n"+
+			"1. An expression containing any number of named capture groups. The names of the capture groups will be used as the field names and the captured strings will be used as the values.\n"+
 			"2. An expression with two unnamed capture groups. The first capture group will be used as the field name and the second group as the value.\n"+
 			"If a field with the name '_time' is extracted and matches the given timelayout, it will be used as the timestamp of the event. Otherwise the time the event was read will be used.\n"+
 			"Multiple extractors can be specified by using the fieldextractor flag multiple times. "+
