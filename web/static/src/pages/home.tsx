@@ -1,22 +1,25 @@
 import { Component, h } from "preact";
-import { SearchResult, StartJobResult, PollJobResult, startJob, JobState, FieldValueCounts } from "../api/v1";
+import { StartJobResult, PollJobResult, JobState, FieldValueCounts } from "../api/v1";
 import { LogEvent } from "../models/Event";
 import { Popover } from "../components/popover";
 import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
 import { TimeSelect } from "../components/TimeSelect";
 import { TimeSelection } from "../models/TimeSelection";
 import { Pagination } from "../components/Pagination";
+import { RecentSearch } from "../services/RecentSearches";
 
 const EVENTS_PER_PAGE = 25;
 const TOP_FIELDS_COUNT = 15;
 
 interface HomeProps {
-    searchApi: (searchString: string, timeSelection: TimeSelection) => Promise<SearchResult>;
     startJob: (searchString: string, timeSelection: TimeSelection) => Promise<StartJobResult>
     pollJob: (jobId: number) => Promise<PollJobResult>;
     getResults: (jobId: number, skip: number, take: number) => Promise<LogEvent[]>;
     abortJob: (jobId: number) => Promise<{}>;
     getFieldValueCounts: (jobId: number, fieldName: string) => Promise<FieldValueCounts>;
+
+    addRecentSearch: (search: RecentSearch) => Promise<void>;
+    getRecentSearches: () => Promise<RecentSearch[]>;
 }
 
 export enum HomeState {
@@ -38,6 +41,8 @@ export type HomeStateStruct = HaventSearched | WaitingForSearch | SearchedError 
 
 interface HaventSearched extends HomeStateBase {
     state: HomeState.HAVENT_SEARCHED;
+
+    recentSearches?: RecentSearch[];
 }
 
 interface WaitingForSearch extends HomeStateBase {
@@ -98,6 +103,14 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
         };
     }
 
+    async componentDidMount() {
+        if (this.state.state === HomeState.HAVENT_SEARCHED) {
+            this.setState({
+                recentSearches: await this.props.getRecentSearches(),
+            });
+        }
+    }
+
     render() {
         return <div onClick={(evt) => this.onBodyClicked(evt)}>
             <header>
@@ -123,9 +136,26 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                         <div class="alert alert-danger">
                             {this.state.searchError}
                         </div>}
-                    {(this.state.state === HomeState.HAVENT_SEARCHED || this.state.state === HomeState.SEARCHED_ERROR) &&
+                    {this.state.state === HomeState.HAVENT_SEARCHED &&
                         <div>
-                            You haven't searched yet! I haven't put content here yet!
+                            <div class="card">
+                                <div class="card-header">
+                                    Recent searches
+                                </div>
+                                {typeof this.state.recentSearches === 'undefined' ?
+                                    <div class="card-body"><p>Loading...</p></div> :
+                                    this.state.recentSearches.length === 0 ?
+                                        <div class="card-body"><p>No recent searches</p></div> :
+                                        <table class="table table-sm table-hover">
+                                            <tbody>
+                                                {this.state.recentSearches.map((rs) =>
+                                                    <tr key={rs.searchTime.valueOf()} onClick={() => this.onRecentSearchClicked(rs)} style={{ cursor: "pointer" }}>
+                                                        <td>{rs.searchString}</td>
+                                                        <td style={{ textAlign: "right" }}>{rs.timeSelection.relativeTime}</td>
+                                                    </tr>)}
+                                            </tbody>
+                                        </table>}
+                            </div>
                         </div>}
                     {this.state.state === HomeState.WAITING_FOR_SEARCH &&
                         <div>
@@ -229,6 +259,13 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
         </div >;
     }
 
+    private onRecentSearchClicked(rs: RecentSearch) {
+        this.setState({
+            searchString: rs.searchString,
+            selectedTime: rs.timeSelection,
+        }, () => this.onSearch());
+    }
+
     private onBodyClicked(evt: any) {
         if ((this.state.state === HomeState.SEARCHED_POLLING || this.state.state === HomeState.SEARCHED_POLLING_FINISHED) && this.state.selectedField) {
             if (!(evt.target as HTMLDivElement).matches('.popover *')) {
@@ -329,8 +366,8 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
         }
         if (this.state.state === HomeState.SEARCHED_POLLING) {
             try {
-                await this.props.abortJob(this.state.jobId);
                 window.clearTimeout(this.state.poller);
+                await this.props.abortJob(this.state.jobId);
             } catch (e) {
                 console.warn(`failed to abort previous jobId=${this.state.jobId}, will continue with new search`)
             }
@@ -359,6 +396,11 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                 searchError: 'Something went wrong.'
             });
         }
+        this.props.addRecentSearch({
+            searchString: this.state.searchString,
+            timeSelection: this.state.selectedTime,
+            searchTime: new Date(),
+        });
     }
 
     private async poll(id: number) {
