@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -27,7 +26,7 @@ func SqliteRepository(db *sql.DB) (Repository, error) {
 		return nil, fmt.Errorf("error creating events timestamp index: %w", err)
 	}
 	// It seems we have to use FTS4 instead of FTS5? - I could not find an option equivalent to order=DESC for FTS5 and order=DESC makes queries 8-9x faster...
-	_, err = db.Exec("CREATE VIRTUAL TABLE IF NOT EXISTS EventRaws USING fts4 (raw TEXT, order=DESC);")
+	_, err = db.Exec("CREATE VIRTUAL TABLE IF NOT EXISTS EventRaws USING fts4 (raw TEXT, source TEXT, order=DESC);")
 	if err != nil {
 		return nil, fmt.Errorf("error creating eventraws table: %w", err)
 	}
@@ -60,7 +59,7 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 			tx.Rollback()
 			return nil, fmt.Errorf("error getting event id after insert: %w", err)
 		}
-		_, err = tx.Exec("INSERT INTO EventRaws (rowid, raw) SELECT LAST_INSERT_ROWID(), ?;", evt.Raw)
+		_, err = tx.Exec("INSERT INTO EventRaws (rowid, raw, source) SELECT LAST_INSERT_ROWID(), ?, ?;", evt.Raw, evt.Source)
 		if err != nil {
 			tx.Rollback()
 			return nil, fmt.Errorf("error executing add raw statement: %w", err)
@@ -108,17 +107,32 @@ func (repo *sqliteRepository) FilterStream(sources, notSources map[string]struct
 			if endTime != nil {
 				stmt += " AND e.timestamp <= '" + endTime.String() + "'"
 			}
+			matchString := ""
+			if len(sources) > 0 {
+				matchString += "("
+			}
 			for s := range sources {
-				compiledSource := strings.Replace(s, "*", "%", -1)
-				stmt += " AND e.source LIKE '" + compiledSource + "'"
+				matchString += "source:" + s + " "
+			}
+			if len(sources) > 0 && len(notSources) == 0 {
+				matchString += ")"
 			}
 			for s := range notSources {
-				compiledSource := strings.Replace(s, "*", "%", -1)
-				stmt += " AND e.source NOT LIKE '" + compiledSource + "'"
+				matchString += "NOT source:" + s + " "
+			}
+			if len(notSources) > 0 {
+				matchString += ")"
+			}
+			if (len(sources) > 0 || len(notSources) > 0) && len(fragments) > 0 {
+				matchString += " AND ("
 			}
 			for frag := range fragments {
-				stmt += " AND r.raw MATCH '" + frag + "'"
+				matchString += "raw:" + frag + " "
 			}
+			if len(fragments) > 0 {
+				matchString += ")"
+			}
+			stmt += " AND EventRaws MATCH '" + matchString + "'"
 			stmt += " ORDER BY e.timestamp DESC, e.id DESC LIMIT " + strconv.Itoa(filterStreamPageSize) + " OFFSET " + strconv.Itoa(offset) + ";"
 			log.Println("executing stmt", stmt)
 			res, err = repo.db.Query(stmt)
