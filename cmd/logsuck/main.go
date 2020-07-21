@@ -125,6 +125,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
+	jobEngine := jobs.NewEngine(&cfg, repo, jobRepo)
 
 	for i, file := range cfg.IndexedFiles {
 		commandChannels[i] = make(chan files.FileWatcherCommand)
@@ -137,5 +138,5 @@ func main() {
 		go fw.Start()
 	}
 
-	log.Fatal(web.NewWeb(&cfg, repo, jobRepo).Serve())
+	log.Fatal(web.NewWeb(&cfg, repo, jobRepo, jobEngine).Serve())
 }

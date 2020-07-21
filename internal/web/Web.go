@@ -1,9 +1,7 @@
 package web
 
 import (
-	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -16,7 +14,6 @@ import (
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/parser"
-	"github.com/jackbister/logsuck/internal/search"
 )
 
 type Web interface {
@@ -24,10 +21,10 @@ type Web interface {
 }
 
 type webImpl struct {
-	cfg        *config.Config
-	eventRepo  events.Repository
-	jobRepo    jobs.Repository
-	jobCancels map[int64]func()
+	cfg       *config.Config
+	eventRepo events.Repository
+	jobRepo   jobs.Repository
+	jobEngine *jobs.Engine
 }
 
 type webError struct {
@@ -39,12 +36,12 @@ func (w webError) Error() string {
 	return w.err
 }
 
-func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Repository) Web {
+func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Repository, jobEngine *jobs.Engine) Web {
 	return webImpl{
-		cfg:        cfg,
-		eventRepo:  eventRepo,
-		jobRepo:    jobRepo,
-		jobCancels: map[int64]func(){},
+		cfg:       cfg,
+		eventRepo: eventRepo,
+		jobRepo:   jobRepo,
+		jobEngine: jobEngine,
 	}
 }
 
@@ -67,19 +64,14 @@ func (wi webImpl) Serve() error {
 			http.Error(w, wErr.err, wErr.code)
 			return
 		}
-		srch, err := search.Parse(strings.TrimSpace(searchStrings[0]), startTime, endTime)
-		if err != nil {
-			http.Error(w, "Got error when parsing search: "+err.Error(), 500)
-			return
-		}
-		id, err := wi.jobRepo.Insert(searchStrings[0], startTime, endTime)
+		id, err := wi.jobEngine.StartJob(strings.TrimSpace(searchStrings[0]), startTime, endTime)
 		if err != nil {
 			http.Error(w, "Got error when creating job: "+err.Error(), 500)
 			return
 		}
 		serialized, err := json.Marshal(id)
 		if err != nil {
-			http.Error(w, "Got error when serializing results:"+err.Error(), 500)
+			http.Error(w, "Got error when serializing id:"+err.Error(), 500)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -88,58 +80,6 @@ func (wi webImpl) Serve() error {
 			http.Error(w, "Got error when writing results:"+err.Error(), 500)
 			return
 		}
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		wi.jobCancels[*id] = cancelFunc
-		go func() {
-			done := ctx.Done()
-			// TODO: This should probably be batched
-			results := search.FilterEventsStream(ctx, wi.eventRepo, srch, wi.cfg)
-			wasCancelled := false
-		out:
-			for {
-				select {
-				case evts, ok := <-results:
-					if !ok {
-						break out
-					}
-					log.Println("got", len(evts), "matching events")
-					if len(evts) > 0 {
-						converted := make([]events.EventIdAndTimestamp, len(evts))
-						for i, evt := range evts {
-							converted[i] = events.EventIdAndTimestamp{
-								Id:        evt.Id,
-								Timestamp: evt.Timestamp,
-							}
-						}
-						err := wi.jobRepo.AddResults(*id, converted)
-						if err != nil {
-							log.Println("Failed to add events to jobId=" + strconv.FormatInt(*id, 10) + ", error: " + err.Error())
-							// TODO: Retry?
-							continue
-						}
-						fields := gatherFieldStats(evts)
-						err = wi.jobRepo.AddFieldStats(*id, fields)
-						if err != nil {
-							log.Println("Failed to add field stats to jobId=" + strconv.FormatInt(*id, 10) + ", error: " + err.Error())
-						}
-					}
-				case <-done:
-					wasCancelled = true
-					break out
-				}
-			}
-			wi.jobCancels[*id] = nil
-			var state jobs.JobState
-			if wasCancelled {
-				state = jobs.JobStateAborted
-			} else {
-				state = jobs.JobStateFinished
-			}
-			err = wi.jobRepo.UpdateState(*id, state)
-			if err != nil {
-				log.Println("Failed to update jobId=" + string(*id) + " when updating to finished state. err=" + err.Error())
-			}
-		}()
 	})
 
 	http.HandleFunc("/api/v1/abortJob", func(w http.ResponseWriter, r *http.Request) {
@@ -154,11 +94,10 @@ func (wi webImpl) Serve() error {
 			http.Error(w, "jobId must be an integer", 400)
 			return
 		}
-		if fn, ok := wi.jobCancels[jobId]; !ok {
-			http.Error(w, "no cancel for jobId="+string(jobId)+" found. Already finished?", 400)
+		err = wi.jobEngine.Abort(jobId)
+		if err != nil {
+			http.Error(w, "failed to abort job: "+err.Error(), 500)
 			return
-		} else {
-			fn()
 		}
 	})
 
@@ -354,36 +293,6 @@ func parseTimeParameters(queryParams url.Values) (*time.Time, *time.Time, *webEr
 	}
 
 	return startTime, endTime, nil
-}
-
-func gatherFieldStats(evts []events.EventWithExtractedFields) []jobs.FieldStats {
-	m := map[string]map[string]int{}
-	size := 0
-	for _, evt := range evts {
-		for k, v := range evt.Fields {
-			if _, ok := m[k]; !ok {
-				size++
-				m[k] = map[string]int{}
-				m[k][v] = 1
-			} else if _, ok := m[k][v]; !ok {
-				m[k][v] = 1
-			} else {
-				m[k][v]++
-			}
-		}
-	}
-
-	ret := make([]jobs.FieldStats, 0, size)
-	for k, vm := range m {
-		for v, o := range vm {
-			ret = append(ret, jobs.FieldStats{
-				Key:         k,
-				Value:       v,
-				Occurrences: o,
-			})
-		}
-	}
-	return ret
 }
 
 func aggregateFields(inputEvents []events.EventWithExtractedFields) map[string]int {

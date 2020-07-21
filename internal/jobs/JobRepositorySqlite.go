@@ -173,7 +173,7 @@ func (repo *sqliteRepository) Insert(query string, startTime, endTime *time.Time
 }
 
 func (repo *sqliteRepository) UpdateState(id int64, state JobState) error {
-	_, err := repo.db.Exec("UPDATE Jobs SET state=? WHERE id=?;", id, state)
+	_, err := repo.db.Exec("UPDATE Jobs SET state=? WHERE id=?;", state, id)
 	if err != nil {
 		return fmt.Errorf("error when updating jobId=%v to state=%v: %w", id, state, err)
 	}
