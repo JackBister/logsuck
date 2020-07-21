@@ -21,8 +21,9 @@ type jsonSqliteConfig struct {
 }
 
 type jsonWebConfig struct {
-	Enabled bool   `json:enabled`
-	Address string `json:address`
+	Enabled          *bool  `json:enabled`
+	Address          string `json:address`
+	UsePackagedFiles *bool  `json:usePackagedFiles`
 }
 
 type jsonConfig struct {
@@ -45,8 +46,9 @@ var defaultConfig = Config{
 	},
 
 	Web: &WebConfig{
-		Enabled: true,
-		Address: ":8080",
+		Enabled:          true,
+		Address:          ":8080",
+		UsePackagedFiles: true,
 	},
 }
 
@@ -133,8 +135,12 @@ func FromJSON(r io.Reader) (*Config, error) {
 		log.Println("Using default web configuration.")
 		web = defaultConfig.Web
 	} else {
-		web = &WebConfig{
-			Enabled: cfg.Web.Enabled,
+		web = &WebConfig{}
+		if cfg.Web.Enabled == nil {
+			log.Println("web.enabled not specified, defaulting to true")
+			web.Enabled = true
+		} else {
+			web.Enabled = *cfg.Web.Enabled
 		}
 		if cfg.Web.Address == "" {
 			log.Printf("Using default web address. defaultWebAddress=%v\n", defaultConfig.Web.Address)
@@ -142,11 +148,14 @@ func FromJSON(r io.Reader) (*Config, error) {
 		} else {
 			web.Address = cfg.Web.Address
 		}
+		if cfg.Web.UsePackagedFiles == nil {
+			log.Println("web.usePackagedFiles not specified, defaulting to true")
+			web.UsePackagedFiles = true
+		} else {
+			web.UsePackagedFiles = *cfg.Web.UsePackagedFiles
+		}
 	}
 
-	if cfg.Web != nil {
-		log.Println("web", cfg.Web)
-	}
 	return &Config{
 		IndexedFiles:    indexedFiles,
 		FieldExtractors: fieldExtractors,

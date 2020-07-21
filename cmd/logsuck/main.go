@@ -32,8 +32,9 @@ var cfg = config.Config{
 	},
 
 	Web: &config.WebConfig{
-		Enabled: true,
-		Address: ":8080",
+		Enabled:          true,
+		Address:          ":8080",
+		UsePackagedFiles: true,
 	},
 }
 

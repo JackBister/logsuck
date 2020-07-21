@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/internal/jobs"
+	"github.com/markbates/pkger"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
@@ -48,7 +49,11 @@ func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Reposi
 }
 
 func (wi webImpl) Serve() error {
-	http.Handle("/", http.FileServer(http.Dir("web/static")))
+	if wi.cfg.Web.UsePackagedFiles {
+		http.Handle("/", http.FileServer(pkger.Dir("/web/static/dist")))
+	} else {
+		http.Handle("/", http.FileServer(http.Dir("web/static/dist")))
+	}
 
 	http.HandleFunc("/api/v1/startJob", func(w http.ResponseWriter, r *http.Request) {
 		queryParams := r.URL.Query()

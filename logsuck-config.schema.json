@@ -61,6 +61,10 @@
                 "address": {
                     "description": "The address where the web server will be exposed. Default ':8080'",
                     "type": "string"
+                },
+                "usePackagedFiles": {
+                    "description": "If true, all static files will be served using the files that are bundled into the executable. If false, the normal filesystem will be used (which means the directory './web/static/dist' must exist in the working directory). This is mostly useful when developing. Default true.",
+                    "type": "boolean"
                 }
             }
         }

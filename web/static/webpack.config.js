@@ -1,5 +1,15 @@
+const CopyPlugin = require('copy-webpack-plugin');
+
 module.exports = {
     devtool: 'source-map',
+    plugins: [
+        new CopyPlugin({
+            patterns: [
+                { from: './index.html', to: './dist/index.html' },
+                { from: './style.css', to: './dist/style.css' }
+            ]
+        })
+    ],
     module: {
         rules: [
             { test: /\.tsx?$/, loader: 'ts-loader' }
@@ -7,7 +17,7 @@ module.exports = {
     },
     output: {
         path: __dirname,
-        filename: 'app.js'
+        filename: 'dist/app.js'
     },
     resolve: {
         extensions: ['.ts', '.tsx', '.js']

@@ -3,3 +3,6 @@
 
 log-*.txt
 *.exe
+
+pkged.go
+web/static/dist
