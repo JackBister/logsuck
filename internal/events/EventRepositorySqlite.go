@@ -123,8 +123,11 @@ func (repo *sqliteRepository) FilterStream(sources, notSources map[string]struct
 			if len(notSources) > 0 {
 				matchString += ")"
 			}
-			if (len(sources) > 0 || len(notSources) > 0) && len(fragments) > 0 {
-				matchString += " AND ("
+			if len(sources) > 0 || len(notSources) > 0 {
+				matchString += " AND "
+			}
+			if len(fragments) > 0 {
+				matchString += "("
 			}
 			for frag := range fragments {
 				matchString += "raw:" + frag + " "
