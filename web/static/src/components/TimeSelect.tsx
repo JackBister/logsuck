@@ -7,7 +7,8 @@ enum Selection {
     LAST_4_HOURS,
     LAST_24_HOURS,
     LAST_7_DAYS,
-    LAST_30_DAYS
+    LAST_30_DAYS,
+    ALL_TIME,
 }
 
 interface Option {
@@ -23,6 +24,7 @@ const options: Option[] = [
     { value: Selection.LAST_24_HOURS, name: 'Last 24 hours', ts: { relativeTime: '-24h' } },
     { value: Selection.LAST_7_DAYS, name: 'Last 7 days', ts: { relativeTime: '-168h' } },
     { value: Selection.LAST_30_DAYS, name: 'Last 30 days', ts: { relativeTime: '-720h' } },
+    { value: Selection.ALL_TIME, name: 'All time', ts: {} },
 ];
 
 interface TimeSelectProps {

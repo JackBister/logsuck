@@ -151,7 +151,9 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
                                                 {this.state.recentSearches.map((rs) =>
                                                     <tr key={rs.searchTime.valueOf()} onClick={() => this.onRecentSearchClicked(rs)} style={{ cursor: "pointer" }}>
                                                         <td>{rs.searchString}</td>
-                                                        <td style={{ textAlign: "right" }}>{rs.timeSelection.relativeTime}</td>
+                                                        <td style={{ textAlign: "right" }}>{
+                                                            rs.timeSelection.relativeTime || "All time"
+                                                        }</td>
                                                     </tr>)}
                                             </tbody>
                                         </table>}

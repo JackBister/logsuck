@@ -348,13 +348,6 @@ func parseTimeParameters(queryParams url.Values) (*time.Time, *time.Time, *webEr
 		endTime = &t
 	}
 
-	if startTime == nil && endTime == nil {
-		return nil, nil, &webError{
-			err:  "One of relativeTime, startTime or endTime must be specified",
-			code: 400,
-		}
-	}
-
 	return startTime, endTime, nil
 }
 
