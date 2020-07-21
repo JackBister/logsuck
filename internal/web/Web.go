@@ -183,7 +183,7 @@ func (wi webImpl) Serve() error {
 			http.Error(w, "got error when getting eventIds, err="+err.Error(), 500)
 			return
 		}
-		results, err := wi.eventRepo.GetByIds(eventIds)
+		results, err := wi.eventRepo.GetByIds(eventIds, events.SortModeTimestampDesc)
 		if err != nil {
 			http.Error(w, "got error when getting events, err="+err.Error(), 500)
 			return

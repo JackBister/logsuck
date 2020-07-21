@@ -166,7 +166,7 @@ func (repo *sqliteRepository) FilterStream(sources, notSources map[string]struct
 	return ret
 }
 
-func (repo *sqliteRepository) GetByIds(ids []int64) ([]EventWithId, error) {
+func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventWithId, error) {
 	ret := make([]EventWithId, len(ids))
 
 	// TODO: I'm PRETTY sure this code is garbage
@@ -178,7 +178,13 @@ func (repo *sqliteRepository) GetByIds(ids []int64) ([]EventWithId, error) {
 			stmt += strconv.FormatInt(id, 10) + ","
 		}
 	}
-	stmt += ");"
+	stmt += ")"
+
+	if sortMode == SortModeTimestampDesc {
+		stmt += " ORDER BY e.timestamp DESC;"
+	} else {
+		stmt += ";"
+	}
 
 	res, err := repo.db.Query(stmt)
 	if err != nil {
