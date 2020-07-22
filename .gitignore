@@ -4,5 +4,5 @@
 log-*.txt
 *.exe
 
-pkged.go
+generated_assets.go
 web/static/dist

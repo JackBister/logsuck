@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/internal/jobs"
-	"github.com/markbates/pkger"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
@@ -47,7 +46,7 @@ func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Reposi
 
 func (wi webImpl) Serve() error {
 	if wi.cfg.Web.UsePackagedFiles {
-		http.Handle("/", http.FileServer(pkger.Dir("/web/static/dist")))
+		http.Handle("/", http.FileServer(Assets))
 	} else {
 		http.Handle("/", http.FileServer(http.Dir("web/static/dist")))
 	}
