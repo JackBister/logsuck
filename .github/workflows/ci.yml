@@ -22,9 +22,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
+    - name: Build frontend
+      working-directory: ./web/static
+      run: npm install && npm run build
+
     - name: Build
-      working-directory: ./cmd/logsuck
-      run: go generate -v . && go build -v .
+      run: go generate -v .cmd/logsuck/main.go && go build -v ./cmd/logsuck/main.go
 
     - name: Test
       run: go test -v ./...
