@@ -23,7 +23,8 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Build
-      run: go generate -v ./cmd/logsuck/main.go && go build -v ./cmd/logsuck/main.go
+      working-directory: ./cmd/logsuck
+      run: go generate -v . && go build -v .
 
     - name: Test
       run: go test -v ./...
