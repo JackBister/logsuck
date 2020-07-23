@@ -3,14 +3,20 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/shurcooL/vfsgen"
 )
 
-var static = http.Dir("../../web/static/dist")
-
 func main() {
-	err := vfsgen.Generate(static, vfsgen.Options{
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Println("error getting working directory:", err)
+	} else {
+		log.Println("working directory:", wd)
+	}
+	static := http.Dir("../../web/static/dist")
+	err = vfsgen.Generate(static, vfsgen.Options{
 		PackageName:  "web",
 		VariableName: "Assets",
 		Filename:     "../../internal/web/generated_assets.go",
