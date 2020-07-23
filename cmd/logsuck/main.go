@@ -129,12 +129,11 @@ func main() {
 	jobEngine := jobs.NewEngine(&cfg, repo, jobRepo)
 
 	for i, file := range cfg.IndexedFiles {
-		commandChannels[i] = make(chan files.FileWatcherCommand)
-		f, err := os.Open(file.Filename)
+		commandChannels[i] = make(chan files.FileWatcherCommand, 1)
+		fw, err := files.NewFileWatcher(file, commandChannels[i], publisher)
 		if err != nil {
 			log.Fatal(err)
 		}
-		fw := files.NewFileWatcher(file, commandChannels[i], publisher, f)
 		log.Println("Starting FileWatcher for filename=" + file.Filename)
 		go fw.Start()
 	}
