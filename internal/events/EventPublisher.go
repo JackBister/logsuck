@@ -60,6 +60,7 @@ func BatchedRepositoryPublisher(cfg *config.Config, repo Repository) EventPublis
 func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout string) {
 	processed := Event{
 		Raw:    evt.Raw,
+		Host:   ep.cfg.HostName,
 		Source: evt.Source,
 		Offset: evt.Offset,
 	}

@@ -40,6 +40,42 @@
                 "type": "string"
             }
         },
+        "hostName": {
+            "description": "The name of the host running this instance of logsuck. If empty or unset, logsuck will attempt to retrieve the hostname from the operating system.",
+            "type": "string"
+        },
+        "forwarder": {
+            "description": "Configuration for running in recipient mode, where events will be pushed to a recipient instance of logsuck instead of being saved locally.",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Whether forwarding mode should be enabled or not. Default false.",
+                    "type": "boolean"
+                },
+                "maxBufferedEvents": {
+                    "description": "If the forwarder is unable to reach the recipient, events will begin to queue up. maxBufferedEvents is the maximum size of that queue. If maxBufferedEvents is exceeded before the forwarder can reach the recipient again, events will be lost.",
+                    "type": "number"
+                },
+                "recipientAddress": {
+                    "description": "The URL where the recipient instance is running. Default 'localhost:8081'.",
+                    "type": "string"
+                }
+            }
+        },
+        "recipient": {
+            "description": "Configuration for running in recipient mode, where events will be rececived from other logsuck instances in forwarder mode instead of reading directly from the log files.",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Whether recipient mode should be enabled or not. Default false.",
+                    "type": "boolean"
+                },
+                "address": {
+                    "description": "The addreess where the API endpoints that the forwarders will communicate with should be exposed. Default ':8081'.",
+                    "type": "string"
+                }
+            }
+        },
         "sqlite": {
             "description": "Configuration for the SQLite database where logsuck will store its data.",
             "type": "object",
@@ -59,7 +95,7 @@
                     "type": "boolean"
                 },
                 "address": {
-                    "description": "The address where the web server will be exposed. Default ':8080'",
+                    "description": "The address where the web server will be exposed. Default ':8080'.",
                     "type": "string"
                 },
                 "usePackagedFiles": {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"regexp"
 	"time"
 )
@@ -14,6 +15,17 @@ type jsonFileConfig struct {
 	EventDelimiter string `json:eventDelimiter`
 	ReadInterval   string `json:readInterval`
 	TimeLayout     string `json:timeLayout`
+}
+
+type jsonForwarderConfig struct {
+	Enabled           *bool  `json:enabled`
+	MaxBufferedEvents *int   `json:maxBufferedEvents`
+	RecipientAddress  string `json:recipientAddress`
+}
+
+type jsonRecipientConfig struct {
+	Enabled *bool  `json:enabled`
+	Address string `json:address`
 }
 
 type jsonSqliteConfig struct {
@@ -27,10 +39,15 @@ type jsonWebConfig struct {
 }
 
 type jsonConfig struct {
-	Files           []jsonFileConfig  `json:files`
-	FieldExtractors []string          `json:fieldExtractors`
-	Sqlite          *jsonSqliteConfig `json:sqlite`
-	Web             *jsonWebConfig    `json:web`
+	Files           []jsonFileConfig `json:files`
+	FieldExtractors []string         `json:fieldExtractors`
+
+	HostName string `json:hostName`
+
+	Forwarder *jsonForwarderConfig `json:forwarder`
+	Recipient *jsonRecipientConfig `json:recipient`
+	Sqlite    *jsonSqliteConfig    `json:sqlite`
+	Web       *jsonWebConfig       `json:web`
 }
 
 var defaultConfig = Config{
@@ -39,6 +56,17 @@ var defaultConfig = Config{
 	FieldExtractors: []*regexp.Regexp{
 		regexp.MustCompile("(\\w+)=(\\w+)"),
 		regexp.MustCompile("^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)"),
+	},
+
+	Forwarder: &ForwarderConfig{
+		Enabled:           false,
+		MaxBufferedEvents: 1000000,
+		RecipientAddress:  "localhost:8081",
+	},
+
+	Recipient: &RecipientConfig{
+		Enabled: false,
+		Address: ":8081",
 	},
 
 	SQLite: &SqliteConfig{
@@ -116,6 +144,65 @@ func FromJSON(r io.Reader) (*Config, error) {
 		}
 	}
 
+	var hostName string
+	if cfg.HostName != "" {
+		log.Printf("Using hostName=%v\n", cfg.HostName)
+		hostName = cfg.HostName
+	} else {
+		log.Println("No hostName in configuration, will try to get host name from operating system.")
+		hostName, err = os.Hostname()
+		if err != nil {
+			return nil, fmt.Errorf("error getting host name: %w", err)
+		}
+		log.Printf("Got host name from operating system. hostName=%v\n", hostName)
+	}
+
+	var forwarder *ForwarderConfig
+	if cfg.Forwarder == nil {
+		log.Println("Using default forwarder configuration.")
+		forwarder = defaultConfig.Forwarder
+	} else {
+		forwarder = &ForwarderConfig{}
+		if cfg.Forwarder.Enabled == nil {
+			log.Println("forwarder.enabled not specified, defaulting to false")
+			forwarder.Enabled = false
+		} else {
+			forwarder.Enabled = *cfg.Forwarder.Enabled
+		}
+		if cfg.Forwarder.MaxBufferedEvents == nil {
+			log.Printf("Using default maxBufferedEvents for forwarder. defaultBufferedEvents=%v\n", defaultConfig.Forwarder.MaxBufferedEvents)
+			forwarder.MaxBufferedEvents = defaultConfig.Forwarder.MaxBufferedEvents
+		} else {
+			forwarder.MaxBufferedEvents = *cfg.Forwarder.MaxBufferedEvents
+		}
+		if cfg.Forwarder.RecipientAddress == "" {
+			log.Printf("Using default recipientAddress for forwarder. dedfaultRecipientAddress=%v\n", defaultConfig.Forwarder.RecipientAddress)
+			forwarder.RecipientAddress = defaultConfig.Forwarder.RecipientAddress
+		} else {
+			forwarder.RecipientAddress = cfg.Forwarder.RecipientAddress
+		}
+	}
+
+	var recipient *RecipientConfig
+	if cfg.Recipient == nil {
+		log.Println("Using default recipient configuration.")
+		recipient = defaultConfig.Recipient
+	} else {
+		recipient = &RecipientConfig{}
+		if cfg.Recipient.Enabled == nil {
+			log.Println("recipient.enabled not specified, defaulting to false")
+			recipient.Enabled = false
+		} else {
+			recipient.Enabled = *cfg.Recipient.Enabled
+		}
+		if cfg.Recipient.Address == "" {
+			log.Printf("Using default address for recipient. defaultAddress=%v\n", defaultConfig.Recipient.Address)
+			recipient.Address = defaultConfig.Recipient.Address
+		} else {
+			recipient.Address = cfg.Recipient.Address
+		}
+	}
+
 	var sqlite *SqliteConfig
 	if cfg.Sqlite == nil {
 		log.Println("Using default sqlite configuration.")
@@ -137,8 +224,13 @@ func FromJSON(r io.Reader) (*Config, error) {
 	} else {
 		web = &WebConfig{}
 		if cfg.Web.Enabled == nil {
-			log.Println("web.enabled not specified, defaulting to true")
-			web.Enabled = true
+			if forwarder.Enabled {
+				log.Println("web.enabled not specified but forwarder.enabled is true. Setting web.enabled to false")
+				web.Enabled = false
+			} else {
+				log.Println("web.enabled not specified, defaulting to true")
+				web.Enabled = true
+			}
 		} else {
 			web.Enabled = *cfg.Web.Enabled
 		}
@@ -159,7 +251,14 @@ func FromJSON(r io.Reader) (*Config, error) {
 	return &Config{
 		IndexedFiles:    indexedFiles,
 		FieldExtractors: fieldExtractors,
-		SQLite:          sqlite,
-		Web:             web,
+
+		HostName: hostName,
+
+		Forwarder: forwarder,
+		Recipient: recipient,
+
+		SQLite: sqlite,
+
+		Web: web,
 	}, nil
 }

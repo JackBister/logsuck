@@ -13,6 +13,11 @@ type Config struct {
 	// If a field with the name _time is extracted, it will be matched against TimeLayout
 	FieldExtractors []*regexp.Regexp
 
+	HostName string
+
+	Forwarder *ForwarderConfig
+	Recipient *RecipientConfig
+
 	SQLite *SqliteConfig
 
 	Web *WebConfig

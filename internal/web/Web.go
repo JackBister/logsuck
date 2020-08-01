@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -45,13 +46,14 @@ func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Reposi
 }
 
 func (wi webImpl) Serve() error {
+	mux := http.NewServeMux()
 	if wi.cfg.Web.UsePackagedFiles {
-		http.Handle("/", http.FileServer(Assets))
+		mux.Handle("/", http.FileServer(Assets))
 	} else {
-		http.Handle("/", http.FileServer(http.Dir("web/static/dist")))
+		mux.Handle("/", http.FileServer(http.Dir("web/static/dist")))
 	}
 
-	http.HandleFunc("/api/v1/startJob", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/startJob", func(w http.ResponseWriter, r *http.Request) {
 		queryParams := r.URL.Query()
 		searchStrings, ok := queryParams["searchString"]
 		if !ok || len(searchStrings) < 1 {
@@ -81,7 +83,7 @@ func (wi webImpl) Serve() error {
 		}
 	})
 
-	http.HandleFunc("/api/v1/abortJob", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/abortJob", func(w http.ResponseWriter, r *http.Request) {
 		queryParams := r.URL.Query()
 		jobIdString, ok := queryParams["jobId"]
 		if !ok || len(jobIdString) < 1 {
@@ -100,7 +102,7 @@ func (wi webImpl) Serve() error {
 		}
 	})
 
-	http.HandleFunc("/api/v1/jobStats", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/jobStats", func(w http.ResponseWriter, r *http.Request) {
 		queryParams := r.URL.Query()
 		jobIdString, ok := queryParams["jobId"]
 		if !ok || len(jobIdString) < 1 {
@@ -145,7 +147,7 @@ func (wi webImpl) Serve() error {
 		}
 	})
 
-	http.HandleFunc("/api/v1/jobResults", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/jobResults", func(w http.ResponseWriter, r *http.Request) {
 		queryParams := r.URL.Query()
 		jobIdString, ok := queryParams["jobId"]
 		if !ok || len(jobIdString) < 1 {
@@ -212,7 +214,7 @@ func (wi webImpl) Serve() error {
 		}
 	})
 
-	http.HandleFunc("/api/v1/jobFieldStats", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/jobFieldStats", func(w http.ResponseWriter, r *http.Request) {
 		queryParams := r.URL.Query()
 		jobIdString, ok := queryParams["jobId"]
 		if !ok || len(jobIdString) < 1 {
@@ -246,9 +248,11 @@ func (wi webImpl) Serve() error {
 	})
 
 	s := http.Server{
-		Addr: wi.cfg.Web.Address,
+		Addr:    wi.cfg.Web.Address,
+		Handler: mux,
 	}
 
+	log.Printf("Starting Web GUI on address='%v'\n", wi.cfg.Web.Address)
 	return s.ListenAndServe()
 }
 

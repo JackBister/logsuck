@@ -12,6 +12,7 @@ type RawEvent struct {
 type Event struct {
 	Raw       string
 	Timestamp time.Time
+	Host      string
 	Source    string
 	Offset    int64
 }
@@ -20,6 +21,7 @@ type EventWithId struct {
 	Id        int64
 	Raw       string
 	Timestamp time.Time
+	Host      string
 	Source    string
 }
 

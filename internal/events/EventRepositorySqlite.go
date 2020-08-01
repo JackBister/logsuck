@@ -7,9 +7,11 @@ import (
 	"log"
 	"strconv"
 	"time"
+
+	"github.com/jackbister/logsuck/internal/search"
 )
 
-const expectedConstraintViolationForDuplicates = "UNIQUE constraint failed: Events.source, Events.timestamp, Events.offset"
+const expectedConstraintViolationForDuplicates = "UNIQUE constraint failed: Events.host, Events.source, Events.timestamp, Events.offset"
 const filterStreamPageSize = 1000
 
 type sqliteRepository struct {
@@ -17,7 +19,7 @@ type sqliteRepository struct {
 }
 
 func SqliteRepository(db *sql.DB) (Repository, error) {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY, source TEXT NOT NULL, timestamp DATETIME NOT NULL, offset BIGINT NOT NULL, UNIQUE(source, timestamp, offset));")
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY, host TEXT NOT NULL, source TEXT NOT NULL, timestamp DATETIME NOT NULL, offset BIGINT NOT NULL, UNIQUE(host, source, timestamp, offset));")
 	if err != nil {
 		return nil, fmt.Errorf("error creating events table: %w", err)
 	}
@@ -26,7 +28,7 @@ func SqliteRepository(db *sql.DB) (Repository, error) {
 		return nil, fmt.Errorf("error creating events timestamp index: %w", err)
 	}
 	// It seems we have to use FTS4 instead of FTS5? - I could not find an option equivalent to order=DESC for FTS5 and order=DESC makes queries 8-9x faster...
-	_, err = db.Exec("CREATE VIRTUAL TABLE IF NOT EXISTS EventRaws USING fts4 (raw TEXT, source TEXT, order=DESC);")
+	_, err = db.Exec("CREATE VIRTUAL TABLE IF NOT EXISTS EventRaws USING fts4 (raw TEXT, source TEXT, host TEXT, order=DESC);")
 	if err != nil {
 		return nil, fmt.Errorf("error creating eventraws table: %w", err)
 	}
@@ -44,7 +46,7 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 	}
 	numberOfDuplicates := map[string]int64{}
 	for i, evt := range events {
-		res, err := tx.Exec("INSERT INTO Events(source, timestamp, offset) VALUES(?, ?, ?);", evt.Source, evt.Timestamp, evt.Offset)
+		res, err := tx.Exec("INSERT INTO Events(host, source, timestamp, offset) VALUES(?, ?, ?, ?);", evt.Host, evt.Source, evt.Timestamp, evt.Offset)
 		// Surely this can't be the right way to check for this error...
 		if err != nil && err.Error() == expectedConstraintViolationForDuplicates {
 			numberOfDuplicates[evt.Source]++
@@ -59,7 +61,7 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 			tx.Rollback()
 			return nil, fmt.Errorf("error getting event id after insert: %w", err)
 		}
-		_, err = tx.Exec("INSERT INTO EventRaws (rowid, raw, source) SELECT LAST_INSERT_ROWID(), ?, ?;", evt.Raw, evt.Source)
+		_, err = tx.Exec("INSERT INTO EventRaws (rowid, raw, source, host) SELECT LAST_INSERT_ROWID(), ?, ?, ?;", evt.Raw, evt.Source, evt.Host)
 		if err != nil {
 			tx.Rollback()
 			return nil, fmt.Errorf("error executing add raw statement: %w", err)
@@ -67,17 +69,17 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 		ret[i] = id
 	}
 	err = tx.Commit()
-	for k, v := range numberOfDuplicates {
-		log.Printf("Skipped adding numEvents=%v from source=%v because they appear to be duplicates (same source, offset and timestamp as an existing event)\n", v, k)
-	}
 	if err != nil {
 		// TODO: Hmm?
+	}
+	for k, v := range numberOfDuplicates {
+		log.Printf("Skipped adding numEvents=%v from source=%v because they appear to be duplicates (same source, offset and timestamp as an existing event)\n", v, k)
 	}
 	log.Printf("added numEvents=%v in timeInMs=%v\n", len(events), time.Now().Sub(startTime).Milliseconds())
 	return ret, nil
 }
 
-func (repo *sqliteRepository) FilterStream(sources, notSources map[string]struct{}, fragments map[string]struct{}, startTime, endTime *time.Time) <-chan []EventWithId {
+func (repo *sqliteRepository) FilterStream(srch *search.Search) <-chan []EventWithId {
 	ret := make(chan []EventWithId)
 	go func() {
 		defer close(ret)
@@ -100,42 +102,61 @@ func (repo *sqliteRepository) FilterStream(sources, notSources map[string]struct
 		}
 		offset := 0
 		for {
-			stmt := "SELECT e.id, e.source, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id < " + strconv.Itoa(maxID)
-			if startTime != nil {
-				stmt += " AND e.timestamp >= '" + startTime.String() + "'"
+			stmt := "SELECT e.id, e.host, e.source, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id < " + strconv.Itoa(maxID)
+			if srch.StartTime != nil {
+				stmt += " AND e.timestamp >= '" + srch.StartTime.String() + "'"
 			}
-			if endTime != nil {
-				stmt += " AND e.timestamp <= '" + endTime.String() + "'"
+			if srch.EndTime != nil {
+				stmt += " AND e.timestamp <= '" + srch.EndTime.String() + "'"
 			}
+			includes := map[string][]string{}
+			nots := map[string][]string{}
+			hostIncludes := make([]string, 0, len(srch.Hosts))
+			for h := range srch.Hosts {
+				hostIncludes = append(hostIncludes, h)
+			}
+			includes["host"] = hostIncludes
+			hostNots := make([]string, 0, len(srch.NotHosts))
+			for h := range srch.NotHosts {
+				hostNots = append(hostNots, h)
+			}
+			nots["host"] = hostNots
+			sourceIncludes := make([]string, 0, len(srch.Sources))
+			for s := range srch.Sources {
+				sourceIncludes = append(sourceIncludes, s)
+			}
+			includes["source"] = sourceIncludes
+			sourceNots := make([]string, 0, len(srch.NotSources))
+			for s := range srch.NotSources {
+				sourceNots = append(sourceNots, s)
+			}
+			nots["source"] = sourceNots
+			rawIncludes := make([]string, 0, len(srch.Fragments))
+			for f := range srch.Fragments {
+				rawIncludes = append(rawIncludes, f)
+			}
+			includes["raw"] = rawIncludes
+			rawNots := make([]string, 0, len(srch.NotFragments))
+			for f := range srch.NotFragments {
+				rawNots = append(rawNots, f)
+			}
+			nots["raw"] = rawNots
+
 			matchString := ""
-			if len(sources) > 0 {
-				matchString += "("
+			for k, v := range includes {
+				for _, s := range v {
+					matchString += k + ":" + s + " "
+				}
 			}
-			for s := range sources {
-				matchString += "source:" + s + " "
+			for k, v := range nots {
+				for _, s := range v {
+					matchString += "NOT " + k + ":" + s + " "
+				}
 			}
-			if len(sources) > 0 && len(notSources) == 0 {
-				matchString += ")"
+
+			if len(matchString) > 0 {
+				stmt += " AND EventRaws MATCH '" + matchString + "'"
 			}
-			for s := range notSources {
-				matchString += "NOT source:" + s + " "
-			}
-			if len(notSources) > 0 {
-				matchString += ")"
-			}
-			if len(sources) > 0 || len(notSources) > 0 {
-				matchString += " AND "
-			}
-			if len(fragments) > 0 {
-				matchString += "("
-			}
-			for frag := range fragments {
-				matchString += "raw:" + frag + " "
-			}
-			if len(fragments) > 0 {
-				matchString += ")"
-			}
-			stmt += " AND EventRaws MATCH '" + matchString + "'"
 			stmt += " ORDER BY e.timestamp DESC, e.id DESC LIMIT " + strconv.Itoa(filterStreamPageSize) + " OFFSET " + strconv.Itoa(offset) + ";"
 			log.Println("executing stmt", stmt)
 			res, err = repo.db.Query(stmt)
@@ -147,7 +168,7 @@ func (repo *sqliteRepository) FilterStream(sources, notSources map[string]struct
 			eventsInPage := 0
 			for res.Next() {
 				var evt EventWithId
-				err := res.Scan(&evt.Id, &evt.Source, &evt.Timestamp, &evt.Raw)
+				err := res.Scan(&evt.Id, &evt.Host, &evt.Source, &evt.Timestamp, &evt.Raw)
 				if err != nil {
 					log.Printf("error when scanning result in FilterStream: %v\n", err)
 				} else {
@@ -170,7 +191,7 @@ func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventW
 	ret := make([]EventWithId, len(ids))
 
 	// TODO: I'm PRETTY sure this code is garbage
-	stmt := "SELECT e.id, e.source, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id IN ("
+	stmt := "SELECT e.id, e.host, e.source, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id IN ("
 	for i, id := range ids {
 		if i == len(ids)-1 {
 			stmt += strconv.FormatInt(id, 10)
@@ -194,7 +215,7 @@ func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventW
 
 	idx := 0
 	for res.Next() {
-		err = res.Scan(&ret[idx].Id, &ret[idx].Source, &ret[idx].Timestamp, &ret[idx].Raw)
+		err = res.Scan(&ret[idx].Id, &ret[idx].Host, &ret[idx].Source, &ret[idx].Timestamp, &ret[idx].Raw)
 		if err != nil {
 			return nil, fmt.Errorf("error when scanning row in GetByIds: %w", err)
 		}

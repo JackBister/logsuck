@@ -28,6 +28,14 @@ var cfg = config.Config{
 		regexp.MustCompile("^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)"),
 	},
 
+	Forwarder: &config.ForwarderConfig{
+		Enabled: false,
+	},
+
+	Recipient: &config.RecipientConfig{
+		Enabled: false,
+	},
+
 	SQLite: &config.SqliteConfig{
 		DatabaseFile: "logsuck.db",
 	},
@@ -112,21 +120,30 @@ func main() {
 	}
 
 	commandChannels := make([]chan files.FileWatcherCommand, len(cfg.IndexedFiles))
-	db, err := sql.Open("sqlite3", cfg.SQLite.DatabaseFile+"?cache=shared")
-	if err != nil {
-		log.Fatalln(err.Error())
+
+	var jobRepo jobs.Repository
+	var jobEngine *jobs.Engine
+	var publisher events.EventPublisher
+	var repo events.Repository
+	if cfg.Forwarder.Enabled {
+		publisher = events.ForwardingEventPublisher(&cfg)
+	} else {
+		db, err := sql.Open("sqlite3", cfg.SQLite.DatabaseFile+"?cache=shared")
+		if err != nil {
+			log.Fatalln(err.Error())
+		}
+		db.SetMaxOpenConns(1)
+		repo, err = events.SqliteRepository(db)
+		if err != nil {
+			log.Fatalln(err.Error())
+		}
+		jobRepo, err = jobs.SqliteRepository(db)
+		if err != nil {
+			log.Fatalln(err.Error())
+		}
+		jobEngine = jobs.NewEngine(&cfg, repo, jobRepo)
+		publisher = events.BatchedRepositoryPublisher(&cfg, repo)
 	}
-	db.SetMaxOpenConns(1)
-	repo, err := events.SqliteRepository(db)
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
-	publisher := events.BatchedRepositoryPublisher(&cfg, repo)
-	jobRepo, err := jobs.SqliteRepository(db)
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
-	jobEngine := jobs.NewEngine(&cfg, repo, jobRepo)
 
 	for i, file := range cfg.IndexedFiles {
 		commandChannels[i] = make(chan files.FileWatcherCommand, 1)
@@ -138,5 +155,17 @@ func main() {
 		go fw.Start()
 	}
 
-	log.Fatal(web.NewWeb(&cfg, repo, jobRepo, jobEngine).Serve())
+	if cfg.Recipient.Enabled {
+		go func() {
+			log.Fatal(events.NewEventRecipient(&cfg, repo).Serve())
+		}()
+	}
+
+	if cfg.Web.Enabled {
+		go func() {
+			log.Fatal(web.NewWeb(&cfg, repo, jobRepo, jobEngine).Serve())
+		}()
+	}
+
+	select {}
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/filtering"
 	"github.com/jackbister/logsuck/internal/search"
 )
 
@@ -43,7 +44,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 	go func() {
 		done := ctx.Done()
 		// TODO: This should probably be batched
-		results := search.FilterEventsStream(ctx, e.eventRepo, srch, e.cfg)
+		results := filtering.FilterEventsStream(ctx, e.eventRepo, srch, e.cfg)
 		wasCancelled := false
 	out:
 		for {

@@ -15,6 +15,8 @@ type ParseResult struct {
 	NotFields    map[string][]string
 	Sources      map[string]struct{}
 	NotSources   map[string]struct{}
+	Hosts        map[string]struct{}
+	NotHosts     map[string]struct{}
 }
 
 type parser struct {
@@ -218,6 +220,18 @@ func Parse(input string) (*ParseResult, error) {
 		ret.NotSources = make(map[string]struct{}, len(sources))
 		for _, src := range sources {
 			ret.NotSources[src] = struct{}{}
+		}
+	}
+	if hosts, ok := ret.Fields["host"]; ok {
+		ret.Hosts = make(map[string]struct{}, len(hosts))
+		for _, host := range hosts {
+			ret.Hosts[host] = struct{}{}
+		}
+	}
+	if hosts, ok := ret.NotFields["host"]; ok {
+		ret.NotHosts = make(map[string]struct{}, len(hosts))
+		for _, host := range hosts {
+			ret.NotHosts[host] = struct{}{}
 		}
 	}
 
