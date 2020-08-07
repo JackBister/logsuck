@@ -61,7 +61,7 @@ var defaultConfig = Config{
 	Forwarder: &ForwarderConfig{
 		Enabled:           false,
 		MaxBufferedEvents: 1000000,
-		RecipientAddress:  "localhost:8081",
+		RecipientAddress:  "http://localhost:8081",
 	},
 
 	Recipient: &RecipientConfig{
@@ -221,6 +221,10 @@ func FromJSON(r io.Reader) (*Config, error) {
 	if cfg.Web == nil {
 		log.Println("Using default web configuration.")
 		web = defaultConfig.Web
+		if forwarder.Enabled {
+			log.Println("Disabling web GUI since forwarder is enabled.")
+			web.Enabled = false
+		}
 	} else {
 		web = &WebConfig{}
 		if cfg.Web.Enabled == nil {
