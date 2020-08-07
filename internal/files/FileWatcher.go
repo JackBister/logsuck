@@ -27,6 +27,8 @@ const (
 type FileWatcher struct {
 	fileConfig config.IndexedFileConfig
 
+	hostName string
+
 	commands       chan FileWatcherCommand
 	eventPublisher events.EventPublisher
 	file           *os.File
@@ -39,6 +41,7 @@ type FileWatcher struct {
 // NewFileWatcher returns a FileWatcher which will watch a file and publish events according to the IndexedFileConfig
 func NewFileWatcher(
 	fileConfig config.IndexedFileConfig,
+	hostName string,
 	commands chan FileWatcherCommand,
 	eventPublisher events.EventPublisher,
 ) (*FileWatcher, error) {
@@ -65,6 +68,8 @@ func NewFileWatcher(
 	}()
 	return &FileWatcher{
 		fileConfig: fileConfig,
+
+		hostName: hostName,
 
 		commands:       commands,
 		eventPublisher: eventPublisher,
@@ -133,6 +138,7 @@ func (fw *FileWatcher) handleEvents() {
 	for i, raw := range split[:len(split)-1] {
 		evt := events.RawEvent{
 			Raw:    raw,
+			Host:   fw.hostName,
 			Source: fw.fileConfig.Filename,
 			Offset: fw.currentOffset,
 		}

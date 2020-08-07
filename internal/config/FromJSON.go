@@ -24,8 +24,9 @@ type jsonForwarderConfig struct {
 }
 
 type jsonRecipientConfig struct {
-	Enabled *bool  `json:enabled`
-	Address string `json:address`
+	Enabled     *bool             `json:enabled`
+	Address     string            `json:address`
+	TimeLayouts map[string]string `json:timeLayouts`
 }
 
 type jsonSqliteConfig struct {
@@ -67,6 +68,9 @@ var defaultConfig = Config{
 	Recipient: &RecipientConfig{
 		Enabled: false,
 		Address: ":8081",
+		TimeLayouts: map[string]string{
+			"DEFAULT": defaultTimeLayout,
+		},
 	},
 
 	SQLite: &SqliteConfig{
@@ -200,6 +204,16 @@ func FromJSON(r io.Reader) (*Config, error) {
 			recipient.Address = defaultConfig.Recipient.Address
 		} else {
 			recipient.Address = cfg.Recipient.Address
+		}
+		if cfg.Recipient.TimeLayouts == nil {
+			log.Printf("Using default time layouts for recipient. defaultTimeLayouts=%v\n", defaultConfig.Recipient.TimeLayouts)
+			recipient.TimeLayouts = defaultConfig.Recipient.TimeLayouts
+		} else {
+			recipient.TimeLayouts = cfg.Recipient.TimeLayouts
+			if _, ok := recipient.TimeLayouts["DEFAULT"]; !ok {
+				log.Printf("No DEFAULT key found in recipient.timeLayouts, will add DEFAULT timeLayout '%v'\n", defaultConfig.Recipient.TimeLayouts["DEFAULT"])
+				recipient.TimeLayouts["DEFAULT"] = defaultConfig.Recipient.TimeLayouts["DEFAULT"]
+			}
 		}
 	}
 

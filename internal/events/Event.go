@@ -5,6 +5,7 @@ import "time"
 // RawEvent represents an Event that has not yet been enriched with information about field values etc.
 type RawEvent struct {
 	Raw    string
+	Host   string
 	Source string
 	Offset int64
 }

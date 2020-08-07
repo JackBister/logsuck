@@ -7,11 +7,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/parser"
 )
 
 const forwardChunkSize = 1000
@@ -19,16 +17,16 @@ const forwardChunkSize = 1000
 type forwardingEventPublisher struct {
 	cfg *config.Config
 
-	accumulated []Event
-	adder       chan<- Event
+	accumulated []RawEvent
+	adder       chan<- RawEvent
 }
 
 func ForwardingEventPublisher(cfg *config.Config) EventPublisher {
-	adder := make(chan Event)
+	adder := make(chan RawEvent)
 	ep := forwardingEventPublisher{
 		cfg: cfg,
 
-		accumulated: make([]Event, 0, forwardChunkSize),
+		accumulated: make([]RawEvent, 0, forwardChunkSize),
 		adder:       adder,
 	}
 
@@ -67,27 +65,7 @@ func ForwardingEventPublisher(cfg *config.Config) EventPublisher {
 }
 
 func (ep *forwardingEventPublisher) PublishEvent(evt RawEvent, timeLayout string) {
-	processed := Event{
-		Raw:    evt.Raw,
-		Host:   ep.cfg.HostName,
-		Source: evt.Source,
-		Offset: evt.Offset,
-	}
-
-	fields := parser.ExtractFields(strings.ToLower(evt.Raw), ep.cfg.FieldExtractors)
-	if t, ok := fields["_time"]; ok {
-		parsed, err := time.Parse(timeLayout, t)
-		if err != nil {
-			log.Printf("failed to parse _time field, will use current time as timestamp: %v\n", err)
-			processed.Timestamp = time.Now()
-		} else {
-			processed.Timestamp = parsed
-		}
-	} else {
-		processed.Timestamp = time.Now()
-	}
-
-	ep.adder <- processed
+	ep.adder <- evt
 }
 
 func (ep *forwardingEventPublisher) forward() error {

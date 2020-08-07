@@ -91,6 +91,12 @@ func main() {
 		log.Printf("Using configuration from file '%v': %v\n", cfgFileFlag, cfg)
 	} else {
 		log.Printf("Could not open config file '%v', will use command line configuration\n", cfgFileFlag)
+		hostName, err := os.Hostname()
+		if err != nil {
+			log.Fatalf("error getting hostname: %v\n", err)
+		}
+		cfg.HostName = hostName
+
 		if databaseFileFlag != "" {
 			cfg.SQLite.DatabaseFile = databaseFileFlag
 		}
@@ -147,7 +153,7 @@ func main() {
 
 	for i, file := range cfg.IndexedFiles {
 		commandChannels[i] = make(chan files.FileWatcherCommand, 1)
-		fw, err := files.NewFileWatcher(file, commandChannels[i], publisher)
+		fw, err := files.NewFileWatcher(file, cfg.HostName, commandChannels[i], publisher)
 		if err != nil {
 			log.Fatal(err)
 		}
