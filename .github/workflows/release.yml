@@ -1,0 +1,76 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+   
+jobs:  
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set VERSIONNAME
+      run: VERSIONNAME=$(echo $GITHUB_REF | sed 's/\./_/g') && echo "::set-env name=VERSIONNAME::$VERSIONNAME"
+      
+    - name: Setup
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.14
+      id: go
+    
+    - name: Install Windows toolchain
+      run: sudo apt install gcc-mingw-w64
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Build frontend
+      working-directory: ./web/static
+      run: npm install && npm run build
+    
+    - name: Generate
+      run: go generate -v ./cmd/logsuck/main.go
+
+    - name: Build and zip Linux x64
+      id: build_linux_x64
+      run: LINUX_X64_ASSET_PATH="logsuck-$VERSIONNAME-x64-linux.zip" && go build -o 'logsuck' -v ./cmd/logsuck/main.go && zip $LINUX_X64_ASSET_PATH logsuck && echo "::set-output name=asset_path::$LINUX_X64_ASSET_PATH"
+    
+    - name: Build and zip Windows x64
+      id: build_windows_x64
+      run: WINDOWS_X64_ASSET_PATH="logsuck-$VERSIONNAME-x64-windows.zip" && GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -o 'logsuck.exe' -v ./cmd/logsuck/main.go && zip $WINDOWS_X64_ASSET_PATH logsuck.exe && echo "::set-output name=asset_path::$WINDOWS_X64_ASSET_PATH"
+
+    - name: Test
+      run: go test -v ./...
+    
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: true
+        prerelease: false
+      
+    - name: Upload Linux x64
+      id: upload_linux_x64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{steps.build_linux_x64.outputs.asset_path}}
+        asset_name: ${{steps.build_linux_x64.outputs.asset_path}}
+        asset_content_type: application/zip
+        
+    - name: Upload Windows x64
+      id: upload_windows_x64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{steps.build_windows_x64.outputs.asset_path}}
+        asset_name: ${{steps.build_windows_x64.outputs.asset_path}}
+        asset_content_type: application/zip
