@@ -10,9 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Set VERSIONNAME
-      env:
-        TAG_NAME: ${{ github.ref }}
-      run: VERSIONNAME=$(echo $TAG_NAME | sed 's/\./_/g') && echo "::set-env name=VERSIONNAME::$VERSIONNAME"
+      run: VERSIONNAME=$(echo ${GITHUB_REF##*/} | sed 's/\./_/g') && echo "::set-env name=VERSIONNAME::$VERSIONNAME"
       
     - name: Setup
       uses: actions/setup-go@v2
