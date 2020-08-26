@@ -39,10 +39,10 @@ func (p *parser) peekValue() string {
 
 func (p *parser) require(expected tokenType) (*token, error) {
 	if len(p.tokens) == 0 {
-		return nil, errors.New("Unexpected end of string, expected tokenType=" + string(expected))
+		return nil, errors.New("Unexpected end of string, expected tokenType=" + fmt.Sprint(expected))
 	}
 	if p.tokens[0].typ != expected {
-		return nil, errors.New("Unexpected tokenType=" + string(p.tokens[0].typ) + ", expected tokenType=" + string(expected))
+		return nil, errors.New("Unexpected tokenType=" + fmt.Sprint(p.tokens[0].typ) + ", expected tokenType=" + fmt.Sprint(expected))
 	}
 	ret := &p.tokens[0]
 	p.tokens = p.tokens[1:]

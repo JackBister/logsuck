@@ -2,6 +2,7 @@ package parser
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -102,7 +103,7 @@ func (tk *tokenizer) tokenize(input string) ([]token, error) {
 			remainder := input[i+1:]
 			endLocation := stringEndRegexp.FindStringIndex(remainder)
 			if len(endLocation) == 0 {
-				return nil, errors.New("Unclosed quote at offset " + string(i))
+				return nil, errors.New("Unclosed quote at offset " + fmt.Sprint(i))
 			}
 			str := remainder[:endLocation[0]+1]
 			str = strings.ReplaceAll(str, "\\\"", "\"")
