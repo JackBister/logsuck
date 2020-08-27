@@ -58,10 +58,13 @@ func (i *flagStringArray) Set(value string) error {
 	return nil
 }
 
+var versionString string // This must be set using -ldflags "-X main.versionString=<version>" when building for --version to work
+
 var cfgFileFlag string
 var databaseFileFlag string
 var eventDelimiterFlag string
 var fieldExtractorFlags flagStringArray
+var printVersion bool
 var timeLayoutFlag string
 var webAddrFlag string
 
@@ -78,8 +81,18 @@ func main() {
 			"Multiple extractors can be specified by using the fieldextractor flag multiple times. "+
 			"(defaults \"(\\w+)=(\\w+)\" and \"(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)\")")
 	flag.StringVar(&timeLayoutFlag, "timelayout", "2006/01/02 15:04:05", "The layout of the timestamp which will be extracted in the _time field.")
+	flag.BoolVar(&printVersion, "version", false, "Print version info and quit.")
 	flag.StringVar(&webAddrFlag, "webaddr", ":8080", "The address on which the search GUI will be exposed.")
 	flag.Parse()
+
+	if printVersion {
+		if versionString == "" {
+			fmt.Println("(unknown version)")
+			return
+		}
+		fmt.Println(versionString)
+		return
+	}
 
 	cfgFile, err := os.Open(cfgFileFlag)
 	if err == nil {

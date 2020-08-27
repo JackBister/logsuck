@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Set VERSIONNAME
-      run: VERSIONNAME=$(echo ${GITHUB_REF##*/} | sed 's/\./_/g') && echo "::set-env name=VERSIONNAME::$VERSIONNAME"
+      run: VERSIONNAME_DOTS=${GITHUB_REF##*/} && echo "::set-env name=VERSIONNAME_DOTS::$VERSIONNAME_DOTS" && VERSIONNAME=$(echo $VERSIONNAME_DOTS | sed 's/\./_/g') && echo "::set-env name=VERSIONNAME::$VERSIONNAME"
       
     - name: Setup
       uses: actions/setup-go@v2
@@ -33,11 +33,11 @@ jobs:
 
     - name: Build and zip Linux x64
       id: build_linux_x64
-      run: LINUX_X64_ASSET_PATH="logsuck-$VERSIONNAME-x64-linux.zip" && go build -o 'logsuck' -v ./cmd/logsuck/main.go && zip $LINUX_X64_ASSET_PATH logsuck && echo "::set-output name=asset_path::$LINUX_X64_ASSET_PATH"
+      run: LINUX_X64_ASSET_PATH="logsuck-$VERSIONNAME-x64-linux.zip" && go build -o 'logsuck' -v -ldflags "-X main.versionString=$VERSIONNAME_DOTS" ./cmd/logsuck/main.go && zip $LINUX_X64_ASSET_PATH logsuck && echo "::set-output name=asset_path::$LINUX_X64_ASSET_PATH"
     
     - name: Build and zip Windows x64
       id: build_windows_x64
-      run: WINDOWS_X64_ASSET_PATH="logsuck-$VERSIONNAME-x64-windows.zip" && GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -o 'logsuck.exe' -v ./cmd/logsuck/main.go && zip $WINDOWS_X64_ASSET_PATH logsuck.exe && echo "::set-output name=asset_path::$WINDOWS_X64_ASSET_PATH"
+      run: WINDOWS_X64_ASSET_PATH="logsuck-$VERSIONNAME-x64-windows.zip" && GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -o 'logsuck.exe' -v -ldflags "-X main.versionString=$VERSIONNAME_DOTS" ./cmd/logsuck/main.go && zip $WINDOWS_X64_ASSET_PATH logsuck.exe && echo "::set-output name=asset_path::$WINDOWS_X64_ASSET_PATH"
 
     - name: Test
       run: go test -v ./...

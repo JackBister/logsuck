@@ -33,10 +33,10 @@ jobs:
       run: go generate -v ./cmd/logsuck/main.go
 
     - name: Build
-      run: go build -v ./cmd/logsuck/main.go
+      run: go build -v -ldflags "-X main.versionString=snapshot-$GITHUB_SHA" ./cmd/logsuck/main.go
     
     - name: Build Windows
-      run: GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -v ./cmd/logsuck/main.go 
+      run: GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -v -ldflags "-X main.versionString=snapshot-$GITHUB_SHA" ./cmd/logsuck/main.go 
 
     - name: Test
       run: go test -v ./...
