@@ -69,8 +69,8 @@ var timeLayoutFlag string
 var webAddrFlag string
 
 func main() {
-	flag.StringVar(&cfgFileFlag, "config", "logsuck.json", "The name of the file containing the configuration for logsuck. If a config file exists, all command line configuration will be ignored.")
-	flag.StringVar(&databaseFileFlag, "dbfile", "logsuck.db", "The name of the file in which logsuck will store its data. If the name ':memory:' is used, no file will be created and everything will be stored in memory.")
+	flag.StringVar(&cfgFileFlag, "config", "logsuck.json", "The name of the file containing the configuration for logsuck. If a config file exists, all other command line configuration will be ignored.")
+	flag.StringVar(&databaseFileFlag, "dbfile", "logsuck.db", "The name of the file in which logsuck will store its data. If the name ':memory:' is used, no file will be created and everything will be stored in memory. If the file does not exist, a new file will be created.")
 	flag.StringVar(&eventDelimiterFlag, "delimiter", "\n", "The delimiter between events in the log. Usually \\n.")
 	flag.Var(&fieldExtractorFlags, "fieldextractor",
 		"A regular expression which will be used to extract field values from events.\n"+
@@ -80,7 +80,7 @@ func main() {
 			"If a field with the name '_time' is extracted and matches the given timelayout, it will be used as the timestamp of the event. Otherwise the time the event was read will be used.\n"+
 			"Multiple extractors can be specified by using the fieldextractor flag multiple times. "+
 			"(defaults \"(\\w+)=(\\w+)\" and \"(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)\")")
-	flag.StringVar(&timeLayoutFlag, "timelayout", "2006/01/02 15:04:05", "The layout of the timestamp which will be extracted in the _time field.")
+	flag.StringVar(&timeLayoutFlag, "timelayout", "2006/01/02 15:04:05", "The layout of the timestamp which will be extracted in the _time field. For more information on how to write a timelayout and examples, see https://golang.org/pkg/time/#Parse and https://golang.org/pkg/time/#pkg-constants.")
 	flag.BoolVar(&printVersion, "version", false, "Print version info and quit.")
 	flag.StringVar(&webAddrFlag, "webaddr", ":8080", "The address on which the search GUI will be exposed.")
 	flag.Parse()
