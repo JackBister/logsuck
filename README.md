@@ -47,13 +47,13 @@ unzip logsuck-v0_0_0-x64-linux.zip
 Then, create a configuration file. In this case we will mostly use default settings to read Logsuck's own logs:
 
 ```sh
-echo '{ "files": [ "fileName": "logsuck.txt" ] }' > logsuck.json
+echo '{ "files": [ { "fileName": "logsuck.txt" } ] }' > logsuck.json
 ```
 
 Finally, start Logsuck:
 
 ```sh
-./logsuck > logsuck.txt
+./logsuck 2> logsuck.txt
 ```
 
 Logsuck is now running. Navigate to http://localhost:8080 and you should see the GUI. Try pressing the search button while leaving the search field empty and you should find some events. Congratulations, you are now running Logsuck in single mode! Continue reading to learn more about configuring Logsuck.
@@ -83,19 +83,19 @@ echo '{ "recipient": { "enabled": true, "address": ":9000" } }' > ./recipient/lo
 And create the configuration for the forwarder instance. This will configure the forwarder to read its own log and send its events to port 9000 on localhost, which is where the recipient will be running.
 
 ```sh
-echo '{ "files": [ "fileName": "logsuck-forwarder.txt" ], "forwarder": { "enabled": true, "recipientAddress": "http://localhost:9000" } }' > ./forwarder/logsuck.json
+echo '{ "files": [ { "fileName": "logsuck-forwarder.txt" } ], "forwarder": { "enabled": true, "recipientAddress": "http://localhost:9000" } }' > ./forwarder/logsuck.json
 ```
 
 Start the recipient:
 
 ```sh
-cd recipient && ../logsuck > logsuck-recipient.txt
+cd recipient && ../logsuck 2> logsuck-recipient.txt
 ```
 
 Open a new shell and start the forwarder:
 
 ```sh
-cd forwarder && ../logsuck > logsuck-forwarder.txt
+cd forwarder && ../logsuck 2> logsuck-forwarder.txt
 ```
 
 You should now be able to navigate to http://localhost:8080 in the browser and see the GUI served by the recipient instance. If you leave the search field empty and press the search button, you should see events show up. If you look at the "source" field underneath the events, you should see that it is always "logsuck-forwarder.txt", confirming that they were sent by the forwarder. You are now running Logsuck in forwarder/recipient mode! Continue reading to learn more about configuring Logsuck.
