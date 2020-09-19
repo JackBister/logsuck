@@ -83,8 +83,8 @@ var timeLayoutFlag string
 var webAddrFlag string
 
 func main() {
-	flag.StringVar(&cfgFileFlag, "config", "logsuck.json", "The name of the file containing the configuration for logsuck. If a config file exists, all other command line configuration will be ignored.")
-	flag.StringVar(&databaseFileFlag, "dbfile", "logsuck.db", "The name of the file in which logsuck will store its data. If the name ':memory:' is used, no file will be created and everything will be stored in memory. If the file does not exist, a new file will be created.")
+	flag.StringVar(&cfgFileFlag, "config", "logsuck.json", "The name of the file containing the configuration for Logsuck. If a config file exists, all other command line configuration will be ignored.")
+	flag.StringVar(&databaseFileFlag, "dbfile", "logsuck.db", "The name of the file in which Logsuck will store its data. If the name ':memory:' is used, no file will be created and everything will be stored in memory. If the file does not exist, a new file will be created.")
 	flag.StringVar(&eventDelimiterFlag, "delimiter", "\n", "The delimiter between events in the log. Usually \\n.")
 	flag.Var(&fieldExtractorFlags, "fieldextractor",
 		"A regular expression which will be used to extract field values from events.\n"+

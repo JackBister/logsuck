@@ -9,7 +9,7 @@ Logsuck does not currently aim to be able to ingest millions of events per secon
 
 Logsuck is currently pre-1.0. This means that there may be changes made to the database schemas used internally by Logsuck which could cause incompatibilities between versions. If that occurs, you will need to delete your `logsuck.db` file before you can use the new version, which will result in your existing search index being deleted. You can work around this by running the new version in parallel with the old version for a while, until you feel like the data that is only in the old database is old enough to be irrelevant. After 1.0, if a schema change is made, a migration will be provided to handle the upgrade gracefully to the extent that it is possible.
 
-![a screenshot of the logsuck GUI](https://jackbister.com/content/logsuck_v0_gui.png)
+![a screenshot of the Logsuck GUI](https://jackbister.com/content/logsuck_v0_gui.png)
 
 1. [Getting started](#getting-started)
    - [Single mode](#single-mode)
@@ -27,7 +27,7 @@ Logsuck is currently pre-1.0. This means that there may be changes made to the d
 
 Getting started with Logsuck is easy. Logsuck can be ran in two different modes: Single mode or forwarder/recipient mode.
 
-Single mode means you run Logsuck on a server which will both handle reading your log files and serving the Logsuck GUI. This is useful if you are running all of your applications on a single server, or you can even use it to run logsuck locally to read logs while developing.
+Single mode means you run Logsuck on a server which will both handle reading your log files and serving the Logsuck GUI. This is useful if you are running all of your applications on a single server, or you can even use it to run Logsuck locally to read logs while developing.
 
 Forwarder/recipient mode means you have one recipient instance which will receive events over the network from several forwarder instances. The recipient will also serve the Logsuck GUI. This is useful if you have your applications spread out across multiple servers but want to be able to search them all in one central place.
 
@@ -37,7 +37,7 @@ The guides below assume that you are using a Linux distribution, but Logsuck exe
 
 ### Single mode
 
-To run Logsuck in single mode, start off by downloading the logsuck executable to the server:
+To run Logsuck in single mode, start off by downloading the Logsuck executable to the server:
 
 ```sh
 wget https://github.com/JackBister/logsuck/releases/download/v0.0.0/logsuck-v0_0_0-x64-linux.zip
@@ -50,7 +50,7 @@ Then, create a configuration file. In this case we will mostly use default setti
 echo '{ "files": [ "fileName": "logsuck.txt" ] }' > logsuck.json
 ```
 
-Finally, start logsuck:
+Finally, start Logsuck:
 
 ```sh
 ./logsuck > logsuck.txt
@@ -60,7 +60,7 @@ Logsuck is now running. Navigate to http://localhost:8080 and you should see the
 
 ### Forwarder/Recipient mode
 
-Setting up Logsuck in forwarder/recipient mode is slightly more complicated. Lets again start off by downloading the logsuck executable:
+Setting up Logsuck in forwarder/recipient mode is slightly more complicated. Lets again start off by downloading the Logsuck executable:
 
 ```sh
 wget https://github.com/JackBister/logsuck/releases/download/v0.0.0/logsuck-v0_0_0-x64-linux.zip
@@ -98,7 +98,7 @@ Open a new shell and start the forwarder:
 cd forwarder && ../logsuck > logsuck-forwarder.txt
 ```
 
-You should now be able to navigate to http://localhost:8080 in the browser and see the GUI served by the recipient instance. If you leave the search field empty and press the search button, you should see events show up. If you look at the "source" field underneath the events, you should see that it is always "logsuck-forwarder.txt", confirming that they were sent by the forwarder. You are now running Logsuck in forwarder/recipient mode! Continue reading to learn more about configuring logsuck.
+You should now be able to navigate to http://localhost:8080 in the browser and see the GUI served by the recipient instance. If you leave the search field empty and press the search button, you should see events show up. If you look at the "source" field underneath the events, you should see that it is always "logsuck-forwarder.txt", confirming that they were sent by the forwarder. You are now running Logsuck in forwarder/recipient mode! Continue reading to learn more about configuring Logsuck.
 
 ## Configuration
 
@@ -107,10 +107,10 @@ You should now be able to navigate to http://localhost:8080 in the browser and s
 There are a few configuration options available on the command line when running Logsuck. It is recommended that you use JSON configuration for production usage of Logsuck, but these options may be useful when running Logsuck locally on a single file.
 
 `-config <filename>`
-The name of the file containing the configuration for logsuck. If a config file exists, all other command line configuration will be ignored. (default "logsuck.json")
+The name of the file containing the configuration for Logsuck. If a config file exists, all other command line configuration will be ignored. (default "logsuck.json")
 
 `-dbfile <filename>`
-The name of the file in which logsuck will store its data. If the name ':memory:' is used, no file will be created and everything will be stored in memory. If the file does not exist, a new file will be created. (default "logsuck.db")
+The name of the file in which Logsuck will store its data. If the name ':memory:' is used, no file will be created and everything will be stored in memory. If the file does not exist, a new file will be created. (default "logsuck.db")
 
 `-delimiter <regex>`
 The delimiter between events in the log. Usually \n. (default "\n")
