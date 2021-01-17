@@ -94,6 +94,7 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 }
 
 func (repo *sqliteRepository) FilterStream(srch *search.Search) <-chan []EventWithId {
+	startTime := time.Now()
 	ret := make(chan []EventWithId)
 	go func() {
 		defer close(ret)
@@ -114,7 +115,7 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search) <-chan []EventWi
 			log.Println("error when scanning max(id) in FilterStream:", err)
 			return
 		}
-		offset := 0
+		var lastTimestamp string
 		for {
 			stmt := "SELECT e.id, e.host, e.source, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id < " + strconv.Itoa(maxID)
 			if srch.StartTime != nil {
@@ -122,6 +123,9 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search) <-chan []EventWi
 			}
 			if srch.EndTime != nil {
 				stmt += " AND e.timestamp <= '" + srch.EndTime.String() + "'"
+			}
+			if lastTimestamp != "" {
+				stmt += " AND e.timestamp < '" + lastTimestamp + "'"
 			}
 			includes := map[string][]string{}
 			nots := map[string][]string{}
@@ -171,7 +175,7 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search) <-chan []EventWi
 			if len(matchString) > 0 {
 				stmt += " AND EventRaws MATCH '" + matchString + "'"
 			}
-			stmt += " ORDER BY e.timestamp DESC, e.id DESC LIMIT " + strconv.Itoa(filterStreamPageSize) + " OFFSET " + strconv.Itoa(offset) + ";"
+			stmt += " ORDER BY e.timestamp DESC LIMIT " + strconv.Itoa(filterStreamPageSize)
 			log.Println("executing stmt", stmt)
 			res, err = repo.db.Query(stmt)
 			if err != nil {
@@ -189,13 +193,15 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search) <-chan []EventWi
 					evts = append(evts, evt)
 				}
 				eventsInPage++
+				lastTimestamp = evt.Timestamp.String()
 			}
 			res.Close()
 			ret <- evts
 			if eventsInPage < filterStreamPageSize {
+				endTime := time.Now()
+				log.Printf("SQL search completed in timeInMs=%v", endTime.Sub(startTime))
 				return
 			}
-			offset += filterStreamPageSize
 		}
 	}()
 	return ret
