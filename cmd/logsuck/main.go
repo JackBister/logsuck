@@ -161,11 +161,10 @@ func main() {
 	if cfg.Forwarder.Enabled {
 		publisher = events.ForwardingEventPublisher(&cfg)
 	} else {
-		db, err := sql.Open("sqlite3", cfg.SQLite.DatabaseFile+"?cache=shared")
+		db, err := sql.Open("sqlite3", cfg.SQLite.DatabaseFile+"?cache=shared&_journal_mode=WAL")
 		if err != nil {
 			log.Fatalln(err.Error())
 		}
-		db.SetMaxOpenConns(1)
 		repo, err = events.SqliteRepository(db)
 		if err != nil {
 			log.Fatalln(err.Error())
