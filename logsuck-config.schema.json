@@ -12,7 +12,7 @@
         "type": "object",
         "properties": {
           "fileName": {
-            "description": "The name of the file.",
+            "description": "The name of the file. This can also be a glob pattern such as \"log-*.txt\".",
             "type": "string"
           },
           "eventDelimiter": {

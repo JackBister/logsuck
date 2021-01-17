@@ -25,7 +25,7 @@ import (
 )
 
 type jsonFileConfig struct {
-	FileName       string `json:fileName`
+	Filename       string `json:fileName`
 	EventDelimiter string `json:eventDelimiter`
 	ReadInterval   string `json:readInterval`
 	TimeLayout     string `json:timeLayout`
@@ -112,13 +112,13 @@ func FromJSON(r io.Reader) (*Config, error) {
 
 	indexedFiles := make([]IndexedFileConfig, len(cfg.Files))
 	for i, file := range cfg.Files {
-		if file.FileName == "" {
-			return nil, fmt.Errorf("error reading config at files[%v]: fileName is empty", i)
+		if file.Filename == "" {
+			return nil, fmt.Errorf("error reading config at files[%v]: pattern is empty", i)
 		}
-		indexedFiles[i].Filename = file.FileName
+		indexedFiles[i].Filename = file.Filename
 
 		if file.EventDelimiter == "" {
-			log.Printf("Using default event delimiter for file=%v, defaultEventDelimiter=%v\n", file.FileName, defaultEventDelimiter)
+			log.Printf("Using default event delimiter for file=%v, defaultEventDelimiter=%v\n", file.Filename, defaultEventDelimiter)
 			indexedFiles[i].EventDelimiter = defaultEventDelimiter
 		} else {
 			ed, err := regexp.Compile(file.EventDelimiter)
@@ -129,7 +129,7 @@ func FromJSON(r io.Reader) (*Config, error) {
 		}
 
 		if file.ReadInterval == "" {
-			log.Printf("Using default read interval for file=%v, defaultReadInterval=%v\n", file.FileName, defaultReadInterval)
+			log.Printf("Using default read interval for file=%v, defaultReadInterval=%v\n", file.Filename, defaultReadInterval)
 			indexedFiles[i].ReadInterval = defaultReadInterval
 		} else {
 			ri, err := time.ParseDuration(file.ReadInterval)
@@ -140,7 +140,7 @@ func FromJSON(r io.Reader) (*Config, error) {
 		}
 
 		if file.TimeLayout == "" {
-			log.Printf("Using default time layout for file=%v, defaultTimeLayout=%v\n", file.FileName, defaultTimeLayout)
+			log.Printf("Using default time layout for file=%v, defaultTimeLayout=%v\n", file.Filename, defaultTimeLayout)
 			indexedFiles[i].TimeLayout = defaultTimeLayout
 		} else {
 			indexedFiles[i].TimeLayout = file.TimeLayout

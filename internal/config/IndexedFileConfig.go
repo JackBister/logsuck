@@ -21,7 +21,7 @@ import (
 
 // IndexedFileConfig contains configuration for a specific file which will be indexed
 type IndexedFileConfig struct {
-	// Filename is the name of the file. This will be used to set the "source" field of the event.
+	// Filename is the name of the file. It can also be a glob pattern. If the glob pattern matches multiple files, multiple watchers will be started.
 	Filename string
 	// EventDelimiter is a regex that is used to determine where one event ends and another begins.
 	// The default is "\n".

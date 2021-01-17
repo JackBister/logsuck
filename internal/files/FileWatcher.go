@@ -41,6 +41,7 @@ const (
 type FileWatcher struct {
 	fileConfig config.IndexedFileConfig
 
+	filename string
 	hostName string
 
 	commands       chan FileWatcherCommand
@@ -55,17 +56,18 @@ type FileWatcher struct {
 // NewFileWatcher returns a FileWatcher which will watch a file and publish events according to the IndexedFileConfig
 func NewFileWatcher(
 	fileConfig config.IndexedFileConfig,
+	filename string,
 	hostName string,
 	commands chan FileWatcherCommand,
 	eventPublisher events.EventPublisher,
 ) (*FileWatcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, fmt.Errorf("error creating FileWatcher for fileName=%s: %w", fileConfig.Filename, err)
+		return nil, fmt.Errorf("error creating FileWatcher for fileName=%s: %w", filename, err)
 	}
-	err = watcher.Add(fileConfig.Filename)
+	err = watcher.Add(filename)
 	if err != nil {
-		return nil, fmt.Errorf("error creating FileWatcher for fileName=%s: %w", fileConfig.Filename, err)
+		return nil, fmt.Errorf("error creating FileWatcher for fileName=%s: %w", filename, err)
 	}
 	go func() {
 		for {
@@ -75,7 +77,7 @@ func NewFileWatcher(
 			// This may end up being a problem though.
 			// TODO: Maybe the write case should be specially handled and just reset the offset/seek position to 0?
 			if evt.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 {
-				log.Printf("filename=%s appears to have been rolled, will try to reopen\n", fileConfig.Filename)
+				log.Printf("filename=%s appears to have been rolled, will try to reopen\n", filename)
 				commands <- CommandReopen
 			}
 		}
@@ -83,6 +85,7 @@ func NewFileWatcher(
 	return &FileWatcher{
 		fileConfig: fileConfig,
 
+		filename: filename,
 		hostName: hostName,
 
 		commands:       commands,
@@ -113,14 +116,14 @@ out:
 		case <-ticker.C: // Proceed
 		}
 		if fw.file == nil {
-			f, err := os.Open(fw.fileConfig.Filename)
+			f, err := os.Open(fw.filename)
 			if err != nil {
-				log.Printf("error opening filename=%s, will retry later.\n", fw.fileConfig.Filename)
+				log.Printf("error opening filename=%s, will retry later.\n", fw.filename)
 			} else {
 				fw.file = f
 				fw.currentOffset = 0
 				fw.workingBuf = fw.workingBuf[:0]
-				log.Printf("opened filename=%s\n", fw.fileConfig.Filename)
+				log.Printf("opened filename=%s\n", fw.filename)
 			}
 		}
 		if fw.file != nil {
@@ -132,7 +135,7 @@ out:
 func (fw *FileWatcher) readToEnd() {
 	for read, err := fw.file.Read(fw.readBuf); read != 0; read, err = fw.file.Read(fw.readBuf) {
 		if err != nil && err != io.EOF {
-			log.Println("Unexpected error=" + err.Error() + ", will abort FileWatcher for filename=" + fw.fileConfig.Filename)
+			log.Println("Unexpected error=" + err.Error() + ", will abort FileWatcher for filename=" + fw.filename)
 			break
 		}
 		fw.workingBuf = append(fw.workingBuf, fw.readBuf[:read]...)
@@ -153,7 +156,7 @@ func (fw *FileWatcher) handleEvents() {
 		evt := events.RawEvent{
 			Raw:    raw,
 			Host:   fw.hostName,
-			Source: fw.fileConfig.Filename,
+			Source: fw.filename,
 			Offset: fw.currentOffset,
 		}
 		fw.eventPublisher.PublishEvent(evt, fw.fileConfig.TimeLayout)
