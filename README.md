@@ -40,8 +40,8 @@ The guides below assume that you are using a Linux distribution, but Logsuck exe
 To run Logsuck in single mode, start off by downloading the Logsuck executable to the server:
 
 ```sh
-wget https://github.com/JackBister/logsuck/releases/download/v0.0.0/logsuck-v0_0_0-x64-linux.zip
-unzip logsuck-v0_0_0-x64-linux.zip
+wget https://github.com/JackBister/logsuck/releases/download/v0.1.1/logsuck-v0_1_1-x64-linux.zip
+unzip logsuck-v0_1_1-x64-linux.zip
 ```
 
 Then, create a configuration file. In this case we will mostly use default settings to read Logsuck's own logs:
@@ -63,8 +63,8 @@ Logsuck is now running. Navigate to http://localhost:8080 and you should see the
 Setting up Logsuck in forwarder/recipient mode is slightly more complicated. Lets again start off by downloading the Logsuck executable:
 
 ```sh
-wget https://github.com/JackBister/logsuck/releases/download/v0.0.0/logsuck-v0_0_0-x64-linux.zip
-unzip logsuck-v0_0_0-x64-linux.zip
+wget https://github.com/JackBister/logsuck/releases/download/v0.1.1/logsuck-v0_1_1-x64-linux.zip
+unzip logsuck-v0_1_1-x64-linux.zip
 ```
 
 This time, we will create two different directories which will be the working directories for each of the two Logsuck instances we need to run.
