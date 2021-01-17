@@ -592,8 +592,14 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
         "Really weird state! In poller but state != SEARCHED_POLLING"
       );
     }
+    if (id !== this.state.jobId) {
+      return;
+    }
     try {
       const pollResult = await this.props.pollJob(id);
+      if (id !== this.state.jobId) {
+        return;
+      }
       const topFields = Object.keys(pollResult.stats.fieldCount)
         .sort(
           (a, b) =>
@@ -629,6 +635,9 @@ export class HomeComponent extends Component<HomeProps, HomeStateStruct> {
           0,
           EVENTS_PER_PAGE
         );
+        if (id !== this.state.jobId) {
+          return;
+        }
       }
       this.setState(nextState);
     } catch (e) {
