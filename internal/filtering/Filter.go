@@ -60,25 +60,12 @@ func shouldIncludeEvent(evt events.EventWithId,
 	cfg *config.Config,
 	compiledFrags []*regexp.Regexp, compiledNotFrags []*regexp.Regexp,
 	compiledFields map[string][]*regexp.Regexp, compiledNotFields map[string][]*regexp.Regexp) (map[string]string, bool) {
-	rawLowered := strings.ToLower(evt.Raw)
 	evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), cfg.FieldExtractors)
 	// TODO: This could produce unexpected results
 	evtFields["host"] = evt.Host
 	evtFields["source"] = evt.Source
 
 	include := true
-	for _, frag := range compiledFrags {
-		if !frag.MatchString(rawLowered) {
-			include = false
-			break
-		}
-	}
-	for _, frag := range compiledNotFrags {
-		if frag.MatchString(rawLowered) {
-			include = false
-			break
-		}
-	}
 	for key, values := range compiledFields {
 		evtValue, ok := evtFields[key]
 		if !ok {
