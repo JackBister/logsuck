@@ -2,7 +2,12 @@
 .vscode
 
 log-*.txt
+*.db
+*.db-shm
+*.db-wal
 *.exe
+
+sdown
 
 generated_assets.go
 web/static/dist
