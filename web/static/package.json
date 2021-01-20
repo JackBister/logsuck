@@ -2,7 +2,8 @@
   "name": "logsuck-fe",
   "scripts": {
     "build": "webpack -p",
-    "watch": "webpack -d --watch"
+    "watch": "webpack -d --watch",
+    "postinstall": "echo \"\" > node_modules/go.mod"
   },
   "devDependencies": {
     "copy-webpack-plugin": "6.0.3",
