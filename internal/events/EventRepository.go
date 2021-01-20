@@ -14,7 +14,11 @@
 
 package events
 
-import "github.com/jackbister/logsuck/internal/search"
+import (
+	"time"
+
+	"github.com/jackbister/logsuck/internal/search"
+)
 
 type SortMode = int
 
@@ -25,6 +29,6 @@ const (
 
 type Repository interface {
 	AddBatch(events []Event) ([]int64, error)
-	FilterStream(srch *search.Search) <-chan []EventWithId
+	FilterStream(srch *search.Search, searchStartTime, searchEndTime *time.Time) <-chan []EventWithId
 	GetByIds(ids []int64, sortMode SortMode) ([]EventWithId, error)
 }

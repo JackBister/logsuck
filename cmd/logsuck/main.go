@@ -25,11 +25,10 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/jobs"
-
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/files"
+	"github.com/jackbister/logsuck/internal/jobs"
 	"github.com/jackbister/logsuck/internal/web"
 
 	_ "github.com/mattn/go-sqlite3"

@@ -3,6 +3,7 @@ module github.com/jackbister/logsuck
 go 1.14
 
 require (
+	github.com/araddon/dateparse v0.0.0-20201001162425-8aadafed4dc4
 	github.com/brianvoe/gofakeit v3.18.0+incompatible
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/mattn/go-sqlite3 v1.14.0

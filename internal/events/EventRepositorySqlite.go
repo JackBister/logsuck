@@ -93,7 +93,7 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 	return ret, nil
 }
 
-func (repo *sqliteRepository) FilterStream(srch *search.Search) <-chan []EventWithId {
+func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime, searchEndTime *time.Time) <-chan []EventWithId {
 	startTime := time.Now()
 	ret := make(chan []EventWithId)
 	go func() {
@@ -117,12 +117,12 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search) <-chan []EventWi
 		}
 		var lastTimestamp string
 		for {
-			stmt := "SELECT e.id, e.host, e.source, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id < " + strconv.Itoa(maxID)
-			if srch.StartTime != nil {
-				stmt += " AND e.timestamp >= '" + srch.StartTime.String() + "'"
+			stmt := "SELECT e.id, e.host, e.source, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id <= " + strconv.Itoa(maxID)
+			if searchStartTime != nil {
+				stmt += " AND e.timestamp >= '" + searchStartTime.String() + "'"
 			}
-			if srch.EndTime != nil {
-				stmt += " AND e.timestamp <= '" + srch.EndTime.String() + "'"
+			if searchEndTime != nil {
+				stmt += " AND e.timestamp <= '" + searchEndTime.String() + "'"
 			}
 			if lastTimestamp != "" {
 				stmt += " AND e.timestamp < '" + lastTimestamp + "'"

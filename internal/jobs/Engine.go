@@ -24,8 +24,7 @@ import (
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
-	"github.com/jackbister/logsuck/internal/filtering"
-	"github.com/jackbister/logsuck/internal/search"
+	"github.com/jackbister/logsuck/internal/pipeline"
 )
 
 type Engine struct {
@@ -45,9 +44,9 @@ func NewEngine(cfg *config.Config, eventRepo events.Repository, jobRepo Reposito
 }
 
 func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, error) {
-	srch, err := search.Parse(query, startTime, endTime)
+	pl, err := pipeline.CompilePipeline(query, startTime, endTime)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse query: %w", err)
+		return nil, fmt.Errorf("failed to compile search query: %w", err)
 	}
 	id, err := e.jobRepo.Insert(query, startTime, endTime)
 	if err != nil {
@@ -58,15 +57,21 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 	go func() {
 		done := ctx.Done()
 		// TODO: This should probably be batched
-		results := filtering.FilterEventsStream(ctx, e.eventRepo, srch, e.cfg)
+		results := pl.Execute(
+			ctx,
+			pipeline.PipelineParameters{
+				Cfg:        e.cfg,
+				EventsRepo: e.eventRepo,
+			})
 		wasCancelled := false
 	out:
 		for {
 			select {
-			case evts, ok := <-results:
+			case res, ok := <-results:
 				if !ok {
 					break out
 				}
+				evts := res.Events
 				log.Println("got", len(evts), "matching events")
 				if len(evts) > 0 {
 					converted := make([]events.EventIdAndTimestamp, len(evts))

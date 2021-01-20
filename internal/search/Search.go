@@ -16,14 +16,11 @@ package search
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/jackbister/logsuck/internal/parser"
 )
 
 type Search struct {
-	StartTime, EndTime *time.Time
-
 	Fragments    map[string]struct{}
 	NotFragments map[string]struct{}
 	Fields       map[string][]string
@@ -34,16 +31,13 @@ type Search struct {
 	NotHosts     map[string]struct{}
 }
 
-func Parse(searchString string, startTime, endTime *time.Time) (*Search, error) {
-	res, err := parser.Parse(searchString)
+func Parse(searchString string) (*Search, error) {
+	res, err := parser.ParseSearch(searchString)
 	if err != nil {
 		return nil, fmt.Errorf("error while parsing: %w", err)
 	}
 
 	ret := Search{
-		StartTime: startTime,
-		EndTime:   endTime,
-
 		Fragments:    res.Fragments,
 		NotFragments: res.NotFragments,
 		Fields:       res.Fields,

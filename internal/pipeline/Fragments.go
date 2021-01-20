@@ -12,19 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package filtering
+package pipeline
 
 import (
 	"fmt"
 	"log"
 	"regexp"
 	"strings"
+
+	"github.com/jackbister/logsuck/internal/config"
+	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/parser"
 )
 
-func CompileMultiple(frags []string) []*regexp.Regexp {
+func compileMultipleFrags(frags []string) []*regexp.Regexp {
 	ret := make([]*regexp.Regexp, 0, len(frags))
 	for _, frag := range frags {
-		compiled, err := Compile(frag)
+		compiled, err := compileFrag(frag)
 		if err != nil {
 			log.Println("Failed to compile fragment=" + frag + ", err=" + err.Error() + ", fragment will not be included")
 		} else {
@@ -34,8 +38,8 @@ func CompileMultiple(frags []string) []*regexp.Regexp {
 	return ret
 }
 
-func CompileKeys(m map[string]struct{}) []*regexp.Regexp {
-	return CompileMultiple(getKeys(m))
+func compileKeys(m map[string]struct{}) []*regexp.Regexp {
+	return compileMultipleFrags(getKeys(m))
 }
 
 func getKeys(fragments map[string]struct{}) []string {
@@ -46,12 +50,12 @@ func getKeys(fragments map[string]struct{}) []string {
 	return ret
 }
 
-func CompileMap(m map[string][]string) map[string][]*regexp.Regexp {
+func compileFieldValues(m map[string][]string) map[string][]*regexp.Regexp {
 	ret := make(map[string][]*regexp.Regexp, len(m))
 	for key, values := range m {
 		compiledValues := make([]*regexp.Regexp, len(values))
 		for i, value := range values {
-			compiled, err := Compile(value)
+			compiled, err := compileFrag(value)
 			if err != nil {
 				log.Println("Failed to compile fieldValue=" + value + ", err=" + err.Error() + ", fieldValue will not be included")
 			} else {
@@ -63,7 +67,7 @@ func CompileMap(m map[string][]string) map[string][]*regexp.Regexp {
 	return ret
 }
 
-func Compile(frag string) (*regexp.Regexp, error) {
+func compileFrag(frag string) (*regexp.Regexp, error) {
 	pre := "(^|\\W)"
 	if strings.HasPrefix(frag, "*") {
 		pre = ""
@@ -78,4 +82,50 @@ func Compile(frag string) (*regexp.Regexp, error) {
 		return nil, fmt.Errorf("Failed to compile rexString="+rexString+": %w", err)
 	}
 	return rex, nil
+}
+
+func shouldIncludeEvent(evt events.EventWithId,
+	cfg *config.Config,
+	compiledFrags []*regexp.Regexp, compiledNotFrags []*regexp.Regexp,
+	compiledFields map[string][]*regexp.Regexp, compiledNotFields map[string][]*regexp.Regexp) (map[string]string, bool) {
+	evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), cfg.FieldExtractors)
+	// TODO: This could produce unexpected results
+	evtFields["host"] = evt.Host
+	evtFields["source"] = evt.Source
+
+	include := true
+	for key, values := range compiledFields {
+		evtValue, ok := evtFields[key]
+		if !ok {
+			include = false
+			break
+		}
+		anyMatch := false
+		for _, value := range values {
+			if value.MatchString(evtValue) {
+				anyMatch = true
+			}
+		}
+		if !anyMatch {
+			include = false
+			break
+		}
+	}
+	for key, values := range compiledNotFields {
+		evtValue, ok := evtFields[key]
+		if !ok {
+			break
+		}
+		anyMatch := false
+		for _, value := range values {
+			if value.MatchString(evtValue) {
+				anyMatch = true
+			}
+		}
+		if anyMatch {
+			include = false
+			break
+		}
+	}
+	return evtFields, include
 }
