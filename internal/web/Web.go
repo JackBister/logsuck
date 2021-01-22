@@ -210,6 +210,7 @@ func (wi webImpl) Serve() error {
 			retResults = append(retResults, events.EventWithExtractedFields{
 				Id:        r.Id,
 				Raw:       r.Raw,
+				Host:      r.Host,
 				Source:    r.Source,
 				Timestamp: r.Timestamp,
 				Fields:    fields,

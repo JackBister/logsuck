@@ -83,10 +83,7 @@ func (p *parser) parseParenList() ([]string, error) {
 }
 
 func (p *parser) skipWhitespace() {
-	if len(p.tokens) == 0 {
-		return
-	}
-	for p.tokens[0].typ == tokenWhitespace {
+	for len(p.tokens) > 0 && p.tokens[0].typ == tokenWhitespace {
 		p.tokens = p.tokens[1:]
 	}
 }

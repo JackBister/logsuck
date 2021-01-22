@@ -40,6 +40,14 @@ type PipelineStepResult struct {
 	Events []events.EventWithExtractedFields
 }
 
+// TODO: What is a reasonable value? Configurable? Dynamic?
+// pipeBufferSize determines the buffer size of the channels between the steps in a pipeline.
+// A low value means a step later in the pipe can cause an earlier step to slow down as it needs to wait for the rest
+// of the pipe to catch up, while a high value can lead to high memory consumption and probably some other issues
+// A buffer size of 0 means the entire pipeline must process each batch before a new batch can added to the start of
+// the pipe.
+const pipeBufferSize = 100
+
 type pipelinePipe struct {
 	input  <-chan PipelineStepResult
 	output chan<- PipelineStepResult
@@ -50,6 +58,7 @@ type pipelineStep interface {
 }
 
 var compilers = map[string]func(input string, options map[string]string) (pipelineStep, error){
+	"rex":    compileRexStep,
 	"search": compileSearchStep,
 }
 
@@ -81,11 +90,11 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 		compiledSteps[i] = res
 	}
 
-	lastOutput := make(chan PipelineStepResult)
+	lastOutput := make(chan PipelineStepResult, pipeBufferSize)
 	close(lastOutput)
 	pipes := make([]pipelinePipe, len(compiledSteps))
 	for i := 0; i < len(pr.Steps); i++ {
-		outputEvents := make(chan PipelineStepResult)
+		outputEvents := make(chan PipelineStepResult, pipeBufferSize)
 		pipes[i] = pipelinePipe{
 			input:  lastOutput,
 			output: outputEvents,

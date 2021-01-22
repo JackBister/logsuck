@@ -89,6 +89,40 @@ func TestPipe(t *testing.T) {
 	}
 	const step1exp = "(?P<field>world)"
 	if step1.Value != step1exp {
-		t.Fatalf("TestPipe expected step 1 to havve value='%v', got '%v'", step1exp, step1.Value)
+		t.Fatalf("TestPipe expected step 1 to have value='%v', got '%v'", step1exp, step1.Value)
+	}
+}
+
+func TestPipeWithOptions(t *testing.T) {
+	const input = "hello world | rex field=source \"log-(?P<logid>\\d+).txt\""
+	res, err := ParsePipeline(input)
+	if err != nil {
+		t.Fatalf("TestPipeWithOptions parse returned error: %v", err)
+	}
+	if len(res.Steps) != 2 {
+		t.Fatalf("TestPipeWithOptions expected 2 steps, got %v", len(res.Steps))
+	}
+	step0 := res.Steps[0]
+	if step0.StepType != "search" {
+		t.Fatalf("TestPipeWithOptions expected step 0 to be search, got %v", step0.StepType)
+	}
+	const step0exp = "hello world "
+	if step0.Value != step0exp {
+		t.Fatalf("TestPipeWithOptions expected step 0 to have value='%v', got '%v'", step0exp, step0.Value)
+	}
+	step1 := res.Steps[1]
+	if step1.StepType != "rex" {
+		t.Fatalf("TestPipeWithOptions expected step 1 to be rex, got %v", step1.StepType)
+	}
+	fieldOption, ok := step1.Args["field"]
+	if !ok {
+		t.Fatalf("TestPipeWithOptions got unexpected !ok when getting field option")
+	}
+	if fieldOption != "source" {
+		t.Fatalf("TestPipeWithOptions expected step 1 field option to be '%v', got '%v'", "source", fieldOption)
+	}
+	const step1exp = "log-(?P<logid>\\d+).txt"
+	if step1.Value != step1exp {
+		t.Fatalf("TestPipeWithOptions expected step 1 to have value='%v', got '%v'", step1exp, step1.Value)
 	}
 }

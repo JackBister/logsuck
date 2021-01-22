@@ -44,6 +44,7 @@ type EventWithExtractedFields struct {
 	Id        int64
 	Raw       string
 	Timestamp time.Time
+	Host      string
 	Source    string
 	Fields    map[string]string
 }

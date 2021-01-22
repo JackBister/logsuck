@@ -16,14 +16,11 @@ package pipeline
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestSearchPipelineStep(t *testing.T) {
@@ -31,21 +28,13 @@ func TestSearchPipelineStep(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TestSearchPipelineStep got unexpected error: %v", err)
 	}
-
-	input := make(chan PipelineStepResult)
+	repo := newInMemRepo(t)
+	params := PipelineParameters{
+		Cfg:        &config.Config{},
+		EventsRepo: repo,
+	}
+	pipe, input, output := newPipe()
 	close(input)
-	output := make(chan PipelineStepResult)
-
-	db, err := sql.Open("sqlite3", ":memory:")
-	defer db.Close()
-	if err != nil {
-		t.Fatalf("TestSearchPipelineStep got error when creating in-memory SQLite database: %v", err)
-	}
-	repo, err := events.SqliteRepository(db)
-	if err != nil {
-		t.Fatalf("TestSearchPipelineStep got error when creating events repo: %v", err)
-	}
-
 	repo.AddBatch([]events.Event{
 		{
 			Raw:       "2021-01-20 20:29:00 This is an event",
@@ -55,16 +44,6 @@ func TestSearchPipelineStep(t *testing.T) {
 			Timestamp: time.Date(2021, 1, 20, 20, 29, 0, 0, time.UTC),
 		},
 	})
-
-	pipe := pipelinePipe{
-		input:  input,
-		output: output,
-	}
-
-	params := PipelineParameters{
-		Cfg:        &config.Config{},
-		EventsRepo: repo,
-	}
 
 	go sps.Execute(context.Background(), pipe, params)
 

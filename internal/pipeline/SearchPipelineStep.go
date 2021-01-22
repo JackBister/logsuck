@@ -53,6 +53,7 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 						Id:        evt.Id,
 						Raw:       evt.Raw,
 						Timestamp: evt.Timestamp,
+						Host:      evt.Host,
 						Source:    evt.Source,
 						Fields:    evtFields,
 					})

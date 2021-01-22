@@ -70,6 +70,21 @@ func ParsePipeline(s string) (*PipelineParseResult, error) {
 		}
 		step.StepType = tokStepType.value
 		p.skipWhitespace()
+		if p.peek() == tokenString {
+			key := p.take().value
+			p.skipWhitespace()
+			_, err := p.require(tokenEquals)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse: %w", err)
+			}
+			p.skipWhitespace()
+			if p.peek() != tokenString && p.peek() != tokenQuotedString {
+				return nil, fmt.Errorf("failed to parse: expected string or quoted string in option list for command %v", step.StepType)
+			}
+			tokFieldValue := p.take()
+			step.Args[key] = tokFieldValue.value
+			p.skipWhitespace()
+		}
 		tokValue, err := p.require(tokenQuotedString)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse: %w", err)

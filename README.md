@@ -17,9 +17,10 @@ Logsuck is currently pre-1.0. This means that there may be changes made to the d
 2. [Configuration](#configuration)
    - [Command line options](#command-line-options)
    - [JSON configuration](#json-configuration)
-3. [Need help?](#need-help)
-4. [Contributing](#contributing)
-5. [Upcoming features](#upcoming-features)
+3. [Search syntax](#search-syntax)
+4. [Need help?](#need-help)
+5. [Contributing](#contributing)
+6. [Upcoming features](#upcoming-features)
    - [Before version 1.0](#before-version-10)
    - [After version 1.0](#after-version-10)
 
@@ -141,6 +142,67 @@ The address on which the search GUI will be exposed. (default ":8080")
 
 JSON is the recommended way of configuring Logsuck for more complex usage. By default, Logsuck will look in its working directory for a `logsuck.json` file which will contain the configuration. If the file is found, all command line options will be ignored. There is a JSON schema which documents the configuration file available [here](https://github.com/JackBister/logsuck/blob/master/logsuck-config.schema.json).
 
+## Search syntax
+
+Search queries in Logsuck generally look like this:
+
+```
+[search] [| <command type> <option>=<value> "value"]...
+```
+
+### `[search]`
+
+This part of the query may contain any combination of the following:
+
+- `<fragment>`
+- `NOT <fragment>`
+- `<field>=<fragment>`
+- `<field>!=<fragment>`
+- `<field> IN (<fragment1>, <fragment2>...)`
+- `<field> NOT IN (<fragment1>, <fragment2>...)`
+
+#### Fragments
+
+A fragment is the Logsuck term for an unquoted or quoted string which should be searched for among the log events. For example, if you search for `"hello world"` only events containing the string "hello world" (case insensitive) will be matched.
+
+If you specify multiple fragments without any surrounding quotes, they will be matched independently of their order in the event. For example, `hello world` will match both events containing "hello world" and strings containing "world hello".
+
+You can use `*` as a wildcard character in fragments. For example, searching for `ab*` will match the strings "abc", "abcd", etc.
+
+By prepending a fragment with `NOT `, you can filter out all events containing that fragment.
+
+#### Fields
+
+A field is a piece of data that is extracted from an event and associated with a key.
+
+There are a few fields that are extracted from all events: `_time`, `source`, and `host`. You can also extract other fields using the `fieldExtractors` property in the configuration.
+
+There are two ways you can use fields in your searches: You can either filter against one value using `<field>=<fragment>` or `<field>!=<fragment>`, or you can filter against multiple values using `<field> IN (<fragment1>, <fragment2>...)` or `<field> NOT IN (<fragment1>, <fragment2>...)`.
+
+For example, you might use `source=*access*` to get all events from log files that contain "access" in the file name, or `source IN (*access*, *error*)` to get all events from log files containing "access" or "error" in their file names.
+
+### Commands
+
+Commands are processing steps which are applied to the results of the search up to that point.
+
+The following commands are available:
+
+#### `| rex [field=<field>] "<regex>"`
+
+The rex command is used to extract new fields from existing fields using a regular expression.
+
+The regular expression is treated the same as a field extractor in the configuration, meaning that it should either specify a single named capture group or two unnamed capture groups.
+
+If the regular expression matches and contains a named capture group, a new field with the same name as the capture group will be created with the value of the match inside the capture group.
+
+If the regular expression matches and contains two unnamed capture groups, the value of the first capture group will be used as the field name and the value of the second capture group will be used as the field value.
+
+The `field` option allows you to specify which field the regular expression should be ran against. By default it is ran against the raw event string.
+
+#### `| search startTime="<time>" endTime="<time>" "<search>"`
+
+The search command starts a new search. It ignores all previous results and instead sends its own results forward.
+
 ## Need help?
 
 If you have any questions about using Logsuck after reading the documentation, please [create an issue](https://github.com/JackBister/logsuck/issues/new) on this repository! There are no stupid questions here. You asking a question will help improve the documentation for everyone, so it is very much appreciated!
@@ -199,13 +261,13 @@ Logsuck is still heavily in development, so there are many features still being 
 
 ### Before version 1.0
 
-- Glob patterns to find log files
-- Compression for the FTS table to reduce storage requirements
-- Retention setting to delete old events after a certain period of time
-- "Show source" / "Show context" button to view events from the same source that are close in time to the selected event
-- Ability to search via time spans that are not relative to the current time, such as "All events between 2020-01-01 and 2020-01-05"
-- Ad hoc field extraction using pipes in the search command (equivalent to Splunk's "| rex")
-- E-mail alerts
+- [x] Glob patterns for finding log files
+- [ ] Compression for the FTS table to reduce storage requirements
+- [ ] Retention setting to delete old events after a certain period of time
+- [ ] "Show source" / "Show context" button to view events from the same source that are close in time to the selected event
+- [ ] Ability to search via time spans that are not relative to the current time, such as "All events between 2020-01-01 and 2020-01-05"
+- [x] Ad hoc field extraction using pipes in the search command (equivalent to Splunk's "| rex")
+- [ ] E-mail alerts
 
 ### After version 1.0
 
