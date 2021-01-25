@@ -42,7 +42,7 @@ export function startJob(
   if (timeSelection.endTime) {
     queryParams += `&endTime=${timeSelection.endTime.toISOString()}`;
   }
-  return fetch("/api/v1/startJob" + queryParams)
+  return fetch("/api/v1/startJob" + queryParams, { method: "POST" })
     .then((r) => r.json())
     .then((r: number) => ({ id: r }));
 }
@@ -104,7 +104,7 @@ export function getResults(
 
 export function abortJob(jobId: number): Promise<{}> {
   const queryParams = `?jobId=${jobId}`;
-  return fetch("/api/v1/abortJob" + queryParams);
+  return fetch("/api/v1/abortJob" + queryParams, { method: "POST" });
 }
 
 export type FieldValueCounts = { [key: string]: number };
