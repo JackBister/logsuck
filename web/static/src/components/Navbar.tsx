@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 The Logsuck Authors
+ * Copyright 2021 The Logsuck Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,15 @@
  * limitations under the License.
  */
 
-import { h, render } from "preact";
-import { HomeComponent } from "./HomePage";
-import { getRecentSearches } from "../services/RecentSearches";
+import { h } from "preact";
 
-function main() {
-  const appRoot = document.getElementById("app");
-  if (!appRoot) {
-    throw new Error("No element with id 'app' found!");
-  }
-  render(
-    <HomeComponent
-      getRecentSearches={getRecentSearches}
-      navigateTo={(url) => (window.location.href = url)}
-    />,
-    document.body,
-    appRoot
-  );
-}
-
-main();
+export const Navbar = () => (
+  <header>
+    <nav class="navbar navbar-dark bg-dark">
+      <a href="/" class="navbar-brand">
+        logsuck
+      </a>
+      <a href="/search">Search</a>
+    </nav>
+  </header>
+);

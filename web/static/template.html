@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
- Copyright 2020 The Logsuck Authors
+ Copyright 2021 The Logsuck Authors
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -26,11 +26,21 @@
   </head>
 
   <body class="bg-light">
-    <div id="app"></div>
+    <div id="app">
+      <header>
+        <nav class="navbar navbar-dark bg-dark">
+          <a href="/" class="navbar-brand"> logsuck </a>
+          <a href="/search">Search</a>
+        </nav>
+      </header>
+      <noscript>
+        Logsuck requires JavaScript to be enabled in order to function.
+      </noscript>
+    </div>
   </body>
 
   <script src="jquery.min.js"></script>
   <script src="popper.min.js"></script>
   <script src="bootstrap.min.js"></script>
-  <script src="app.js" async></script>
+  <script src="{{.scriptSrc}}" async></script>
 </html>

@@ -15,10 +15,13 @@
 package web
 
 import (
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -60,8 +63,33 @@ func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Reposi
 func (wi webImpl) Serve() error {
 	r := gin.Default()
 
-	g := r.Group("api/v1")
+	var fs http.FileSystem
+	if wi.cfg.Web.UsePackagedFiles {
+		fs = Assets
+	} else {
+		fs = http.Dir("web/static/dist")
+	}
 
+	tpl, err := parseTemplate(fs)
+	if err != nil {
+		return err
+	}
+
+	r.GET("/", func(c *gin.Context) {
+		tpl.Execute(c.Writer, gin.H{
+			"scriptSrc": "home.js",
+		})
+		c.Status(200)
+	})
+
+	r.GET("/search", func(c *gin.Context) {
+		tpl.Execute(c.Writer, gin.H{
+			"scriptSrc": "search.js",
+		})
+		c.Status(200)
+	})
+
+	g := r.Group("api/v1")
 	g.POST("/startJob", func(c *gin.Context) {
 		searchString := c.Query("searchString")
 		startTime, endTime, wErr := parseTimeParametersGin(c)
@@ -179,12 +207,6 @@ func (wi webImpl) Serve() error {
 		c.JSON(200, values)
 	})
 
-	var fs http.FileSystem
-	if wi.cfg.Web.UsePackagedFiles {
-		fs = Assets
-	} else {
-		fs = http.Dir("web/static/dist")
-	}
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
 		c.FileFromFS(path, fs)
@@ -192,6 +214,22 @@ func (wi webImpl) Serve() error {
 
 	log.Printf("Starting Web GUI on address='%v'\n", wi.cfg.Web.Address)
 	return r.Run(wi.cfg.Web.Address)
+}
+
+func parseTemplate(fs http.FileSystem) (*template.Template, error) {
+	f, err := fs.Open("template.html")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open template.html: %w", err)
+	}
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read data from template.html: %ww", err)
+	}
+	tpl, err := template.New("template.html").Parse(string(b))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template.html: %w", err)
+	}
+	return tpl, nil
 }
 
 func parseTimeParametersGin(c *gin.Context) (*time.Time, *time.Time, *webError) {

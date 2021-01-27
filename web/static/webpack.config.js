@@ -21,7 +21,7 @@ module.exports = {
   plugins: [
     new CopyPlugin({
       patterns: [
-        { from: "./index.html", to: "./dist/index.html" },
+        { from: "./template.html", to: "./dist/template.html" },
         { from: "./style.css", to: "./dist/style.css" },
         {
           from: "./node_modules/bootstrap/dist/css/bootstrap.min.css",
@@ -47,7 +47,11 @@ module.exports = {
   },
   output: {
     path: __dirname,
-    filename: "dist/app.js",
+    filename: "dist/[name].js",
+  },
+  entry: {
+    home: "./src/pages/home.tsx",
+    search: "./src/pages/search.tsx",
   },
   resolve: {
     extensions: [".ts", ".tsx", ".js"],
