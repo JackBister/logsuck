@@ -70,7 +70,7 @@ func tokenize(input string) ([]token, error) {
 }
 
 func (tk *tokenizer) tokenize(input string) ([]token, error) {
-	stringEndRegexp := regexp.MustCompile("[^\\\\]?\"")
+	stringEndRegexp := regexp.MustCompile("([^\\\\]|^)\"")
 
 	for i := 0; i < len(input); i++ {
 		r, _ := utf8.DecodeRuneInString(input[i:])

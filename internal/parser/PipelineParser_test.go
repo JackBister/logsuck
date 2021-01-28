@@ -58,12 +58,6 @@ func TestIncompletePipe_Fails(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expected an error but got nil when parsing '%v'", input)
 	}
-
-	const input2 = "hello world | rex"
-	_, err = ParsePipeline(input2)
-	if err == nil {
-		t.Fatalf("Expected an error but got nil when parsing '%v'", input2)
-	}
 }
 
 func TestPipe(t *testing.T) {
