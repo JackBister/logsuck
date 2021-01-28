@@ -203,6 +203,12 @@ The `field` option allows you to specify which field the regular expression shou
 
 The search command starts a new search. It ignores all previous results and instead sends its own results forward.
 
+#### `| where <field1>=<value1> <field2>=<value2>...`
+
+The where command filters events by field value. The benefit of having this as a separate command instead of using the field=value syntax in the search command is that `| where` can act on fields that are extracted later in the pipeline, such as fields extracted by `| rex`.
+
+For example you might use a search like `userId | rex "userId (?P<userId>\d+)" | where userId=123` to find events containing the string "userId", extract the number following userId in the event, and then filter to only include events where the userId is 123.
+
 ## Need help?
 
 If you have any questions about using Logsuck after reading the documentation, please [create an issue](https://github.com/JackBister/logsuck/issues/new) on this repository! There are no stupid questions here. You asking a question will help improve the documentation for everyone, so it is very much appreciated!
