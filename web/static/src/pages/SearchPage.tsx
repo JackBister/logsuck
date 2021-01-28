@@ -40,6 +40,7 @@ import { SearchInput } from "../components/SearchInput";
 import { FieldValueTable } from "../components/FieldValueTable";
 import { EventTable } from "../components/EventTable";
 import { FieldTable } from "../components/FieldTable";
+import { createSearchQueryParams } from "../createSearchUrl";
 
 const EVENTS_PER_PAGE = 25;
 const TOP_FIELDS_COUNT = 15;
@@ -160,7 +161,9 @@ export class SearchPageComponent extends Component<
     let doSearch = false;
     let newState: Partial<SearchStateStruct> = {};
     if (queryParams.has("query")) {
-      newState.searchString = queryParams.get("query") || undefined;
+      newState.searchString = decodeURIComponent(
+        queryParams.get("query") || ""
+      );
       doSearch = true;
     }
     if (queryParams.has("relativeTime")) {
@@ -453,6 +456,15 @@ export class SearchPageComponent extends Component<
       state: SearchState.WAITING_FOR_SEARCH,
     });
     try {
+      const qp = createSearchQueryParams(
+        this.state.searchString,
+        this.state.selectedTime
+      );
+      this.setQueryParams(qp);
+    } catch (e) {
+      console.warn("failed to set new query params when starting search", e);
+    }
+    try {
       const startJobResult = await this.props.startJob(
         this.state.searchString,
         {
@@ -471,9 +483,7 @@ export class SearchPageComponent extends Component<
         numMatched: 0,
         currentPageIndex: 0,
       });
-      const queryParams = this.props.getQueryParams();
-      queryParams.set("jobId", startJobResult.id.toString());
-      this.props.setQueryParams(queryParams);
+      this.setQueryParams({ jobId: startJobResult.id.toString() });
     } catch (e) {
       console.log(e);
       this.setState({
@@ -487,6 +497,14 @@ export class SearchPageComponent extends Component<
       timeSelection: this.state.selectedTime,
       searchTime: new Date(),
     });
+  }
+
+  private setQueryParams(qp: { [key: string]: string }) {
+    const queryParams = this.props.getQueryParams();
+    for (const k of Object.keys(qp)) {
+      queryParams.set(k, qp[k]);
+    }
+    this.props.setQueryParams(queryParams);
   }
 
   private async poll(id: number) {

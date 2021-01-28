@@ -20,22 +20,28 @@ export const createSearchUrl = (
   searchString: string,
   timeSelection: TimeSelection
 ) => {
-  const queryEncoded = encodeURIComponent(searchString);
-  const tsEncoded = createTSUrl(timeSelection);
-
-  return `/search?query=${queryEncoded}${tsEncoded}`;
+  const qp = createSearchQueryParams(searchString, timeSelection);
+  const qpString = Object.keys(qp)
+    .map((k) => ({ key: k, value: qp[k] }))
+    .reduce((prev, { key, value }) => (prev += `&${key}=${value}`), "");
+  return `search?${qpString}`;
 };
 
-const createTSUrl = (timeSelection: TimeSelection) => {
+export const createSearchQueryParams = (
+  searchString: string,
+  timeSelection: TimeSelection
+) => {
+  const ret: { [key: string]: string } = {};
+  ret["query"] = encodeURIComponent(searchString);
   if (timeSelection.relativeTime) {
-    return `&relativeTime=${timeSelection.relativeTime}`;
+    ret["relativeTime"] = timeSelection.relativeTime;
+    return ret;
   }
-  let url = "";
   if (timeSelection.startTime) {
-    url += `&startTime=${timeSelection.startTime.toISOString()}`;
+    ret["startTime"] = timeSelection.startTime.toISOString();
   }
   if (timeSelection.endTime) {
-    url += `&endTime=${timeSelection.endTime.toISOString()}`;
+    ret["endTime"] = timeSelection.endTime.toISOString();
   }
 
   if (
@@ -43,8 +49,8 @@ const createTSUrl = (timeSelection: TimeSelection) => {
     !timeSelection.startTime &&
     !timeSelection.endTime
   ) {
-    url += "&relativeTime=ALL";
+    ret["relativeTime"] = "ALL";
   }
 
-  return url;
+  return ret;
 };
