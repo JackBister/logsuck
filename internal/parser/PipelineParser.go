@@ -85,11 +85,11 @@ func ParsePipeline(s string) (*PipelineParseResult, error) {
 			step.Args[key] = tokFieldValue.value
 			p.skipWhitespace()
 		}
-		tokValue, err := p.require(tokenQuotedString)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse: %w", err)
+		if p.peek() == tokenQuotedString || p.peek() == tokenString {
+			step.Value = p.take().value
+		} else {
+			step.Value = ""
 		}
-		step.Value = tokValue.value
 		steps = append(steps, step)
 	}
 
