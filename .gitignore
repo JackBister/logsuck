@@ -5,6 +5,7 @@ log-*.txt
 *.db
 *.db-shm
 *.db-wal
+*.bat
 *.exe
 
 sdown
