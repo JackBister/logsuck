@@ -38,7 +38,7 @@ func main() {
 	flag.Parse()
 
 	for i := 0; i < *numFiles; i++ {
-		go func() {
+		go func(i int) {
 			filename := "log-" + strconv.Itoa(i) + ".txt"
 			file, err := os.Create(filename)
 			if err != nil {
@@ -52,7 +52,7 @@ func main() {
 					time.Sleep(*sleepTime)
 				}
 			}
-		}()
+		}(i)
 	}
 
 	select {}
