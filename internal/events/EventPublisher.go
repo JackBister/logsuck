@@ -35,10 +35,10 @@ type batchedRepositoryPublisher struct {
 }
 
 func BatchedRepositoryPublisher(cfg *config.Config, repo Repository) EventPublisher {
-	adder := make(chan Event)
+	adder := make(chan Event, 5000)
 
 	go func() {
-		accumulated := make([]Event, 0, 1000)
+		accumulated := make([]Event, 0, 5000)
 		timeout := time.After(1 * time.Second)
 		for {
 			select {
@@ -50,7 +50,7 @@ func BatchedRepositoryPublisher(cfg *config.Config, repo Repository) EventPublis
 				timeout = time.After(1 * time.Second)
 			case evt := <-adder:
 				accumulated = append(accumulated, evt)
-				if len(accumulated) >= 1000 {
+				if len(accumulated) >= 5000 {
 					_, err := repo.AddBatch(accumulated)
 					if err != nil {
 						// TODO: Error handling
