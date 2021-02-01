@@ -20,8 +20,10 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/search"
 )
 
@@ -30,10 +32,12 @@ const filterStreamPageSize = 1000
 
 type sqliteRepository struct {
 	db *sql.DB
+
+	cfg *config.SqliteConfig
 }
 
-func SqliteRepository(db *sql.DB) (Repository, error) {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY, host TEXT NOT NULL, source TEXT NOT NULL, timestamp DATETIME NOT NULL, offset BIGINT NOT NULL, UNIQUE(host, source, timestamp, offset));")
+func SqliteRepository(db *sql.DB, cfg *config.SqliteConfig) (Repository, error) {
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, host TEXT NOT NULL, source TEXT NOT NULL, timestamp DATETIME NOT NULL, offset BIGINT NOT NULL, UNIQUE(host, source, timestamp, offset));")
 	if err != nil {
 		return nil, fmt.Errorf("error creating events table: %w", err)
 	}
@@ -47,16 +51,100 @@ func SqliteRepository(db *sql.DB) (Repository, error) {
 		return nil, fmt.Errorf("error creating eventraws table: %w", err)
 	}
 	return &sqliteRepository{
-		db: db,
+		db:  db,
+		cfg: cfg,
 	}, nil
 }
 
-func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
+func (repo *sqliteRepository) AddBatch(events []Event) error {
+	if repo.cfg.TrueBatch {
+		return repo.addBatchTrueBatch(events)
+	} else {
+		return repo.addBatchOneByOne(events)
+	}
+}
+
+const esbBase = "INSERT OR IGNORE INTO Events (host, source, timestamp, offset) VALUES "
+const esbBaseLen = len(esbBase)
+const esbPerEvt = "(?, ?, ?, ?)"
+const esbPerEvtLen = len(esbPerEvt)
+const rsbBase = "INSERT INTO EventRaws (raw, source, host) VALUES "
+const rsbBaseLen = len(rsbBase)
+const rsbPerEvt = "(?, ?, ?)"
+const rsbPerEvtLen = len(rsbPerEvt)
+
+func (repo *sqliteRepository) addBatchTrueBatch(events []Event) error {
+	startTime := time.Now()
+	var eventSb strings.Builder
+	var rawSb strings.Builder
+	eventSb.Grow(esbBaseLen + esbPerEvtLen*len(events) + len(events))
+	rawSb.Grow(rsbBaseLen + rsbPerEvtLen*len(events) + len(events))
+	eventSb.WriteString(esbBase)
+	rawSb.WriteString(rsbBase)
+
+	esbArgs := make([]interface{}, 0, 4*len(events))
+	rsbArgs := make([]interface{}, 0, 3*len(events))
+	for i, evt := range events {
+		eventSb.WriteString(esbPerEvt)
+		rawSb.WriteString(rsbPerEvt)
+		if i != len(events)-1 {
+			eventSb.WriteRune(',')
+			rawSb.WriteRune(',')
+		}
+		esbArgs = append(esbArgs, evt.Host, evt.Source, evt.Timestamp, evt.Offset)
+		rsbArgs = append(rsbArgs, evt.Raw, evt.Source, evt.Host)
+	}
+
+	tx, err := repo.db.BeginTx(context.TODO(), nil)
+	if err != nil {
+		return fmt.Errorf("error starting transaction for adding event batch: %w", err)
+	}
+	rows, err := tx.Query("SELECT MAX(rowid) FROM EventRaws;")
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error adding event batch: failed to get MAX(rowid): %w", err)
+	}
+	prevMaxID := 0
+	if rows.Next() {
+		rows.Scan(&prevMaxID)
+	}
+	eventQ := eventSb.String()
+	_, err = tx.Exec(eventQ, esbArgs...)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error adding event batch to Events table: %w", err)
+	}
+	rawQ := rawSb.String()
+	res, err := tx.Exec(rawQ, rsbArgs...)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error adding event batch to EventRaws table: %w", err)
+	}
+	newMaxID, err := res.LastInsertId()
+	if err != nil {
+		log.Printf("got error when getting new max ID to clean up EventRaws: %v", err)
+	} else {
+		res, err = tx.Exec("DELETE FROM EventRaws AS er WHERE NOT EXISTS (SELECT 1 FROM Events e WHERE e.ID = er.rowid) AND er.rowid > ? AND er.rowid <= ? AND er.rowid != (SELECT MAX(ID) FROM Events)", prevMaxID, newMaxID)
+		if err != nil {
+			log.Printf("got error when cleaning up EventRaws: %v", err)
+		} else if deleted, err := res.RowsAffected(); err == nil && deleted > 0 {
+			log.Printf("Skipped adding numEvents=%v as they appear to be duplicates (same source, offset and timestamp as an existing event)", deleted)
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		// TODO: Hmm?
+	}
+	log.Printf("added numEvents=%v in timeInMs=%v\n", len(events), time.Now().Sub(startTime).Milliseconds())
+	return nil
+}
+
+func (repo *sqliteRepository) addBatchOneByOne(events []Event) error {
 	startTime := time.Now()
 	ret := make([]int64, len(events))
 	tx, err := repo.db.BeginTx(context.TODO(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("error starting transaction for adding event: %w", err)
+		return fmt.Errorf("error starting transaction for adding event: %w", err)
 	}
 	numberOfDuplicates := map[string]int64{}
 	for i, evt := range events {
@@ -68,17 +156,17 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 		}
 		if err != nil {
 			tx.Rollback()
-			return nil, fmt.Errorf("error executing add statement: %w", err)
+			return fmt.Errorf("error executing add statement: %w", err)
 		}
 		id, err := res.LastInsertId()
 		if err != nil {
 			tx.Rollback()
-			return nil, fmt.Errorf("error getting event id after insert: %w", err)
+			return fmt.Errorf("error getting event id after insert: %w", err)
 		}
 		_, err = tx.Exec("INSERT INTO EventRaws (rowid, raw, source, host) SELECT LAST_INSERT_ROWID(), ?, ?, ?;", evt.Raw, evt.Source, evt.Host)
 		if err != nil {
 			tx.Rollback()
-			return nil, fmt.Errorf("error executing add raw statement: %w", err)
+			return fmt.Errorf("error executing add raw statement: %w", err)
 		}
 		ret[i] = id
 	}
@@ -90,7 +178,7 @@ func (repo *sqliteRepository) AddBatch(events []Event) ([]int64, error) {
 		log.Printf("Skipped adding numEvents=%v from source=%v because they appear to be duplicates (same source, offset and timestamp as an existing event)\n", v, k)
 	}
 	log.Printf("added numEvents=%v in timeInMs=%v\n", len(events), time.Now().Sub(startTime).Milliseconds())
-	return ret, nil
+	return nil
 }
 
 func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime, searchEndTime *time.Time) <-chan []EventWithId {

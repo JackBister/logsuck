@@ -28,7 +28,7 @@ const (
 )
 
 type Repository interface {
-	AddBatch(events []Event) ([]int64, error)
+	AddBatch(events []Event) error
 	FilterStream(srch *search.Search, searchStartTime, searchEndTime *time.Time) <-chan []EventWithId
 	GetByIds(ids []int64, sortMode SortMode) ([]EventWithId, error)
 }

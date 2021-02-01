@@ -18,6 +18,7 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -28,7 +29,7 @@ func newInMemRepo(t *testing.T) events.Repository {
 	if err != nil {
 		t.Fatalf("TestRexPipelineStep got error when creating in-memory SQLite database: %v", err)
 	}
-	repo, err := events.SqliteRepository(db)
+	repo, err := events.SqliteRepository(db, &config.SqliteConfig{})
 	if err != nil {
 		t.Fatalf("TestRexPipelineStep got error when creating events repo: %v", err)
 	}

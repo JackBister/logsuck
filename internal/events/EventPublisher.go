@@ -51,7 +51,7 @@ func BatchedRepositoryPublisher(cfg *config.Config, repo Repository) EventPublis
 			case evt := <-adder:
 				accumulated = append(accumulated, evt)
 				if len(accumulated) >= 5000 {
-					_, err := repo.AddBatch(accumulated)
+					err := repo.AddBatch(accumulated)
 					if err != nil {
 						// TODO: Error handling
 						log.Println("error when adding events:", err)

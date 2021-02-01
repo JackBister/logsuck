@@ -84,7 +84,7 @@ func (er *EventRecipient) Serve() error {
 				processed[i].Timestamp = time.Now()
 			}
 		}
-		_, err = er.repo.AddBatch(processed)
+		err = er.repo.AddBatch(processed)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to add events to repository: %v", err), 500)
 			return

@@ -52,6 +52,7 @@ var cfg = config.Config{
 
 	SQLite: &config.SqliteConfig{
 		DatabaseFile: "logsuck.db",
+		TrueBatch:    true,
 	},
 
 	Web: &config.WebConfig{
@@ -165,7 +166,7 @@ func main() {
 		if err != nil {
 			log.Fatalln(err.Error())
 		}
-		repo, err = events.SqliteRepository(db)
+		repo, err = events.SqliteRepository(db, cfg.SQLite)
 		if err != nil {
 			log.Fatalln(err.Error())
 		}

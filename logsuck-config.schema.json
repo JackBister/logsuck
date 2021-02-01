@@ -85,6 +85,10 @@
         "fileName": {
           "description": "The file name which will be used for the SQLite database. Default 'logsuck.db'.",
           "type": "string"
+        },
+        "trueBatch": {
+          "description": "Whether Logsuck should use 'true batch' mode or not. True batch is significantly faster at saving events on average, but is slower at handling duplicates and relies on SQLite behavior which may not be guaranteed. Default true.",
+          "type": "boolean"
         }
       }
     },

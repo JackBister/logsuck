@@ -44,7 +44,8 @@ type jsonRecipientConfig struct {
 }
 
 type jsonSqliteConfig struct {
-	FileName string `json:fileName`
+	FileName  string `json:fileName`
+	TrueBatch *bool  `json:trueBatch`
 }
 
 type jsonWebConfig struct {
@@ -89,6 +90,7 @@ var defaultConfig = Config{
 
 	SQLite: &SqliteConfig{
 		DatabaseFile: "logsuck.db",
+		TrueBatch:    true,
 	},
 
 	Web: &WebConfig{
@@ -242,6 +244,12 @@ func FromJSON(r io.Reader) (*Config, error) {
 			sqlite.DatabaseFile = defaultConfig.SQLite.DatabaseFile
 		} else {
 			sqlite.DatabaseFile = cfg.Sqlite.FileName
+		}
+		if cfg.Sqlite.TrueBatch == nil {
+			log.Println("Using default TrueBatch mode. defaultTrueBatch=true")
+			sqlite.TrueBatch = true
+		} else {
+			sqlite.TrueBatch = *cfg.Sqlite.TrueBatch
 		}
 	}
 
