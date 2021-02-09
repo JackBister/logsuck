@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 The Logsuck Authors
+ * Copyright 2021 The Logsuck Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-export interface TimeSelection {
-  relativeTime?: string;
-  startTime?: string;
-  endTime?: string;
-}
+const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?Z?$/;
+
+export const validateIsoTimestamp = (str?: string): str is string => {
+  return !!str && ISO_TIMESTAMP_PATTERN.test(str);
+};

@@ -15,6 +15,7 @@
  */
 
 import { TimeSelection } from "./models/TimeSelection";
+import { validateIsoTimestamp } from "./validateIsoTimestamp";
 
 export const createSearchUrl = (
   searchString: string,
@@ -37,11 +38,11 @@ export const createSearchQueryParams = (
     ret["relativeTime"] = timeSelection.relativeTime;
     return ret;
   }
-  if (timeSelection.startTime) {
-    ret["startTime"] = timeSelection.startTime.toISOString();
+  if (validateIsoTimestamp(timeSelection.startTime)) {
+    ret["startTime"] = timeSelection.startTime;
   }
-  if (timeSelection.endTime) {
-    ret["endTime"] = timeSelection.endTime.toISOString();
+  if (validateIsoTimestamp(timeSelection.endTime)) {
+    ret["endTime"] = timeSelection.endTime;
   }
 
   if (

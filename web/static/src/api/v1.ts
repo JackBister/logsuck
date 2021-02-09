@@ -16,6 +16,7 @@
 
 import { LogEvent } from "../models/Event";
 import { TimeSelection } from "../models/TimeSelection";
+import { validateIsoTimestamp } from "../validateIsoTimestamp";
 
 interface RestEvent {
   Raw: string;
@@ -36,11 +37,11 @@ export function startJob(
   if (timeSelection.relativeTime) {
     queryParams += `&relativeTime=${timeSelection.relativeTime}`;
   }
-  if (timeSelection.startTime) {
-    queryParams += `&startTime=${timeSelection.startTime.toISOString()}`;
+  if (validateIsoTimestamp(timeSelection.startTime)) {
+    queryParams += `&startTime=${timeSelection.startTime}Z`;
   }
-  if (timeSelection.endTime) {
-    queryParams += `&endTime=${timeSelection.endTime.toISOString()}`;
+  if (validateIsoTimestamp(timeSelection.endTime)) {
+    queryParams += `&endTime=${timeSelection.endTime}Z`;
   }
   return fetch("/api/v1/startJob" + queryParams, { method: "POST" })
     .then((r) => r.json())

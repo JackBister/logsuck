@@ -41,6 +41,7 @@ import { FieldValueTable } from "../components/FieldValueTable";
 import { EventTable } from "../components/EventTable";
 import { FieldTable } from "../components/FieldTable";
 import { createSearchQueryParams } from "../createSearchUrl";
+import { validateIsoTimestamp } from "../validateIsoTimestamp";
 
 const EVENTS_PER_PAGE = 25;
 const TOP_FIELDS_COUNT = 15;
@@ -184,14 +185,16 @@ export class SearchPageComponent extends Component<
       doSearch = true;
     }
     if (hasStartTime) {
-      newState.selectedTime!.startTime = new Date(
-        queryParams.get("startTime") as string
-      );
+      const startTimeStr = queryParams.get("startTime") as string;
+      if (validateIsoTimestamp(startTimeStr)) {
+        newState.selectedTime!.startTime = startTimeStr;
+      }
     }
     if (hasEndTime) {
-      newState.selectedTime!.endTime = new Date(
-        queryParams.get("endTime") as string
-      );
+      const endTimeStr = queryParams.get("endTime") as string;
+      if (validateIsoTimestamp(endTimeStr)) {
+        newState.selectedTime!.endTime = endTimeStr;
+      }
     }
     if (queryParams.has("jobId")) {
       const jobIdString = queryParams.get("jobId") as string;
@@ -460,6 +463,7 @@ export class SearchPageComponent extends Component<
         this.state.searchString,
         this.state.selectedTime
       );
+      this.clearQueryParams();
       this.setQueryParams(qp);
     } catch (e) {
       console.warn("failed to set new query params when starting search", e);
@@ -467,9 +471,7 @@ export class SearchPageComponent extends Component<
     try {
       const startJobResult = await this.props.startJob(
         this.state.searchString,
-        {
-          relativeTime: this.state.selectedTime.relativeTime,
-        }
+        this.state.selectedTime
       );
       this.setState({
         ...this.state,
@@ -497,6 +499,10 @@ export class SearchPageComponent extends Component<
       timeSelection: this.state.selectedTime,
       searchTime: new Date(),
     });
+  }
+
+  private clearQueryParams() {
+    this.props.setQueryParams(new URLSearchParams());
   }
 
   private setQueryParams(qp: { [key: string]: string }) {
