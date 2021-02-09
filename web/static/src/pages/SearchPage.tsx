@@ -199,6 +199,13 @@ export class SearchPageComponent extends Component<
     if (queryParams.has("jobId")) {
       const jobIdString = queryParams.get("jobId") as string;
       const jobId = parseInt(jobIdString, 10);
+      let currentPageIndex = 0;
+      if (queryParams.has("page")) {
+        const pageIndex = parseInt(queryParams.get("page") as string, 10);
+        if (!isNaN(pageIndex)) {
+          currentPageIndex = pageIndex;
+        }
+      }
       if (!isNaN(jobId)) {
         newState = {
           ...newState,
@@ -207,7 +214,7 @@ export class SearchPageComponent extends Component<
           poller: window.setTimeout(async () => this.poll(jobId), 0),
           searchResult: [],
           numMatched: 0,
-          currentPageIndex: 0,
+          currentPageIndex: currentPageIndex,
         };
         doSearch = false;
       }
@@ -423,6 +430,9 @@ export class SearchPageComponent extends Component<
         searchResult: newEvents,
         currentPageIndex: newPageIndex,
       });
+      this.setQueryParams({
+        page: newPageIndex.toString(),
+      });
     } catch (e) {
       console.log(e);
     }
@@ -559,7 +569,7 @@ export class SearchPageComponent extends Component<
       ) {
         nextState.searchResult = await this.props.getResults(
           id,
-          0,
+          this.state.currentPageIndex * EVENTS_PER_PAGE,
           EVENTS_PER_PAGE
         );
         if (id !== this.state.jobId) {
