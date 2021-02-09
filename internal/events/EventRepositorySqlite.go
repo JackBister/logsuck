@@ -28,6 +28,7 @@ import (
 )
 
 const expectedConstraintViolationForDuplicates = "UNIQUE constraint failed: Events.host, Events.source, Events.timestamp, Events.offset"
+const expectedErrorWhenDatabaseIsEmpty = "sql: Scan error on column index 0, name \"MAX(id)\": converting NULL to int is unsupported"
 const filterStreamPageSize = 1000
 
 type sqliteRepository struct {
@@ -200,6 +201,9 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 		err = res.Scan(&maxID)
 		res.Close()
 		if err != nil {
+			if err.Error() == expectedErrorWhenDatabaseIsEmpty {
+				return
+			}
 			log.Println("error when scanning max(id) in FilterStream:", err)
 			return
 		}
