@@ -265,7 +265,7 @@ Logsuck is still heavily in development, so there are many features still being 
 - [ ] Compression for the FTS table to reduce storage requirements
 - [ ] Retention setting to delete old events after a certain period of time
 - [ ] "Show source" / "Show context" button to view events from the same source that are close in time to the selected event
-- [ ] Ability to search via time spans that are not relative to the current time, such as "All events between 2020-01-01 and 2020-01-05"
+- [x] Ability to search via time spans that are not relative to the current time, such as "All events between 2020-01-01 and 2020-01-05"
 - [x] Ad hoc field extraction using pipes in the search command (equivalent to Splunk's "| rex")
 - [ ] E-mail alerts
 
