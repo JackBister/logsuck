@@ -105,7 +105,7 @@
           "type": "string"
         },
         "usePackagedFiles": {
-          "description": "If true, all static files will be served using the files that are bundled into the executable. If false, the normal filesystem will be used (which means the directory './web/static/dist' must exist in the working directory). This is mostly useful when developing. Default true.",
+          "description": "If true, all static files will be served using the files that are bundled into the executable. If false, the normal filesystem will be used (which means the directory './internal/web/static/dist' must exist in the working directory). This is mostly useful when developing. Default true.",
           "type": "boolean"
         }
       }

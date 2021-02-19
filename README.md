@@ -217,28 +217,22 @@ If you have any questions about using Logsuck after reading the documentation, p
 
 Contributions in the form of pull requests and issues are welcome! Here are some tips on running Logsuck locally for developing.
 
-First of all, you will need a version of Go with support for Go modules (1.14 is used when building in CI), as well as a fairly recent Node/npm installation (Node v12 and npm v6 are used in CI). If cross compiling for Windows, you need [gcc-mingw-w64](http://mingw-w64.org/doku.php/download).
+First of all, you will need a version of Go with support for Go modules and the `embed` package (1.16 is used when building in CI), as well as a fairly recent Node/npm installation (Node v12 and npm v6 are used in CI). If cross compiling for Windows, you need [gcc-mingw-w64](http://mingw-w64.org/doku.php/download).
 
-Logsuck consists of two parts: A Go application for the backend and a [preact](https://preactjs.com/) GUI for the frontend. When the Go application is built, the frontend is bundled into the executable using [vfsgen](https://github.com/shurcooL/vfsgen). This bundling step allows Logsuck to be deployed as a single executable.
+Logsuck consists of two parts: A Go application for the backend and a [preact](https://preactjs.com/) GUI for the frontend. When the Go application is built, the frontend is bundled into the executable using [the embed package](https://golang.org/pkg/embed). This bundling step allows Logsuck to be deployed as a single executable.
 
-Since the frontend is necessary to build the backend, lets start off by building the frontend. All frontend code is contained in the `./web/static` directory.
+Since the frontend is necessary to build the backend, lets start off by building the frontend. All frontend code is contained in the `./internal/web/static` directory.
 
 ```sh
-cd web/static
+cd internal/web/static
 npm install && npm run build
 ```
 
-This will build the frontend and put it in the `./web/static/dist` directory. Time to build the backend.
+This will build the frontend and put it in the `./internal/web/static/dist` directory. Time to build the backend.
 
 It is easier to build the backend on Linux than it is for Windows. If using Windows, I would recommend using Windows Subsystem for Linux and cross compiling to a Windows executable instead of trying to build directly on Windows. The official release builds for Windows are cross compiled from an Ubuntu installation.
 
-Whether you're compiling for Linux or cross compiling for Windows, the first step is to use vfsgen to generate a bundle of the frontend files which will be embedded in the executable.
-
-```sh
-go generate ./cmd/logsuck/main.go
-```
-
-Then, if compiling for Linux, all you need to do is:
+If compiling for Linux, all you need to do is:
 
 ```sh
 go build ./cmd/logsuck/main.go
@@ -256,8 +250,8 @@ and you should have a `./main.exe` file.
 
 If you are working on the frontend, you can do the following things to make your life easier:
 
-1. Run webpack in watch mode by running `npm run watch` in `./web/static`
-2. Add `{ "web": { "usePackagedFiles": "false" } }` to your `./logsuck.json`. This will make it so that Logsuck will read the files off the filesystem instead of using the files that were bundled into the executable by running go generate.
+1. Run webpack in watch mode by running `npm run watch` in `./internal/web/static`
+2. Add `{ "web": { "usePackagedFiles": "false" } }` to your `./logsuck.json`. This will make it so that Logsuck will read the files off the filesystem instead of using the files that were bundled into the executable.
 
 With those two steps done, you don't need to restart Logsuck to see the changes you've made to the frontend, and your changes will be compiled when you save. You just need to refresh your browser after making a change to see it in action.
 

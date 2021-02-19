@@ -15,7 +15,9 @@
 package web
 
 import (
+	"embed"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -60,17 +62,24 @@ func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Reposi
 	}
 }
 
+//go:embed static/dist
+var Assets embed.FS
+
 func (wi webImpl) Serve() error {
 	r := gin.Default()
 
-	var fs http.FileSystem
+	var filesys http.FileSystem
 	if wi.cfg.Web.UsePackagedFiles {
-		fs = Assets
+		assets, err := fs.Sub(Assets, "static/dist")
+		if err != nil {
+			return fmt.Errorf("failed to Sub into static/dist directory: %w", err)
+		}
+		filesys = http.FS(assets)
 	} else {
-		fs = http.Dir("web/static/dist")
+		filesys = http.Dir("internal/web/static/dist")
 	}
 
-	tpl, err := parseTemplate(fs)
+	tpl, err := parseTemplate(filesys)
 	if err != nil {
 		return err
 	}
@@ -209,7 +218,7 @@ func (wi webImpl) Serve() error {
 
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
-		c.FileFromFS(path, fs)
+		c.FileFromFS(path, filesys)
 	})
 
 	log.Printf("Starting Web GUI on address='%v'\n", wi.cfg.Web.Address)

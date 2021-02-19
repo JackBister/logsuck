@@ -10,5 +10,4 @@ log-*.txt
 
 sdown
 
-generated_assets.go
-web/static/dist
+internal/web/static/dist
