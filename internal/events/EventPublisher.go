@@ -73,10 +73,11 @@ func BatchedRepositoryPublisher(cfg *config.Config, repo Repository) EventPublis
 
 func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout string) {
 	processed := Event{
-		Raw:    evt.Raw,
-		Host:   ep.cfg.HostName,
-		Source: evt.Source,
-		Offset: evt.Offset,
+		Raw:      evt.Raw,
+		Host:     ep.cfg.HostName,
+		SourceId: evt.SourceId,
+		Source:   evt.Source,
+		Offset:   evt.Offset,
 	}
 
 	fields := parser.ExtractFields(strings.ToLower(evt.Raw), ep.cfg.FieldExtractors)

@@ -190,6 +190,7 @@ func (wi webImpl) Serve() error {
 				Raw:       r.Raw,
 				Host:      r.Host,
 				Source:    r.Source,
+				SourceId:  r.SourceId,
 				Timestamp: r.Timestamp,
 				Fields:    fields,
 			})

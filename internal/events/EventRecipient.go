@@ -57,10 +57,11 @@ func (er *EventRecipient) Serve() error {
 		processed := make([]Event, len(req.Events))
 		for i, evt := range req.Events {
 			processed[i] = Event{
-				Raw:    evt.Raw,
-				Host:   evt.Host,
-				Source: evt.Source,
-				Offset: evt.Offset,
+				Raw:      evt.Raw,
+				Host:     evt.Host,
+				Source:   evt.Source,
+				SourceId: evt.SourceId,
+				Offset:   evt.Offset,
 			}
 
 			var timeLayout string
