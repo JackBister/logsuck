@@ -55,6 +55,9 @@ type pipelinePipe struct {
 
 type pipelineStep interface {
 	Execute(ctx context.Context, pipe pipelinePipe, params PipelineParameters)
+	// IsGeneratorStep should return true if the step does not use the results of the last step.
+	// In that case the pipeline can be optimized by removing all preceding steps
+	IsGeneratorStep() bool
 }
 
 var compilers = map[string]func(input string, options map[string]string) (pipelineStep, error){
@@ -91,10 +94,18 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 		compiledSteps[i] = res
 	}
 
+	lastGeneratorIndex := 0
+	for i, compiled := range compiledSteps {
+		if compiled.IsGeneratorStep() {
+			lastGeneratorIndex = i
+		}
+	}
+	compiledSteps = compiledSteps[lastGeneratorIndex:]
+
 	lastOutput := make(chan PipelineStepResult, pipeBufferSize)
 	close(lastOutput)
 	pipes := make([]pipelinePipe, len(compiledSteps))
-	for i := 0; i < len(pr.Steps); i++ {
+	for i := 0; i < len(compiledSteps); i++ {
 		outputEvents := make(chan PipelineStepResult, pipeBufferSize)
 		pipes[i] = pipelinePipe{
 			input:  lastOutput,
@@ -103,7 +114,6 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 		lastOutput = outputEvents
 	}
 
-	log.Println("outchan", lastOutput)
 	return &Pipeline{
 		steps:   compiledSteps,
 		pipes:   pipes,

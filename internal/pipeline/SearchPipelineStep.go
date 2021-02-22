@@ -66,6 +66,10 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 	}
 }
 
+func (s *searchPipelineStep) IsGeneratorStep() bool {
+	return true
+}
+
 func compileSearchStep(input string, options map[string]string) (pipelineStep, error) {
 	var startTime, endTime *time.Time
 	if t, ok := options["startTime"]; ok {

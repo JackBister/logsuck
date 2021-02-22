@@ -66,6 +66,10 @@ func (r *rexPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, params
 	}
 }
 
+func (r *rexPipelineStep) IsGeneratorStep() bool {
+	return false
+}
+
 func compileRexStep(input string, options map[string]string) (pipelineStep, error) {
 	field, ok := options["field"]
 	if !ok {
