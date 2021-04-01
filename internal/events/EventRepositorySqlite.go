@@ -338,3 +338,49 @@ func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventW
 
 	return ret, nil
 }
+
+const surroundingBaseSQL = "SELECT source_id, offset FROM Events WHERE id=?"
+const surroundingUpSQL = "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.source_id=? AND e.offset<=? ORDER BY e.offset DESC LIMIT ?"
+const surroundingDownSQL = "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.source_id=? AND e.offset>? ORDER BY e.offset ASC LIMIT ?"
+
+func (repo *sqliteRepository) GetSurroundingEvents(id int64, count int) ([]EventWithId, error) {
+	row := repo.db.QueryRow(surroundingBaseSQL, id)
+	if row == nil {
+		return []EventWithId{}, nil
+	}
+	if row.Err() != nil {
+		return nil, fmt.Errorf("got error when getting source_id and offset for eventId=%v: %w", id, row.Err())
+	}
+
+	var sourceId string
+	var baseOffset int
+	err := row.Scan(&sourceId, &baseOffset)
+	if err != nil {
+		return nil, fmt.Errorf("got error when scanning source_id and offset for eventId=%v: %w", id, err)
+	}
+
+	upRows, err := queryAndScan(repo.db, surroundingUpSQL, sourceId, baseOffset, count+1)
+	if err != nil {
+		return nil, fmt.Errorf("got error when querying for surrounding rows for eventId=%v: %w", id, err)
+	}
+	downRows, err := queryAndScan(repo.db, surroundingDownSQL, sourceId, baseOffset, count)
+
+	return append(upRows, downRows...), nil
+}
+
+func queryAndScan(db *sql.DB, query string, sourceId string, baseOffset int, count int) ([]EventWithId, error) {
+	ret := make([]EventWithId, 0, count)
+	rows, err := db.Query(query, sourceId, baseOffset, count)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var evt EventWithId
+		err := rows.Scan(&evt.Id, &evt.Host, &evt.Source, &evt.SourceId, &evt.Timestamp, &evt.Raw)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, evt)
+	}
+	return ret, nil
+}

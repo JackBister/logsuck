@@ -61,9 +61,10 @@ type pipelineStep interface {
 }
 
 var compilers = map[string]func(input string, options map[string]string) (pipelineStep, error){
-	"rex":    compileRexStep,
-	"search": compileSearchStep,
-	"where":  compileWhereStep,
+	"rex":         compileRexStep,
+	"search":      compileSearchStep,
+	"surrounding": compileSurroundingStep,
+	"where":       compileWhereStep,
 }
 
 func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, error) {
