@@ -14,7 +14,11 @@
 
 package jobs
 
-import "time"
+import (
+	"time"
+
+	"github.com/jackbister/logsuck/internal/events"
+)
 
 type JobState int32
 
@@ -29,6 +33,7 @@ type Job struct {
 	State              JobState
 	Query              string
 	StartTime, EndTime *time.Time
+	SortMode           events.SortMode
 }
 
 type JobStats struct {

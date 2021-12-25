@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +28,8 @@ import (
 	"github.com/jackbister/logsuck/internal/search"
 )
 
+// It might be more correct to use source_id + offset for deduplication, but this works poorly in single mode / while developing since
+// a new source ID is generated for all existing files on each restart.
 const expectedConstraintViolationForDuplicates = "UNIQUE constraint failed: Events.host, Events.source, Events.timestamp, Events.offset"
 const expectedErrorWhenDatabaseIsEmpty = "sql: Scan error on column index 0, name \"MAX(id)\": converting NULL to int is unsupported"
 const filterStreamPageSize = 1000
@@ -38,7 +41,7 @@ type sqliteRepository struct {
 }
 
 func SqliteRepository(db *sql.DB, cfg *config.SqliteConfig) (Repository, error) {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, host TEXT NOT NULL, source TEXT NOT NULL, timestamp DATETIME NOT NULL, offset BIGINT NOT NULL, UNIQUE(host, source, timestamp, offset));")
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, host TEXT NOT NULL, source TEXT NOT NULL, source_id TEXT NOT NULL, timestamp DATETIME NOT NULL, offset BIGINT NOT NULL, UNIQUE(host, source, timestamp, offset));")
 	if err != nil {
 		return nil, fmt.Errorf("error creating events table: %w", err)
 	}
@@ -65,9 +68,9 @@ func (repo *sqliteRepository) AddBatch(events []Event) error {
 	}
 }
 
-const esbBase = "INSERT OR IGNORE INTO Events (host, source, timestamp, offset) VALUES "
+const esbBase = "INSERT OR IGNORE INTO Events (host, source, source_id, timestamp, offset) VALUES "
 const esbBaseLen = len(esbBase)
-const esbPerEvt = "(?, ?, ?, ?)"
+const esbPerEvt = "(?, ?, ?, ?, ?)"
 const esbPerEvtLen = len(esbPerEvt)
 const rsbBase = "INSERT INTO EventRaws (raw, source, host) VALUES "
 const rsbBaseLen = len(rsbBase)
@@ -92,7 +95,7 @@ func (repo *sqliteRepository) addBatchTrueBatch(events []Event) error {
 			eventSb.WriteRune(',')
 			rawSb.WriteRune(',')
 		}
-		esbArgs = append(esbArgs, evt.Host, evt.Source, evt.Timestamp, evt.Offset)
+		esbArgs = append(esbArgs, evt.Host, evt.Source, evt.SourceId, evt.Timestamp, evt.Offset)
 		rsbArgs = append(rsbArgs, evt.Raw, evt.Source, evt.Host)
 	}
 
@@ -149,7 +152,7 @@ func (repo *sqliteRepository) addBatchOneByOne(events []Event) error {
 	}
 	numberOfDuplicates := map[string]int64{}
 	for i, evt := range events {
-		res, err := tx.Exec("INSERT INTO Events(host, source, timestamp, offset) VALUES(?, ?, ?, ?);", evt.Host, evt.Source, evt.Timestamp, evt.Offset)
+		res, err := tx.Exec("INSERT INTO Events(host, source, source_id, timestamp, offset) VALUES(?, ?, ?, ?, ?);", evt.Host, evt.Source, evt.SourceId, evt.Timestamp, evt.Offset)
 		// Surely this can't be the right way to check for this error...
 		if err != nil && err.Error() == expectedConstraintViolationForDuplicates {
 			numberOfDuplicates[evt.Source]++
@@ -209,7 +212,7 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 		}
 		var lastTimestamp string
 		for {
-			stmt := "SELECT e.id, e.host, e.source, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id <= " + strconv.Itoa(maxID)
+			stmt := "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id <= " + strconv.Itoa(maxID)
 			if searchStartTime != nil {
 				stmt += " AND e.timestamp >= '" + searchStartTime.String() + "'"
 			}
@@ -278,7 +281,7 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 			eventsInPage := 0
 			for res.Next() {
 				var evt EventWithId
-				err := res.Scan(&evt.Id, &evt.Host, &evt.Source, &evt.Timestamp, &evt.Raw)
+				err := res.Scan(&evt.Id, &evt.Host, &evt.Source, &evt.SourceId, &evt.Timestamp, &evt.Raw)
 				if err != nil {
 					log.Printf("error when scanning result in FilterStream: %v\n", err)
 				} else {
@@ -303,7 +306,7 @@ func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventW
 	ret := make([]EventWithId, len(ids))
 
 	// TODO: I'm PRETTY sure this code is garbage
-	stmt := "SELECT e.id, e.host, e.source, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id IN ("
+	stmt := "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id IN ("
 	for i, id := range ids {
 		if i == len(ids)-1 {
 			stmt += strconv.FormatInt(id, 10)
@@ -327,12 +330,68 @@ func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventW
 
 	idx := 0
 	for res.Next() {
-		err = res.Scan(&ret[idx].Id, &ret[idx].Host, &ret[idx].Source, &ret[idx].Timestamp, &ret[idx].Raw)
+		err = res.Scan(&ret[idx].Id, &ret[idx].Host, &ret[idx].Source, &ret[idx].SourceId, &ret[idx].Timestamp, &ret[idx].Raw)
 		if err != nil {
 			return nil, fmt.Errorf("error when scanning row in GetByIds: %w", err)
 		}
 		idx++
 	}
 
+	if sortMode == SortModePreserveArgOrder {
+		m := make(map[int64]int, len(ids))
+		for i, id := range ids {
+			m[id] = i
+		}
+		sort.Slice(ret, func(i, j int) bool {
+			return m[ret[i].Id] < m[ret[j].Id]
+		})
+	}
+
+	return ret, nil
+}
+
+const surroundingBaseSQL = "SELECT source_id, offset FROM Events WHERE id=?"
+const surroundingUpSQL = "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.source_id=? AND e.offset<=? ORDER BY e.offset DESC LIMIT ?"
+const surroundingDownSQL = "SELECT id, host, source, source_id, timestamp, raw FROM (SELECT e.id, e.host, e.source, e.source_id, e.timestamp, e.offset, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.source_id=? AND e.offset>? ORDER BY e.offset ASC LIMIT ?) ORDER BY offset DESC"
+
+func (repo *sqliteRepository) GetSurroundingEvents(id int64, count int) ([]EventWithId, error) {
+	row := repo.db.QueryRow(surroundingBaseSQL, id)
+	if row == nil {
+		return []EventWithId{}, nil
+	}
+	if row.Err() != nil {
+		return nil, fmt.Errorf("got error when getting source_id and offset for eventId=%v: %w", id, row.Err())
+	}
+
+	var sourceId string
+	var baseOffset int
+	err := row.Scan(&sourceId, &baseOffset)
+	if err != nil {
+		return nil, fmt.Errorf("got error when scanning source_id and offset for eventId=%v: %w", id, err)
+	}
+
+	upRows, err := queryAndScan(repo.db, surroundingUpSQL, sourceId, baseOffset, count/2)
+	if err != nil {
+		return nil, fmt.Errorf("got error when querying for surrounding rows for eventId=%v: %w", id, err)
+	}
+	downRows, err := queryAndScan(repo.db, surroundingDownSQL, sourceId, baseOffset, count/2)
+
+	return append(downRows, upRows...), nil
+}
+
+func queryAndScan(db *sql.DB, query string, sourceId string, baseOffset int, count int) ([]EventWithId, error) {
+	ret := make([]EventWithId, 0, count)
+	rows, err := db.Query(query, sourceId, baseOffset, count)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var evt EventWithId
+		err := rows.Scan(&evt.Id, &evt.Host, &evt.Source, &evt.SourceId, &evt.Timestamp, &evt.Raw)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, evt)
+	}
 	return ret, nil
 }

@@ -85,7 +85,9 @@ export class RedirectSearchInput extends Component<
     super(props);
     this.state = {
       searchString: "",
-      timeSelection: {},
+      timeSelection: {
+        relativeTime: "-15m",
+      },
     };
   }
 

@@ -203,6 +203,10 @@ The `field` option allows you to specify which field the regular expression shou
 
 The search command starts a new search. It ignores all previous results and instead sends its own results forward.
 
+#### `| surrounding [count=<number>] eventId=<id>`
+
+Shows the events that have the same source as the given event and which were close to the event in the log file. This is used when clicking "View context" on an event. This is useful if you are finding results from many different files and want to drill down on a specific event.
+
 #### `| where <field1>=<value1> <field2>=<value2>...`
 
 The where command filters events by field value. The benefit of having this as a separate command instead of using the field=value syntax in the search command is that `| where` can act on fields that are extracted later in the pipeline, such as fields extracted by `| rex`.
@@ -264,7 +268,7 @@ Logsuck is still heavily in development, so there are many features still being 
 - [x] Glob patterns for finding log files
 - [ ] Compression for the FTS table to reduce storage requirements
 - [ ] Retention setting to delete old events after a certain period of time
-- [ ] "Show source" / "Show context" button to view events from the same source that are close in time to the selected event
+- [x] "Show source" / "Show context" button to view events from the same source that are close in time to the selected event
 - [x] Ability to search via time spans that are not relative to the current time, such as "All events between 2020-01-01 and 2020-01-05"
 - [x] Ad hoc field extraction using pipes in the search command (equivalent to Splunk's "| rex")
 - [ ] E-mail alerts

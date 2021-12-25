@@ -21,6 +21,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 
@@ -48,9 +49,10 @@ type FileWatcher struct {
 	eventPublisher events.EventPublisher
 	file           *os.File
 
-	currentOffset int64
-	readBuf       []byte
-	workingBuf    []byte
+	currentSourceId string
+	currentOffset   int64
+	readBuf         []byte
+	workingBuf      []byte
 }
 
 // NewFileWatcher returns a FileWatcher which will watch a file and publish events according to the IndexedFileConfig
@@ -121,9 +123,10 @@ out:
 				log.Printf("error opening filename=%s, will retry later.\n", fw.filename)
 			} else {
 				fw.file = f
+				fw.currentSourceId = uuid.NewString()
 				fw.currentOffset = 0
 				fw.workingBuf = fw.workingBuf[:0]
-				log.Printf("opened filename=%s\n", fw.filename)
+				log.Printf("opened filename=%s with sourceId=%s\n", fw.filename, fw.currentSourceId)
 			}
 		}
 		if fw.file != nil {
@@ -154,10 +157,11 @@ func (fw *FileWatcher) handleEvents() {
 	split := fw.fileConfig.EventDelimiter.Split(s, -1)
 	for i, raw := range split[:len(split)-1] {
 		evt := events.RawEvent{
-			Raw:    raw,
-			Host:   fw.hostName,
-			Source: fw.filename,
-			Offset: fw.currentOffset,
+			Raw:      raw,
+			Host:     fw.hostName,
+			Source:   fw.filename,
+			SourceId: fw.currentSourceId,
+			Offset:   fw.currentOffset,
 		}
 		fw.eventPublisher.PublishEvent(evt, fw.fileConfig.TimeLayout)
 		fw.currentOffset += int64(len(raw)) + int64(len(delimiters[i]))

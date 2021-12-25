@@ -70,9 +70,12 @@ func ParsePipeline(s string) (*PipelineParseResult, error) {
 		}
 		step.StepType = tokStepType.value
 		p.skipWhitespace()
-		if p.peek() == tokenString {
+		for p.peek() == tokenString {
 			key := p.take().value
 			p.skipWhitespace()
+			if p.peek() != tokenEquals {
+				break
+			}
 			_, err := p.require(tokenEquals)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse: %w", err)

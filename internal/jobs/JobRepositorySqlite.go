@@ -28,7 +28,7 @@ type sqliteRepository struct {
 }
 
 func SqliteRepository(db *sql.DB) (Repository, error) {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Jobs (id INTEGER NOT NULL PRIMARY KEY, state INTEGER NOT NULL, query TEXT NOT NULL, start_time DATETIME, end_time DATETIME);")
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Jobs (id INTEGER NOT NULL PRIMARY KEY, state INTEGER NOT NULL, query TEXT NOT NULL, start_time DATETIME, end_time DATETIME, sort_mode INTEGER NOT NULL);")
 	if err != nil {
 		return nil, fmt.Errorf("error when creating Jobs table: %w", err)
 	}
@@ -83,7 +83,7 @@ func (repo *sqliteRepository) AddFieldStats(id int64, fields []FieldStats) error
 }
 
 func (repo *sqliteRepository) Get(id int64) (*Job, error) {
-	res, err := repo.db.Query("SELECT id, state, query, start_time, end_time FROM Jobs WHERE id=?;", id)
+	res, err := repo.db.Query("SELECT id, state, query, start_time, end_time, sort_mode FROM Jobs WHERE id=?;", id)
 	if err != nil {
 		return nil, fmt.Errorf("error getting job with jobId=%v: %w", id, err)
 	}
@@ -92,7 +92,7 @@ func (repo *sqliteRepository) Get(id int64) (*Job, error) {
 		return nil, fmt.Errorf("jobId=%v not found", id)
 	}
 	var job Job
-	err = res.Scan(&job.Id, &job.State, &job.Query, &job.StartTime, &job.EndTime)
+	err = res.Scan(&job.Id, &job.State, &job.Query, &job.StartTime, &job.EndTime, &job.SortMode)
 	if err != nil {
 		return nil, fmt.Errorf("error reading jobId=%v from database: %w", id, err)
 	}
@@ -172,9 +172,9 @@ func (repo *sqliteRepository) GetNumMatchedEvents(id int64) (int64, error) {
 	return count, nil
 }
 
-func (repo *sqliteRepository) Insert(query string, startTime, endTime *time.Time) (*int64, error) {
-	res, err := repo.db.Exec("INSERT INTO Jobs (state, query, start_time, end_time) VALUES(?, ?, ?, ?);",
-		JobStateRunning, query, startTime, endTime)
+func (repo *sqliteRepository) Insert(query string, startTime, endTime *time.Time, sortMode events.SortMode) (*int64, error) {
+	res, err := repo.db.Exec("INSERT INTO Jobs (state, query, start_time, end_time, sort_mode) VALUES(?, ?, ?, ?, ?);",
+		JobStateRunning, query, startTime, endTime, sortMode)
 	if err != nil {
 		return nil, fmt.Errorf("error when inserting new job: %w", err)
 	}

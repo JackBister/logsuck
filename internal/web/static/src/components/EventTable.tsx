@@ -19,9 +19,10 @@ import { LogEvent } from "../models/Event";
 
 export interface EventTableProps {
   events: LogEvent[];
+  onViewContextClicked: (id: number) => void;
 }
 
-export const EventTable = ({ events }: EventTableProps) => (
+export const EventTable = ({ events, onViewContextClicked }: EventTableProps) => (
   <table class="table table-hover search-result-table">
     <thead>
       <tr>
@@ -49,10 +50,16 @@ export const EventTable = ({ events }: EventTableProps) => (
                 }}
               />
               <div class="event-additional">
-                <dl class="row no-gutters" style={{ marginBottom: 0 }}>
-                  <dt class="col-1">source</dt>
-                  <dd class="col-1">{e.source}</dd>
-                </dl>
+                <div class="row no-gutters">
+                  <dl class="col-4" style={{ marginBottom: 0 }}>
+                    <dt class="col-6">source</dt>
+                    <dd class="col-6">{e.source}</dd>
+                  </dl>
+                  <div class="col-3">
+                    <button type="button" class="btn btn-link" onClick={() => onViewContextClicked(e.id)}>
+                      View context
+                    </button>
+                  </div></div>
               </div>
             </div>
           </td>

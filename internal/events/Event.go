@@ -18,10 +18,11 @@ import "time"
 
 // RawEvent represents an Event that has not yet been enriched with information about field values etc.
 type RawEvent struct {
-	Raw    string
-	Host   string
-	Source string
-	Offset int64
+	Raw      string
+	Host     string
+	Source   string
+	SourceId string
+	Offset   int64
 }
 
 type Event struct {
@@ -29,6 +30,7 @@ type Event struct {
 	Timestamp time.Time
 	Host      string
 	Source    string
+	SourceId  string
 	Offset    int64
 }
 
@@ -37,6 +39,7 @@ type EventWithId struct {
 	Raw       string
 	Timestamp time.Time
 	Host      string
+	SourceId  string
 	Source    string
 }
 
@@ -46,6 +49,7 @@ type EventWithExtractedFields struct {
 	Timestamp time.Time
 	Host      string
 	Source    string
+	SourceId  string
 	Fields    map[string]string
 }
 

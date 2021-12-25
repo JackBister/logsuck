@@ -41,6 +41,7 @@ func TestSearchPipelineStep(t *testing.T) {
 			Host:      "MYHOST",
 			Offset:    0,
 			Source:    "my-log.txt",
+			SourceId:  "1a9a7cd6-0f00-4aa6-ae2e-1ad17d40bb35",
 			Timestamp: time.Date(2021, 1, 20, 20, 29, 0, 0, time.UTC),
 		},
 	})

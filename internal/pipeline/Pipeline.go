@@ -55,12 +55,20 @@ type pipelinePipe struct {
 
 type pipelineStep interface {
 	Execute(ctx context.Context, pipe pipelinePipe, params PipelineParameters)
+
+	// IsGeneratorStep should return true if the step does not use the results of the last step.
+	// In that case the pipeline can be optimized by removing all preceding steps
+	IsGeneratorStep() bool
+
+	// Returns the name of the operator that created this step, for example "rex"
+	Name() string
 }
 
 var compilers = map[string]func(input string, options map[string]string) (pipelineStep, error){
-	"rex":    compileRexStep,
-	"search": compileSearchStep,
-	"where":  compileWhereStep,
+	"rex":         compileRexStep,
+	"search":      compileSearchStep,
+	"surrounding": compileSurroundingStep,
+	"where":       compileWhereStep,
 }
 
 func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, error) {
@@ -91,10 +99,18 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 		compiledSteps[i] = res
 	}
 
+	lastGeneratorIndex := 0
+	for i, compiled := range compiledSteps {
+		if compiled.IsGeneratorStep() {
+			lastGeneratorIndex = i
+		}
+	}
+	compiledSteps = compiledSteps[lastGeneratorIndex:]
+
 	lastOutput := make(chan PipelineStepResult, pipeBufferSize)
 	close(lastOutput)
 	pipes := make([]pipelinePipe, len(compiledSteps))
-	for i := 0; i < len(pr.Steps); i++ {
+	for i := 0; i < len(compiledSteps); i++ {
 		outputEvents := make(chan PipelineStepResult, pipeBufferSize)
 		pipes[i] = pipelinePipe{
 			input:  lastOutput,
@@ -103,7 +119,6 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 		lastOutput = outputEvents
 	}
 
-	log.Println("outchan", lastOutput)
 	return &Pipeline{
 		steps:   compiledSteps,
 		pipes:   pipes,
@@ -117,4 +132,12 @@ func (p *Pipeline) Execute(ctx context.Context, params PipelineParameters) <-cha
 		go step.Execute(ctx, p.pipes[i], params)
 	}
 	return p.outChan
+}
+
+func (p *Pipeline) GetStepNames() []string {
+	ret := make([]string, len(p.steps))
+	for i, s := range p.steps {
+		ret[i] = s.Name()
+	}
+	return ret
 }

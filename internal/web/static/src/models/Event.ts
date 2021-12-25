@@ -16,6 +16,7 @@
 
 
 export interface LogEvent {
+    id: number;
     raw: string;
     timestamp: Date;
     source: string;

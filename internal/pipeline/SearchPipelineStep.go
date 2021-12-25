@@ -55,6 +55,7 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 						Timestamp: evt.Timestamp,
 						Host:      evt.Host,
 						Source:    evt.Source,
+						SourceId:  evt.SourceId,
 						Fields:    evtFields,
 					})
 				}
@@ -64,6 +65,14 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 			}
 		}
 	}
+}
+
+func (s *searchPipelineStep) IsGeneratorStep() bool {
+	return true
+}
+
+func (s *searchPipelineStep) Name() string {
+	return "search"
 }
 
 func compileSearchStep(input string, options map[string]string) (pipelineStep, error) {

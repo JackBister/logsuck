@@ -23,12 +23,14 @@ import (
 type SortMode = int
 
 const (
-	SortModeNone          SortMode = 0
-	SortModeTimestampDesc SortMode = 1
+	SortModeNone             SortMode = 0
+	SortModeTimestampDesc    SortMode = 1
+	SortModePreserveArgOrder SortMode = 2
 )
 
 type Repository interface {
 	AddBatch(events []Event) error
 	FilterStream(srch *search.Search, searchStartTime, searchEndTime *time.Time) <-chan []EventWithId
 	GetByIds(ids []int64, sortMode SortMode) ([]EventWithId, error)
+	GetSurroundingEvents(id int64, count int) ([]EventWithId, error)
 }

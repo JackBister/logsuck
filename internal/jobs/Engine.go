@@ -48,7 +48,8 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile search query: %w", err)
 	}
-	id, err := e.jobRepo.Insert(query, startTime, endTime)
+	sortMode := getSortMode(pl)
+	id, err := e.jobRepo.Insert(query, startTime, endTime, sortMode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert job in repo: %w", err)
 	}
@@ -164,4 +165,12 @@ func gatherFieldStats(evts []events.EventWithExtractedFields) []FieldStats {
 		}
 	}
 	return ret
+}
+
+func getSortMode(pl *pipeline.Pipeline) events.SortMode {
+	sn := pl.GetStepNames()
+	if len(sn) > 0 && sn[len(sn)-1] == "surrounding" {
+		return events.SortModePreserveArgOrder
+	}
+	return events.SortModeTimestampDesc
 }

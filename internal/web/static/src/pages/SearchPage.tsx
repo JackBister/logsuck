@@ -248,86 +248,86 @@ export class SearchPageComponent extends Component<
             {(this.state.state === SearchState.WAITING_FOR_SEARCH ||
               (this.state.state === SearchState.SEARCHED_POLLING &&
                 this.state.searchResult.length === 0)) && (
-              <div>Loading... There should be a spinner here!</div>
-            )}
+                <div>Loading... There should be a spinner here!</div>
+              )}
             {((this.state.state === SearchState.SEARCHED_POLLING &&
               this.state.searchResult.length > 0) ||
               this.state.state === SearchState.SEARCHED_POLLING_FINISHED) && (
-              <div>
-                {this.state.searchResult.length === 0 && (
-                  <div class="alert alert-info">
-                    No results found. Try a different search?
-                  </div>
-                )}
-                {this.state.searchResult.length !== 0 && (
-                  <div class="row">
-                    <div class="col-xl-2">
-                      <div class="card mb-3 mb-xl-0">
-                        <div class="card-header">Fields</div>
-                        <FieldTable
-                          fields={this.state.topFields}
-                          onFieldClicked={(str) => this.onFieldClicked(str)}
-                        />
-                        {
-                          <Popover
-                            direction="right"
-                            isOpen={!!this.state.selectedField}
-                            heading={this.state.selectedField?.name || ""}
-                            widthPx={300}
-                          >
-                            <FieldValueTable
-                              values={this.state.selectedField?.topValues || []}
-                              onFieldValueClicked={(str) =>
-                                this.onFieldValueClicked(str)
-                              }
-                            />
-                          </Popover>
-                        }
-                      </div>
+                <div>
+                  {this.state.searchResult.length === 0 && (
+                    <div class="alert alert-info">
+                      No results found. Try a different search?
                     </div>
-                    <div class="col-xl-10">
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "row",
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        <Pagination
-                          currentPageIndex={this.state.currentPageIndex}
-                          numberOfPages={Math.ceil(
-                            this.state.numMatched / EVENTS_PER_PAGE
-                          )}
-                          onPageChanged={(n) => this.onPageChanged(n)}
-                        ></Pagination>
+                  )}
+                  {this.state.searchResult.length !== 0 && (
+                    <div class="row">
+                      <div class="col-xl-2">
+                        <div class="card mb-3 mb-xl-0">
+                          <div class="card-header">Fields</div>
+                          <FieldTable
+                            fields={this.state.topFields}
+                            onFieldClicked={(str) => this.onFieldClicked(str)}
+                          />
+                          {
+                            <Popover
+                              direction="right"
+                              isOpen={!!this.state.selectedField}
+                              heading={this.state.selectedField?.name || ""}
+                              widthPx={300}
+                            >
+                              <FieldValueTable
+                                values={this.state.selectedField?.topValues || []}
+                                onFieldValueClicked={(str) =>
+                                  this.onFieldValueClicked(str)
+                                }
+                              />
+                            </Popover>
+                          }
+                        </div>
+                      </div>
+                      <div class="col-xl-10">
                         <div
                           style={{
                             display: "flex",
                             flexDirection: "row",
-                            alignItems: "center",
+                            justifyContent: "space-between",
                           }}
                         >
-                          {this.state.state ===
-                            SearchState.SEARCHED_POLLING && (
-                            <button
-                              type="button"
-                              class="btn btn-link"
-                              onClick={() => this.onCancel()}
-                            >
-                              Cancel
-                            </button>
-                          )}
-                          <span>{this.state.numMatched} events matched</span>
+                          <Pagination
+                            currentPageIndex={this.state.currentPageIndex}
+                            numberOfPages={Math.ceil(
+                              this.state.numMatched / EVENTS_PER_PAGE
+                            )}
+                            onPageChanged={(n) => this.onPageChanged(n)}
+                          ></Pagination>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "row",
+                              alignItems: "center",
+                            }}
+                          >
+                            {this.state.state ===
+                              SearchState.SEARCHED_POLLING && (
+                                <button
+                                  type="button"
+                                  class="btn btn-link"
+                                  onClick={() => this.onCancel()}
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                            <span>{this.state.numMatched} events matched</span>
+                          </div>
+                        </div>
+                        <div class="card">
+                          <EventTable events={this.state.searchResult} onViewContextClicked={(id) => this.onViewContextClicked(id)} />
                         </div>
                       </div>
-                      <div class="card">
-                        <EventTable events={this.state.searchResult} />
-                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
           </div>
         </main>
       </div>
@@ -409,6 +409,15 @@ export class SearchPageComponent extends Component<
     );
   }
 
+  private onViewContextClicked(id: number) {
+    this.setState(
+      {
+        searchString: `| surrounding eventId=${id}`
+      },
+      () => this.onSearch()
+    );
+  }
+
   private async onPageChanged(newPageIndex: number) {
     if (
       this.state.state !== SearchState.SEARCHED_POLLING &&
@@ -416,8 +425,8 @@ export class SearchPageComponent extends Component<
     ) {
       throw new Error(
         "Weird state, state=" +
-          this.state.state +
-          ", but attempted to change page"
+        this.state.state +
+        ", but attempted to change page"
       );
     }
     try {

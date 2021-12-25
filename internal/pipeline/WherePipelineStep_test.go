@@ -47,6 +47,7 @@ func TestWherePipelineStep(t *testing.T) {
 				Raw:       "2021-01-20 19:37:00 The user did something. The userid was 123.",
 				Host:      "my-host",
 				Source:    "my-log.txt",
+				SourceId:  "1a9a7cd6-0f00-4aa6-ae2e-1ad17d40bb35",
 				Timestamp: time.Date(2021, 1, 20, 19, 37, 0, 0, time.UTC),
 			},
 			{
@@ -57,6 +58,7 @@ func TestWherePipelineStep(t *testing.T) {
 				Raw:       "2021-01-20 19:37:00 The user did something. The userid was 456.",
 				Host:      "my-host",
 				Source:    "my-log.txt",
+				SourceId:  "1a9a7cd6-0f00-4aa6-ae2e-1ad17d40bb35",
 				Timestamp: time.Date(2021, 1, 20, 19, 37, 0, 0, time.UTC),
 			},
 		},
