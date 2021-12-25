@@ -59,6 +59,10 @@ func (s *wherePipelineStep) IsGeneratorStep() bool {
 	return false
 }
 
+func (s *wherePipelineStep) Name() string {
+	return "where"
+}
+
 func compileWhereStep(input string, options map[string]string) (pipelineStep, error) {
 	// This is pretty hacky. I think every command type might need to do its own parsing in the future.
 	m := make(map[string]string, len(options))

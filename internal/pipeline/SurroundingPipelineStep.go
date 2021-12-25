@@ -47,6 +47,10 @@ func (s *surroundingPipelineStep) IsGeneratorStep() bool {
 	return true
 }
 
+func (s *surroundingPipelineStep) Name() string {
+	return "surrounding"
+}
+
 func compileSurroundingStep(input string, options map[string]string) (pipelineStep, error) {
 	eventIdString, ok := options["eventId"]
 	if !ok {
@@ -59,7 +63,7 @@ func compileSurroundingStep(input string, options map[string]string) (pipelineSt
 	var count int
 	countString, ok := options["count"]
 	if !ok {
-		count = 24
+		count = 100
 	} else {
 		count, err = strconv.Atoi(countString)
 		if err != nil {

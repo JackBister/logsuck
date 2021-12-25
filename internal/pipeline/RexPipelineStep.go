@@ -70,6 +70,10 @@ func (r *rexPipelineStep) IsGeneratorStep() bool {
 	return false
 }
 
+func (r *rexPipelineStep) Name() string {
+	return "rex"
+}
+
 func compileRexStep(input string, options map[string]string) (pipelineStep, error) {
 	field, ok := options["field"]
 	if !ok {

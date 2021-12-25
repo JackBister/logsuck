@@ -71,6 +71,10 @@ func (s *searchPipelineStep) IsGeneratorStep() bool {
 	return true
 }
 
+func (s *searchPipelineStep) Name() string {
+	return "search"
+}
+
 func compileSearchStep(input string, options map[string]string) (pipelineStep, error) {
 	var startTime, endTime *time.Time
 	if t, ok := options["startTime"]; ok {

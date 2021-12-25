@@ -177,7 +177,12 @@ func (wi webImpl) Serve() error {
 			c.AbortWithError(500, err)
 			return
 		}
-		results, err := wi.eventRepo.GetByIds(eventIds, events.SortModeTimestampDesc)
+		job, err := wi.jobRepo.Get(jobId)
+		if err != nil {
+			c.AbortWithError(500, err)
+			return
+		}
+		results, err := wi.eventRepo.GetByIds(eventIds, job.SortMode)
 		if err != nil {
 			c.AbortWithError(500, err)
 			return

@@ -1,13 +1,14 @@
 .idea
 .vscode
 
+access-*.txt
 log-*.txt
 *.db
 *.db-shm
 *.db-wal
 *.bat
 *.exe
-
-sdown
+logsuck.json
+main
 
 internal/web/static/dist

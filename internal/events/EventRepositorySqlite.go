@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -336,12 +337,22 @@ func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventW
 		idx++
 	}
 
+	if sortMode == SortModePreserveArgOrder {
+		m := make(map[int64]int, len(ids))
+		for i, id := range ids {
+			m[id] = i
+		}
+		sort.Slice(ret, func(i, j int) bool {
+			return m[ret[i].Id] < m[ret[j].Id]
+		})
+	}
+
 	return ret, nil
 }
 
 const surroundingBaseSQL = "SELECT source_id, offset FROM Events WHERE id=?"
 const surroundingUpSQL = "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.source_id=? AND e.offset<=? ORDER BY e.offset DESC LIMIT ?"
-const surroundingDownSQL = "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.source_id=? AND e.offset>? ORDER BY e.offset ASC LIMIT ?"
+const surroundingDownSQL = "SELECT id, host, source, source_id, timestamp, raw FROM (SELECT e.id, e.host, e.source, e.source_id, e.timestamp, e.offset, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.source_id=? AND e.offset>? ORDER BY e.offset ASC LIMIT ?) ORDER BY offset DESC"
 
 func (repo *sqliteRepository) GetSurroundingEvents(id int64, count int) ([]EventWithId, error) {
 	row := repo.db.QueryRow(surroundingBaseSQL, id)
@@ -359,13 +370,13 @@ func (repo *sqliteRepository) GetSurroundingEvents(id int64, count int) ([]Event
 		return nil, fmt.Errorf("got error when scanning source_id and offset for eventId=%v: %w", id, err)
 	}
 
-	upRows, err := queryAndScan(repo.db, surroundingUpSQL, sourceId, baseOffset, count+1)
+	upRows, err := queryAndScan(repo.db, surroundingUpSQL, sourceId, baseOffset, count/2)
 	if err != nil {
 		return nil, fmt.Errorf("got error when querying for surrounding rows for eventId=%v: %w", id, err)
 	}
-	downRows, err := queryAndScan(repo.db, surroundingDownSQL, sourceId, baseOffset, count)
+	downRows, err := queryAndScan(repo.db, surroundingDownSQL, sourceId, baseOffset, count/2)
 
-	return append(upRows, downRows...), nil
+	return append(downRows, upRows...), nil
 }
 
 func queryAndScan(db *sql.DB, query string, sourceId string, baseOffset int, count int) ([]EventWithId, error) {

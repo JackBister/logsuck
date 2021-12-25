@@ -23,8 +23,9 @@ import (
 type SortMode = int
 
 const (
-	SortModeNone          SortMode = 0
-	SortModeTimestampDesc SortMode = 1
+	SortModeNone             SortMode = 0
+	SortModeTimestampDesc    SortMode = 1
+	SortModePreserveArgOrder SortMode = 2
 )
 
 type Repository interface {

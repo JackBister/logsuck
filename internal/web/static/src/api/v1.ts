@@ -19,6 +19,7 @@ import { TimeSelection } from "../models/TimeSelection";
 import { validateIsoTimestamp } from "../validateIsoTimestamp";
 
 interface RestEvent {
+  Id: number;
   Raw: string;
   Timestamp: string;
   Source: string;
@@ -95,6 +96,7 @@ export function getResults(
     .then((r) => r.json())
     .then((r: RestEvent[]) =>
       r.map((e) => ({
+        id: e.Id,
         raw: e.Raw,
         timestamp: new Date(e.Timestamp),
         source: e.Source,
