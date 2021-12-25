@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 The Logsuck Authors
+ * Copyright 2021 Jack Bister
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ interface TimeSelectProps {
   onTimeSelected: (newTime: TimeSelection) => void;
 }
 
-interface TimeSelectState {}
+interface TimeSelectState { }
 
 export class TimeSelect extends Component<TimeSelectProps, TimeSelectState> {
   constructor(props: TimeSelectProps) {

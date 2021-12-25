@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 The Logsuck Authors
+ * Copyright 2021 Jack Bister
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,14 +46,14 @@ export class Pagination extends Component<PaginationProps, PaginationState> {
                     disabled={this.props.currentPageIndex === 0}
                     onClick={() => this.props.onPageChanged(0)}>
                     First
-                    </button>
+                </button>
             </li>
             <li class={this.props.currentPageIndex === 0 ? DISABLED_CLASS : ENABLED_CLASS}>
                 <button class="page-link"
                     disabled={this.props.currentPageIndex === 0}
                     onClick={() => this.props.onPageChanged(this.props.currentPageIndex - 1)}>
                     Previous
-                    </button>
+                </button>
             </li>
             <li class="page-item active">
                 <button class="page-link">
@@ -65,7 +65,7 @@ export class Pagination extends Component<PaginationProps, PaginationState> {
                     disabled={this.props.currentPageIndex === this.props.numberOfPages - 1}
                     onClick={() => this.props.onPageChanged(this.props.currentPageIndex + 1)}>
                     Next
-                    </button>
+                </button>
             </li>
             <li class={this.props.currentPageIndex === this.props.numberOfPages - 1 ? DISABLED_CLASS : ENABLED_CLASS}>
                 <button class="page-link"
