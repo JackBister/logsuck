@@ -16,6 +16,7 @@
 
 import { h } from "preact";
 import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
+import { Table, TableRow } from "./lib/Table";
 
 export interface FieldValueTableProps {
   values: TopFieldValueInfo[];
@@ -26,23 +27,29 @@ export const FieldValueTable = ({
   values,
   onFieldValueClicked,
 }: FieldValueTableProps) => (
-  <table class="table table-sm table-hover">
+  <Table hoverable={true}>
+    <thead>
+      <tr>
+        <th>Value</th>
+        <th style={{ textAlign: "right" }}>Count</th>
+        <th style={{ textAlign: "right" }}>%</th>
+      </tr>
+    </thead>
     <tbody>
       {values.map((f) => (
-        <tr
-          key={f.value}
-          onClick={() => onFieldValueClicked(f.value)}
-          style={{ cursor: "pointer" }}
-        >
-          <td class="field-value">{f.value}</td>
-          <td class="field-value-count" style={{ textAlign: "right" }}>
-            {f.count}
+        <TableRow key={f.value} onClick={() => onFieldValueClicked(f.value)}>
+          <td>
+            {/* Using abbr so you can mouseover and see the full value if it ends up being truncated - there is surely a better way to achieve this */}
+            <abbr style={{ cursor: "unset" }} title={f.value}>
+              {f.value}
+            </abbr>
           </td>
-          <td class="field-value-percentage" style={{ textAlign: "right" }}>
+          <td style={{ textAlign: "right" }}>{f.count}</td>
+          <td style={{ textAlign: "right" }}>
             {(f.percentage * 100).toFixed(2)} %
           </td>
-        </tr>
+        </TableRow>
       ))}
     </tbody>
-  </table>
+  </Table>
 );

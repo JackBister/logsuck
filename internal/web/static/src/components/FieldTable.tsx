@@ -15,6 +15,7 @@
  */
 
 import { h } from "preact";
+import { Table, TableRow } from "./lib/Table";
 
 export interface FieldTableProps {
   fields: { [key: string]: number };
@@ -27,23 +28,33 @@ export const FieldTable = ({ fields, onFieldClicked }: FieldTableProps) => {
     <div>
       {keys.length === 0 && <div>No fields extracted</div>}
       {keys.length > 0 && (
-        <table class="table table-sm table-hover">
+        <Table hoverable={true}>
+          <thead>
+            <tr>
+              <th>Value</th>
+              <th style={{ textAlign: "right" }}>Count</th>
+            </tr>
+          </thead>
           <tbody>
             {keys.map((k) => (
-              <tr
+              <TableRow
                 key={k}
                 onClick={(evt) => {
                   evt.stopPropagation();
                   onFieldClicked(k);
                 }}
-                class="test field-row"
               >
-                <td>{k}</td>
+                <td>
+                  {/* Using abbr so you can mouseover and see the full value if it ends up being truncated - there is surely a better way to achieve this */}
+                  <abbr style={{ cursor: "unset" }} title={k}>
+                    {k}
+                  </abbr>
+                </td>
                 <td style={{ textAlign: "right" }}>{fields[k]}</td>
-              </tr>
+              </TableRow>
             ))}
           </tbody>
-        </table>
+        </Table>
       )}
     </div>
   );

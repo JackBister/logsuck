@@ -17,6 +17,9 @@
 import { h, Component } from "preact";
 import { TimeSelection } from "../models/TimeSelection";
 import { validateIsoTimestamp } from "../validateIsoTimestamp";
+import { Button } from "./lib/Button";
+import { Dropdown, DropdownItem } from "./lib/Dropdown";
+import { Input, InputGroup } from "./lib/Input";
 
 enum Selection {
   LAST_15_MINUTES,
@@ -97,12 +100,16 @@ interface TimeSelectProps {
   onTimeSelected: (newTime: TimeSelection) => void;
 }
 
-interface TimeSelectState { }
+interface TimeSelectState {
+  isOpen: boolean;
+}
 
 export class TimeSelect extends Component<TimeSelectProps, TimeSelectState> {
   constructor(props: TimeSelectProps) {
     super(props);
-    this.state = {};
+    this.state = {
+      isOpen: false,
+    };
   }
 
   render() {
@@ -151,133 +158,120 @@ export class TimeSelect extends Component<TimeSelectProps, TimeSelectState> {
         endTime = split[1];
       }
     }
-    return [
-      <button
-        class="btn btn-outline-secondary dropdown-toggle"
-        type="button"
-        data-toggle="dropdown"
-        aria-haspopup="true"
-        aria-expanded="false"
+    return (
+      <Dropdown
+        isOpen={this.state.isOpen}
+        onOpenStateChanged={(isOpen) => this.setState({ isOpen })}
+        triggerText={displayName}
       >
-        {displayName}
-      </button>,
-      <div class="dropdown-menu dropdown-menu-right" style="min-width: 276px;">
-        {options.map((o) => (
-          <button
-            type="button"
-            class={
-              "dropdown-item" +
-              (selection === o.value ? " bg-info text-white" : "")
-            }
-            onClick={() => this.onSelection(o)}
-          >
-            {o.name}
-          </button>
-        ))}
-        <div class="dropdown-divider"></div>
-        <h6 class="dropdown-header">Date and time range</h6>
-        <div class="px-4">
-          <div class="form-group">
-            <div class="d-flex justify-content-between">
-              <label>From</label>
-              <button
-                type="button"
-                class="btn btn-sm btn-link"
-                onClick={(evt) => {
-                  this.props.onTimeSelected({
-                    ...this.props.selection,
-                    startTime: undefined,
-                  });
-                  evt.stopPropagation();
-                }}
-              >
-                Clear
-              </button>
+        <div>
+          {options.map((o) => (
+            <DropdownItem
+              type="button"
+              isCurrent={selection === o.value}
+              onClick={() => this.onSelection(o)}
+            >
+              {o.name}
+            </DropdownItem>
+          ))}
+          <hr />
+          <div className="px-4">
+            <h6 className="t-h6">Date and time range</h6>
+            <div className="mb-3">
+              <div className="d-flex justify-between">
+                <label>From</label>
+                <Button
+                  type="button"
+                  buttonType="text"
+                  onClick={(evt) => {
+                    this.props.onTimeSelected({
+                      ...this.props.selection,
+                      startTime: undefined,
+                    });
+                    evt.stopPropagation();
+                  }}
+                >
+                  Clear
+                </Button>
+              </div>
+              <InputGroup>
+                <Input
+                  id="timeSelectAbsoluteFromDate"
+                  name="timeSelectAbsoluteFromDate"
+                  type="date"
+                  placeholder="yyyy-MM-dd"
+                  onInput={(evt) => {
+                    evt.preventDefault();
+                    this.onDateUpdated("startTime", (evt.target as any).value);
+                  }}
+                  value={startDate}
+                />
+                <Input
+                  id="timeSelectAbsoluteFromTime"
+                  name="timeSelectAbsoluteFromTime"
+                  type="time"
+                  step="1"
+                  placeholder="HH:mm:ss"
+                  onInput={(evt) => {
+                    evt.preventDefault();
+                    this.onTimeUpdated("startTime", (evt.target as any).value);
+                  }}
+                  value={startTime}
+                />
+              </InputGroup>
             </div>
-            <div class="d-flex">
-              <input
-                id="timeSelectAbsoluteFromDate"
-                name="timeSelectAbsoluteFromDate"
-                type="date"
-                class="form-control form-control-sm"
-                placeholder="yyyy-MM-dd"
-                onInput={(evt) => {
-                  evt.preventDefault();
-                  this.onDateUpdated("startTime", (evt.target as any).value);
-                }}
-                value={startDate}
-              />
-              <input
-                id="timeSelectAbsoluteFromTime"
-                name="timeSelectAbsoluteFromTime"
-                type="time"
-                step="1"
-                class="form-control form-control-sm"
-                placeholder="HH:mm:ss"
-                onInput={(evt) => {
-                  evt.preventDefault();
-                  this.onTimeUpdated("startTime", (evt.target as any).value);
-                }}
-                value={startTime}
-              />
-            </div>
-          </div>
-          <div class="form-group">
-            <div class="d-flex justify-content-between">
-              <label for="timeSelectAbsoluteTo">To</label>
-              <button
-                type="button"
-                class="btn btn-sm btn-link"
-                onClick={(evt) => {
-                  this.props.onTimeSelected({
-                    ...this.props.selection,
-                    endTime: undefined,
-                  });
-                  evt.stopPropagation();
-                }}
-              >
-                Clear
-              </button>
-            </div>
-            <div class="d-flex">
-              <input
-                id="timeSelectAbsoluteToDate"
-                name="timeSelectAbsoluteToDate"
-                type="date"
-                class="form-control form-control-sm"
-                placeholder="yyyy-MM-dd"
-                onInput={(evt) => {
-                  evt.preventDefault();
-                  this.onDateUpdated("endTime", (evt.target as any).value);
-                }}
-                value={endDate}
-              />
-              <input
-                id="timeSelectAbsoluteToTime"
-                name="timeSelectAbsoluteToTime"
-                type="time"
-                step="1"
-                class="form-control form-control-sm"
-                placeholder="HH:mm:ss"
-                onInput={(evt) => {
-                  evt.preventDefault();
-                  this.onTimeUpdated("endTime", (evt.target as any).value);
-                }}
-                value={endTime}
-              />
+            <div className="mb-3">
+              <div className="d-flex justify-between">
+                <label>To</label>
+                <Button
+                  type="button"
+                  buttonType="text"
+                  onClick={(evt) => {
+                    this.props.onTimeSelected({
+                      ...this.props.selection,
+                      endTime: undefined,
+                    });
+                    evt.stopPropagation();
+                  }}
+                >
+                  Clear
+                </Button>
+              </div>
+              <InputGroup>
+                <Input
+                  id="timeSelectAbsoluteToDate"
+                  name="timeSelectAbsoluteToDate"
+                  type="date"
+                  placeholder="yyyy-MM-dd"
+                  onInput={(evt) => {
+                    evt.preventDefault();
+                    this.onDateUpdated("endTime", (evt.target as any).value);
+                  }}
+                  value={endDate}
+                />
+                <Input
+                  id="timeSelectAbsoluteToTime"
+                  name="timeSelectAbsoluteToTime"
+                  type="time"
+                  step="1"
+                  placeholder="HH:mm:ss"
+                  onInput={(evt) => {
+                    evt.preventDefault();
+                    this.onTimeUpdated("endTime", (evt.target as any).value);
+                  }}
+                  value={endTime}
+                />
+              </InputGroup>
             </div>
           </div>
         </div>
-      </div>,
-    ];
+      </Dropdown>
+    );
   }
 
   private onSelection(o: Option) {
-    this.setState({
-      currentSelection: o.value,
-      selectedOptionName: o.name,
-    });
     this.props.onTimeSelected(o.ts);
+    this.setState({ isOpen: false });
   }
 
   private onDateUpdated(part: "startTime" | "endTime", value: string) {

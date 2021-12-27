@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-import { h } from "preact";
+import { h, RenderableProps } from "preact";
 
-export const Navbar = () => (
-  <header>
-    <nav className="ls-navbar">
-      <a href="/" className="ls-brand">
-        logsuck
-      </a>
-      <a href="/search" className="ls-nav-button">
-        Search
-      </a>
-    </nav>
-  </header>
-);
+export interface InfoboxProps {
+  type: "info" | "error";
+}
+
+export const Infobox = (props: RenderableProps<InfoboxProps>) => {
+  let className = "ls-infobox ";
+  if (props.type === "info") {
+    className += "ls-info ";
+  } else if (props.type === "error") {
+    className += "ls-error ";
+  }
+  return <div className={className}>{props.children}</div>;
+};

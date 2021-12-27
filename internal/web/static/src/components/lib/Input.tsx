@@ -14,17 +14,12 @@
  * limitations under the License.
  */
 
-import { h } from "preact";
+import { h, JSX, RenderableProps } from "preact";
 
-export const Navbar = () => (
-  <header>
-    <nav className="ls-navbar">
-      <a href="/" className="ls-brand">
-        logsuck
-      </a>
-      <a href="/search" className="ls-nav-button">
-        Search
-      </a>
-    </nav>
-  </header>
+export const InputGroup = (props: RenderableProps<any>) => (
+  <div className="ls-input-group">{props.children}</div>
+);
+
+export const Input = (props: JSX.IntrinsicElements["input"]) => (
+  <input className="ls-input" {...props} />
 );

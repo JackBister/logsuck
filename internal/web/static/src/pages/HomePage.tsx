@@ -19,6 +19,8 @@ import { RecentSearch } from "../services/RecentSearches";
 import { Navbar } from "../components/Navbar";
 import { RedirectSearchInput } from "../components/SearchInput";
 import { createSearchUrl } from "../createSearchUrl";
+import { Card, CardHeader } from "../components/lib/Card";
+import { Table, TableRow } from "../components/lib/Table";
 
 interface HomeProps {
   getRecentSearches: () => Promise<RecentSearch[]>;
@@ -46,40 +48,39 @@ export class HomeComponent extends Component<HomeProps, HomeState> {
     return (
       <div>
         <Navbar />
-        <main role="main" class="container-fluid">
+        <main role="main" className="ls-container">
           <RedirectSearchInput navigateTo={this.props.navigateTo} />
-          <div class="result-container">
-            <div>
-              <div class="card">
-                <div class="card-header">Recent searches</div>
-                {typeof this.state.recentSearches === "undefined" ? (
-                  <div class="card-body">
-                    <p>Loading...</p>
-                  </div>
-                ) : this.state.recentSearches.length === 0 ? (
-                  <div class="card-body">
-                    <p>No recent searches</p>
-                  </div>
-                ) : (
-                  <table class="table table-sm table-hover">
-                    <tbody>
-                      {this.state.recentSearches.map((rs) => (
-                        <tr
-                          key={rs.searchTime.valueOf()}
-                          onClick={() => this.onRecentSearchClicked(rs)}
-                          style={{ cursor: "pointer" }}
-                        >
-                          <td>{rs.searchString}</td>
-                          <td style={{ textAlign: "right" }}>
-                            {rs.timeSelection.relativeTime || "All time"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
+          <div>
+            <Card>
+              <CardHeader>
+                <h1 className="t-h1">Recent searches</h1>
+              </CardHeader>
+              {typeof this.state.recentSearches === "undefined" ? (
+                <div className="card-body">
+                  <p>Loading...</p>
+                </div>
+              ) : this.state.recentSearches.length === 0 ? (
+                <div className="card-body">
+                  <p>No recent searches</p>
+                </div>
+              ) : (
+                <Table hoverable={true}>
+                  <tbody>
+                    {this.state.recentSearches.map((rs) => (
+                      <TableRow
+                        key={rs.searchTime.valueOf()}
+                        onClick={() => this.onRecentSearchClicked(rs)}
+                      >
+                        <td>{rs.searchString}</td>
+                        <td style={{ textAlign: "right" }}>
+                          {rs.timeSelection.relativeTime || "All time"}
+                        </td>
+                      </TableRow>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </Card>
           </div>
         </main>
       </div>

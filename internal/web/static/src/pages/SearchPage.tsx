@@ -14,33 +14,28 @@
  * limitations under the License.
  */
 
-import { Component, h, render } from "preact";
+import { Component, h } from "preact";
 import {
-  StartJobResult,
-  PollJobResult,
-  JobState,
   FieldValueCounts,
+  JobState,
+  PollJobResult,
+  StartJobResult,
 } from "../api/v1";
-import { LogEvent } from "../models/Event";
-import { Popover } from "../components/popover";
-import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
-import { TimeSelection } from "../models/TimeSelection";
-import { Pagination } from "../components/Pagination";
-import { RecentSearch } from "../services/RecentSearches";
-import {
-  startJob,
-  pollJob,
-  getResults,
-  abortJob,
-  getFieldValueCounts,
-} from "../api/v1";
-import { addRecentSearch, getRecentSearches } from "../services/RecentSearches";
-import { Navbar } from "../components/Navbar";
-import { SearchInput } from "../components/SearchInput";
-import { FieldValueTable } from "../components/FieldValueTable";
 import { EventTable } from "../components/EventTable";
 import { FieldTable } from "../components/FieldTable";
+import { FieldValueTable } from "../components/FieldValueTable";
+import { Button } from "../components/lib/Button";
+import { Card, CardHeader } from "../components/lib/Card";
+import { Infobox } from "../components/lib/Infobox";
+import { Popover } from "../components/lib/Popover";
+import { Navbar } from "../components/Navbar";
+import { Pagination } from "../components/Pagination";
+import { SearchInput } from "../components/SearchInput";
 import { createSearchQueryParams } from "../createSearchUrl";
+import { LogEvent } from "../models/Event";
+import { TimeSelection } from "../models/TimeSelection";
+import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
+import { RecentSearch } from "../services/RecentSearches";
 import { validateIsoTimestamp } from "../validateIsoTimestamp";
 
 const EVENTS_PER_PAGE = 25;
@@ -228,9 +223,9 @@ export class SearchPageComponent extends Component<
 
   render() {
     return (
-      <div onClick={(evt) => this.onBodyClicked(evt)}>
+      <div>
         <Navbar />
-        <main role="main" class="container-fluid">
+        <main role="main" className="ls-container">
           <SearchInput
             isButtonDisabled={
               this.state.state === SearchState.WAITING_FOR_SEARCH
@@ -241,112 +236,93 @@ export class SearchPageComponent extends Component<
             setSelectedTime={(ts) => this.setState({ selectedTime: ts })}
             onSearch={() => this.onSearch()}
           />
-          <div class="result-container">
+          <div>
             {this.state.state === SearchState.SEARCHED_ERROR && (
-              <div class="alert alert-danger">{this.state.searchError}</div>
+              <Infobox type="error">{this.state.searchError}</Infobox>
             )}
             {(this.state.state === SearchState.WAITING_FOR_SEARCH ||
               (this.state.state === SearchState.SEARCHED_POLLING &&
                 this.state.searchResult.length === 0)) && (
-                <div>Loading... There should be a spinner here!</div>
-              )}
+              <div>Loading... There should be a spinner here!</div>
+            )}
             {((this.state.state === SearchState.SEARCHED_POLLING &&
               this.state.searchResult.length > 0) ||
               this.state.state === SearchState.SEARCHED_POLLING_FINISHED) && (
-                <div>
-                  {this.state.searchResult.length === 0 && (
-                    <div class="alert alert-info">
-                      No results found. Try a different search?
-                    </div>
-                  )}
-                  {this.state.searchResult.length !== 0 && (
-                    <div class="row">
-                      <div class="col-xl-2">
-                        <div class="card mb-3 mb-xl-0">
-                          <div class="card-header">Fields</div>
-                          <FieldTable
-                            fields={this.state.topFields}
-                            onFieldClicked={(str) => this.onFieldClicked(str)}
-                          />
-                          {
-                            <Popover
-                              direction="right"
-                              isOpen={!!this.state.selectedField}
-                              heading={this.state.selectedField?.name || ""}
-                              widthPx={300}
-                            >
-                              <FieldValueTable
-                                values={this.state.selectedField?.topValues || []}
-                                onFieldValueClicked={(str) =>
-                                  this.onFieldValueClicked(str)
-                                }
-                              />
-                            </Popover>
+              <div>
+                {this.state.searchResult.length === 0 && (
+                  <Infobox type="info">
+                    No results found. Try a different search?
+                  </Infobox>
+                )}
+                {this.state.searchResult.length !== 0 && (
+                  <div className="w-100 d-flex flex-row align-start gap-6">
+                    <Card className="shrink-1">
+                      <CardHeader>
+                        <h1 className="t-h1">Fields</h1>
+                      </CardHeader>
+                      <Popover
+                        isOpen={!!this.state.selectedField}
+                        onOpenStateChanged={(isOpen) => {
+                          if (!isOpen) {
+                            this.setState({ selectedField: null });
                           }
+                        }}
+                      >
+                        <FieldValueTable
+                          values={this.state.selectedField?.topValues || []}
+                          onFieldValueClicked={(str) =>
+                            this.onFieldValueClicked(str)
+                          }
+                        />
+                      </Popover>
+                      <FieldTable
+                        fields={this.state.topFields}
+                        onFieldClicked={(str) => this.onFieldClicked(str)}
+                      />
+                    </Card>
+                    <div
+                      className="grow-1 shrink-0"
+                      style={{ flexBasis: "80%" }}
+                    >
+                      <div className="d-flex flex-row align-end justify-between">
+                        <Pagination
+                          currentPageIndex={this.state.currentPageIndex}
+                          numberOfPages={Math.ceil(
+                            this.state.numMatched / EVENTS_PER_PAGE
+                          )}
+                          onPageChanged={(n) => this.onPageChanged(n)}
+                        ></Pagination>
+                        <div className="mb-3 d-flex flex-row align-center">
+                          {this.state.state ===
+                            SearchState.SEARCHED_POLLING && (
+                            <Button
+                              type="button"
+                              buttonType="text"
+                              onClick={() => this.onCancel()}
+                            >
+                              Cancel
+                            </Button>
+                          )}
+                          <span>{this.state.numMatched} events matched</span>
                         </div>
                       </div>
-                      <div class="col-xl-10">
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "row",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <Pagination
-                            currentPageIndex={this.state.currentPageIndex}
-                            numberOfPages={Math.ceil(
-                              this.state.numMatched / EVENTS_PER_PAGE
-                            )}
-                            onPageChanged={(n) => this.onPageChanged(n)}
-                          ></Pagination>
-                          <div
-                            style={{
-                              display: "flex",
-                              flexDirection: "row",
-                              alignItems: "center",
-                            }}
-                          >
-                            {this.state.state ===
-                              SearchState.SEARCHED_POLLING && (
-                                <button
-                                  type="button"
-                                  class="btn btn-link"
-                                  onClick={() => this.onCancel()}
-                                >
-                                  Cancel
-                                </button>
-                              )}
-                            <span>{this.state.numMatched} events matched</span>
-                          </div>
-                        </div>
-                        <div class="card">
-                          <EventTable events={this.state.searchResult} onViewContextClicked={(id) => this.onViewContextClicked(id)} />
-                        </div>
-                      </div>
+                      <Card>
+                        <EventTable
+                          events={this.state.searchResult}
+                          onViewContextClicked={(id) =>
+                            this.onViewContextClicked(id)
+                          }
+                        />
+                      </Card>
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </main>
       </div>
     );
-  }
-
-  private onBodyClicked(evt: any) {
-    if (
-      (this.state.state === SearchState.SEARCHED_POLLING ||
-        this.state.state === SearchState.SEARCHED_POLLING_FINISHED) &&
-      this.state.selectedField
-    ) {
-      if (!(evt.target as HTMLDivElement).matches(".popover *")) {
-        this.setState({
-          ...this.state,
-          selectedField: null,
-        });
-      }
-    }
   }
 
   private async onFieldClicked(fieldName: string) {
@@ -377,7 +353,6 @@ export class SearchPageComponent extends Component<
           count: fieldValues[k],
           percentage: fieldValues[k] / totalCount,
         }));
-      console.log(topValues);
       this.setState({
         ...this.state,
         selectedField: {
@@ -412,7 +387,7 @@ export class SearchPageComponent extends Component<
   private onViewContextClicked(id: number) {
     this.setState(
       {
-        searchString: `| surrounding eventId=${id}`
+        searchString: `| surrounding eventId=${id}`,
       },
       () => this.onSearch()
     );
@@ -425,8 +400,8 @@ export class SearchPageComponent extends Component<
     ) {
       throw new Error(
         "Weird state, state=" +
-        this.state.state +
-        ", but attempted to change page"
+          this.state.state +
+          ", but attempted to change page"
       );
     }
     try {

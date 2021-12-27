@@ -15,65 +15,103 @@
  */
 
 import { Component, h } from "preact";
+import { Button } from "./lib/Button";
 
-const DISABLED_CLASS = "page-item disabled";
-const ENABLED_CLASS = "page-item";
+const DISABLED_CLASS = "ls-page-item ls-disabled";
+const ENABLED_CLASS = "ls-page-item";
 
 export interface PaginationProps {
-    numberOfPages: number;
-    currentPageIndex: number;
-    onPageChanged: (newPageIndex: number) => void;
+  numberOfPages: number;
+  currentPageIndex: number;
+  onPageChanged: (newPageIndex: number) => void;
 }
 
-export interface PaginationState {
-
-}
-
+export interface PaginationState {}
 
 export class Pagination extends Component<PaginationProps, PaginationState> {
+  constructor(props: PaginationProps) {
+    super(props);
 
-    constructor(props: PaginationProps) {
-        super(props);
+    this.state = {};
+  }
 
-        this.state = {
-        };
-    }
-
-    render() {
-        return <ul class="pagination">
-            <li class={this.props.currentPageIndex === 0 ? DISABLED_CLASS : ENABLED_CLASS}>
-                <button class="page-link"
-                    disabled={this.props.currentPageIndex === 0}
-                    onClick={() => this.props.onPageChanged(0)}>
-                    First
-                </button>
-            </li>
-            <li class={this.props.currentPageIndex === 0 ? DISABLED_CLASS : ENABLED_CLASS}>
-                <button class="page-link"
-                    disabled={this.props.currentPageIndex === 0}
-                    onClick={() => this.props.onPageChanged(this.props.currentPageIndex - 1)}>
-                    Previous
-                </button>
-            </li>
-            <li class="page-item active">
-                <button class="page-link">
-                    {this.props.currentPageIndex + 1}
-                </button>
-            </li>
-            <li class={this.props.currentPageIndex === this.props.numberOfPages - 1 ? DISABLED_CLASS : ENABLED_CLASS}>
-                <button class="page-link"
-                    disabled={this.props.currentPageIndex === this.props.numberOfPages - 1}
-                    onClick={() => this.props.onPageChanged(this.props.currentPageIndex + 1)}>
-                    Next
-                </button>
-            </li>
-            <li class={this.props.currentPageIndex === this.props.numberOfPages - 1 ? DISABLED_CLASS : ENABLED_CLASS}>
-                <button class="page-link"
-                    disabled={this.props.currentPageIndex === this.props.numberOfPages - 1}
-                    onClick={() => this.props.onPageChanged(this.props.numberOfPages - 1)}>
-                    Last ({this.props.numberOfPages})
-                </button>
-            </li>
-        </ul>;
-    }
+  render() {
+    return (
+      <ul className="ls-pagination mb-3">
+        <li
+          className={
+            this.props.currentPageIndex === 0 ? DISABLED_CLASS : ENABLED_CLASS
+          }
+        >
+          <Button
+            type="button"
+            buttonType="text"
+            disabled={this.props.currentPageIndex === 0}
+            onClick={() => this.props.onPageChanged(0)}
+          >
+            First
+          </Button>
+        </li>
+        <li
+          className={
+            this.props.currentPageIndex === 0 ? DISABLED_CLASS : ENABLED_CLASS
+          }
+        >
+          <Button
+            type="button"
+            buttonType="text"
+            disabled={this.props.currentPageIndex === 0}
+            onClick={() =>
+              this.props.onPageChanged(this.props.currentPageIndex - 1)
+            }
+          >
+            Previous
+          </Button>
+        </li>
+        <li className="ls-page-item ls-active">
+          <span>{this.props.currentPageIndex + 1}</span>
+        </li>
+        <li
+          className={
+            this.props.currentPageIndex === this.props.numberOfPages - 1
+              ? DISABLED_CLASS
+              : ENABLED_CLASS
+          }
+        >
+          <Button
+            type="button"
+            buttonType="text"
+            disabled={
+              this.props.currentPageIndex === this.props.numberOfPages - 1
+            }
+            onClick={() =>
+              this.props.onPageChanged(this.props.currentPageIndex + 1)
+            }
+          >
+            Next
+          </Button>
+        </li>
+        <li
+          className={
+            this.props.currentPageIndex === this.props.numberOfPages - 1
+              ? DISABLED_CLASS
+              : ENABLED_CLASS
+          }
+        >
+          <Button
+            type="button"
+            buttonType="text"
+            disabled={
+              this.props.currentPageIndex === this.props.numberOfPages - 1
+            }
+            onClick={() =>
+              this.props.onPageChanged(this.props.numberOfPages - 1)
+            }
+          >
+            Last ({this.props.numberOfPages})
+          </Button>
+        </li>
+      </ul>
+    );
+  }
 }

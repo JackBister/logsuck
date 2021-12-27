@@ -14,17 +14,26 @@
  * limitations under the License.
  */
 
-import { h } from "preact";
+import { h, JSX } from "preact";
 
-export const Navbar = () => (
-  <header>
-    <nav className="ls-navbar">
-      <a href="/" className="ls-brand">
-        logsuck
-      </a>
-      <a href="/search" className="ls-nav-button">
-        Search
-      </a>
-    </nav>
-  </header>
-);
+export interface ButtonProps {
+  buttonType: "primary" | "secondary" | "text";
+}
+
+export const Button = (
+  props: JSX.IntrinsicElements["button"] & ButtonProps
+) => {
+  let className = "ls-button ";
+  if (props.buttonType === "primary") {
+    className += "ls-button-primary ";
+  } else if (props.buttonType === "secondary") {
+    className += "ls-button-secondary ";
+  } else if (props.buttonType === "text") {
+    className += "ls-button-text";
+  }
+  return (
+    <button className={className} {...props}>
+      {props.children}
+    </button>
+  );
+};

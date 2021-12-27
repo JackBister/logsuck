@@ -18,6 +18,8 @@ import { h, Component } from "preact";
 import { TimeSelect } from "./TimeSelect";
 import { TimeSelection } from "../models/TimeSelection";
 import { createSearchUrl } from "../createSearchUrl";
+import { Input, InputGroup } from "./lib/Input";
+import { Button } from "./lib/Button";
 
 export interface SearchInputProps {
   isButtonDisabled: boolean;
@@ -30,38 +32,35 @@ export interface SearchInputProps {
 }
 
 export const SearchInput = (props: SearchInputProps) => (
-  <div class="search-container">
-    <form
-      onSubmit={(evt) => {
-        evt.preventDefault();
-        props.onSearch();
-      }}
-    >
-      <label htmlFor="searchinput">Search</label>
-      <div class="input-group mb-3">
-        <input
-          id="searchinput"
-          type="text"
-          class="form-control"
-          onInput={(evt) => props.setSearchString((evt.target as any).value)}
-          value={props.searchString}
-        />
-        <div class="input-group-append">
-          <TimeSelect
-            selection={props.selectedTime}
-            onTimeSelected={(ts) => props.setSelectedTime(ts)}
-          />
-          <button
-            disabled={props.isButtonDisabled}
-            type="submit"
-            class="btn btn-primary"
-          >
-            Search
-          </button>
-        </div>
-      </div>
-    </form>
-  </div>
+  <form
+    className="mb-3"
+    onSubmit={(evt) => {
+      evt.preventDefault();
+      props.onSearch();
+    }}
+  >
+    <label htmlFor="searchinput">Search</label>
+    <InputGroup>
+      <Input
+        id="searchinput"
+        name="searchinput"
+        type="text"
+        onInput={(evt) => props.setSearchString((evt.target as any).value)}
+        value={props.searchString}
+      />
+      <TimeSelect
+        selection={props.selectedTime}
+        onTimeSelected={(ts) => props.setSelectedTime(ts)}
+      />
+      <Button
+        disabled={props.isButtonDisabled}
+        type="submit"
+        buttonType="primary"
+      >
+        Search
+      </Button>
+    </InputGroup>
+  </form>
 );
 
 export interface RedirectSearchInputProps {

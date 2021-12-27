@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-import { h } from "preact";
+import { h, RenderableProps } from "preact";
 
-export const Navbar = () => (
-  <header>
-    <nav className="ls-navbar">
-      <a href="/" className="ls-brand">
-        logsuck
-      </a>
-      <a href="/search" className="ls-nav-button">
-        Search
-      </a>
-    </nav>
-  </header>
+export interface CardProps {
+  className?: string;
+}
+
+export const Card = (props: RenderableProps<CardProps>) => {
+  const className = `ls-card ${props.className ? props.className : ""}`;
+  return <div className={className}>{props.children}</div>;
+};
+
+export const CardHeader = (props: RenderableProps<any>) => (
+  <div className="ls-card-header">{props.children}</div>
 );

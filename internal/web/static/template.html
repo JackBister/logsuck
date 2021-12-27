@@ -19,18 +19,18 @@
   <head>
     <meta charset="UTF-8" />
 
-    <link rel="stylesheet" href="bootstrap.min.css" />
+    <link rel="stylesheet" href="normalize.css" />
     <link rel="stylesheet" href="style.css" />
 
     <title>logsuck</title>
   </head>
 
-  <body class="bg-light">
+  <body>
     <div id="app">
       <header>
-        <nav class="navbar navbar-dark bg-dark">
-          <a href="/" class="navbar-brand"> logsuck </a>
-          <a href="/search">Search</a>
+        <nav class="ls-navbar">
+          <a href="/" class="ls-brand"> logsuck </a>
+          <a href="/search" class="ls-nav-button">Search</a>
         </nav>
       </header>
       <noscript>
@@ -38,9 +38,5 @@
       </noscript>
     </div>
   </body>
-
-  <script src="jquery.min.js"></script>
-  <script src="popper.min.js"></script>
-  <script src="bootstrap.min.js"></script>
   <script src="{{.scriptSrc}}" async></script>
 </html>
