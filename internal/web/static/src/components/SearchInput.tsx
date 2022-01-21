@@ -18,8 +18,8 @@ import { h, Component } from "preact";
 import { TimeSelect } from "./TimeSelect";
 import { TimeSelection } from "../models/TimeSelection";
 import { createSearchUrl } from "../createSearchUrl";
-import { Input, InputGroup } from "./lib/Input";
-import { Button } from "./lib/Button";
+import { Input, InputGroup } from "./lib/Input/Input";
+import { Button } from "./lib/Button/Button";
 
 export interface SearchInputProps {
   isButtonDisabled: boolean;

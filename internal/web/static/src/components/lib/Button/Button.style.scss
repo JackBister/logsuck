@@ -1,0 +1,56 @@
+@import "../style/shared.scss";
+
+.ls-button {
+  line-height: 1.5;
+  padding: 0.6rem 1rem;
+  transition: background-color 0.1s ease-in, color 0.1s ease-in;
+}
+
+.ls-button-primary,
+.ls-button-secondary {
+  border: 1px solid $color-border-main;
+  font-size: 1.125rem;
+}
+
+.ls-button-primary {
+  background-color: $color-button-primary;
+  color: $color-text-inverted;
+}
+
+.ls-button-primary:hover,
+.ls-button-primary:focus {
+  background-color: $color-button-primary-hover;
+}
+
+.ls-button-primary:active {
+  background-color: $color-button-primary-active;
+}
+
+.ls-button-secondary {
+  background-color: $color-button-secondary;
+  color: $color-text-main;
+}
+
+.ls-button-secondary:hover,
+.ls-button-secondary:focus {
+  background-color: $color-button-secondary-hover;
+  color: $color-text-inverted;
+}
+
+.ls-button-text {
+  background-color: transparent;
+  border: none;
+  color: $color-text-link;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.ls-button-text:not(:disabled):hover,
+.ls-button-text:not(:disabled):focus {
+  color: $color-text-link-hover;
+  text-decoration: underline;
+}
+
+.ls-button-text:disabled {
+  color: $color-text-link-disabled;
+}

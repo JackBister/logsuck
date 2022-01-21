@@ -1,0 +1,14 @@
+@import "../style/shared.scss";
+
+.ls-infobox {
+  border-radius: $border-card-radius;
+  padding: 1rem 1.5rem;
+}
+
+.ls-infobox.ls-info {
+  background-color: $color-background-info;
+}
+
+.ls-infobox.ls-error {
+  background-color: $color-background-error;
+}

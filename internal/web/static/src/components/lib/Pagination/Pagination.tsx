@@ -15,10 +15,8 @@
  */
 
 import { Component, h } from "preact";
-import { Button } from "./lib/Button";
-
-const DISABLED_CLASS = "ls-page-item ls-disabled";
-const ENABLED_CLASS = "ls-page-item";
+import { Button } from "../Button/Button";
+import { lsPagination, lsActive } from "./Pagination.style.scss";
 
 export interface PaginationProps {
   numberOfPages: number;
@@ -37,12 +35,8 @@ export class Pagination extends Component<PaginationProps, PaginationState> {
 
   render() {
     return (
-      <ul className="ls-pagination mb-3">
-        <li
-          className={
-            this.props.currentPageIndex === 0 ? DISABLED_CLASS : ENABLED_CLASS
-          }
-        >
+      <ul className={`${lsPagination} mb-3`}>
+        <li>
           <Button
             type="button"
             buttonType="text"
@@ -52,11 +46,7 @@ export class Pagination extends Component<PaginationProps, PaginationState> {
             First
           </Button>
         </li>
-        <li
-          className={
-            this.props.currentPageIndex === 0 ? DISABLED_CLASS : ENABLED_CLASS
-          }
-        >
+        <li>
           <Button
             type="button"
             buttonType="text"
@@ -68,16 +58,10 @@ export class Pagination extends Component<PaginationProps, PaginationState> {
             Previous
           </Button>
         </li>
-        <li className="ls-page-item ls-active">
+        <li className={lsActive}>
           <span>{this.props.currentPageIndex + 1}</span>
         </li>
-        <li
-          className={
-            this.props.currentPageIndex === this.props.numberOfPages - 1
-              ? DISABLED_CLASS
-              : ENABLED_CLASS
-          }
-        >
+        <li>
           <Button
             type="button"
             buttonType="text"
@@ -91,13 +75,7 @@ export class Pagination extends Component<PaginationProps, PaginationState> {
             Next
           </Button>
         </li>
-        <li
-          className={
-            this.props.currentPageIndex === this.props.numberOfPages - 1
-              ? DISABLED_CLASS
-              : ENABLED_CLASS
-          }
-        >
+        <li>
           <Button
             type="button"
             buttonType="text"

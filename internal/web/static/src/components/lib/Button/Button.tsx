@@ -15,6 +15,12 @@
  */
 
 import { h, JSX } from "preact";
+import {
+  lsButton,
+  lsButtonPrimary,
+  lsButtonSecondary,
+  lsButtonText,
+} from "./Button.style.scss";
 
 export interface ButtonProps {
   buttonType: "primary" | "secondary" | "text";
@@ -23,13 +29,13 @@ export interface ButtonProps {
 export const Button = (
   props: JSX.IntrinsicElements["button"] & ButtonProps
 ) => {
-  let className = "ls-button ";
+  let className = lsButton;
   if (props.buttonType === "primary") {
-    className += "ls-button-primary ";
+    className += " " + lsButtonPrimary;
   } else if (props.buttonType === "secondary") {
-    className += "ls-button-secondary ";
+    className += " " + lsButtonSecondary;
   } else if (props.buttonType === "text") {
-    className += "ls-button-text";
+    className += " " + lsButtonText;
   }
   return (
     <button className={className} {...props}>

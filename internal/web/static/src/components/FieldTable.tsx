@@ -15,7 +15,7 @@
  */
 
 import { h } from "preact";
-import { Table, TableRow } from "./lib/Table";
+import { Table, TableRow } from "./lib/Table/Table";
 
 export interface FieldTableProps {
   fields: { [key: string]: number };

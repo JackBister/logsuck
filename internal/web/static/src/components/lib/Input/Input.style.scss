@@ -1,0 +1,41 @@
+@import "../style/shared.scss";
+
+.ls-input-group {
+  border-radius: $border-input-radius;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+.ls-input-group > input {
+  flex-grow: 1;
+}
+
+.ls-input-group > * {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.ls-input-group > :not(:first-child) {
+  margin-left: -1px;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+
+.ls-input-group > :first-child {
+  border-top-left-radius: $border-input-radius !important;
+  border-bottom-left-radius: $border-input-radius !important;
+}
+
+.ls-input-group > :last-child {
+  border-top-right-radius: $border-input-radius !important;
+  border-bottom-right-radius: $border-input-radius !important;
+}
+
+.ls-input {
+  border: $border-main;
+  border-radius: $border-input-radius;
+  height: 3rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}

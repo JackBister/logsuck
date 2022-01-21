@@ -14,28 +14,34 @@
  * limitations under the License.
  */
 
-import { Component, createRef, h, Ref, RenderableProps } from "preact";
+import { Component, createRef, h, JSX, Ref, RenderableProps } from "preact";
+import { Button } from "../Button/Button";
+import {
+  lsDropdownContainer,
+  lsDropdownItem,
+  lsCurrent,
+} from "./Dropdown.style.scss";
 
-export interface PopoverProps {
+export interface DropdownProps {
   isOpen: boolean;
   onOpenStateChanged: (isOpen: boolean) => void;
+  triggerText: string;
 }
 
-export interface PopoverState {}
+interface DropdownState {}
 
-export class Popover extends Component<
-  RenderableProps<PopoverProps>,
-  PopoverState
+export class Dropdown extends Component<
+  RenderableProps<DropdownProps>,
+  DropdownState
 > {
   private contentRef: Ref<HTMLDivElement>;
 
-  constructor(props: RenderableProps<PopoverProps>) {
+  constructor(props: RenderableProps<DropdownProps>) {
     super(props);
 
     this.clickHandler = this.clickHandler.bind(this);
 
     this.contentRef = createRef();
-
     this.state = {};
   }
 
@@ -49,9 +55,29 @@ export class Popover extends Component<
 
   render() {
     return (
-      <div style={{ position: "relative" }}>
+      <div style={{ position: "relative", height: "100%" }}>
+        <Button
+          type="button"
+          buttonType="secondary"
+          onClick={(evt) => {
+            evt.preventDefault();
+            evt.stopPropagation();
+            this.props.onOpenStateChanged(!this.props.isOpen);
+          }}
+          aria-haspopup="true"
+          aria-expanded={this.props.isOpen}
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            paddingRight: "6px",
+          }}
+        >
+          <span style={{ marginRight: "10px" }}>{this.props.triggerText}</span>
+          <span style={{ fontSize: "10px", marginTop: "2px" }}>&#x25bc;</span>
+        </Button>
         {this.props.isOpen && (
-          <div ref={this.contentRef} className="ls-popover-container">
+          <div ref={this.contentRef} className={lsDropdownContainer}>
             {this.props.children}
           </div>
         )}
@@ -61,23 +87,34 @@ export class Popover extends Component<
 
   private clickHandler(evt: MouseEvent) {
     if (!this.props.isOpen) {
-      console.log("props");
       return;
     }
     const contentRef = this.contentRef as any;
     if (!contentRef || !contentRef.current) {
-      console.log("cr");
       return;
     }
     const contentRefCurrent = contentRef.current as HTMLDivElement;
     if (!evt.target) {
-      console.log("target");
       return;
     }
     const target = evt.target as Node;
-    console.log(target);
     if (!contentRefCurrent.contains(target)) {
       this.props.onOpenStateChanged(false);
     }
   }
 }
+
+export interface DropdownItemProps {
+  isCurrent: boolean;
+}
+
+export const DropdownItem = (
+  props: JSX.IntrinsicElements["button"] & DropdownItemProps
+) => (
+  <button
+    {...props}
+    className={`${lsDropdownItem} ${props.isCurrent ? lsCurrent : ""}`}
+  >
+    {props.children}
+  </button>
+);

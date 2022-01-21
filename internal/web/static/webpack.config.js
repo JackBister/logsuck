@@ -15,6 +15,7 @@
  */
 
 const CopyPlugin = require("copy-webpack-plugin");
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 
 module.exports = {
   devtool: "source-map",
@@ -26,12 +27,33 @@ module.exports = {
         {
           from: "./node_modules/normalize.css/normalize.css",
           to: "./dist/normalize.css",
-        }
+        },
       ],
+    }),
+    new MiniCssExtractPlugin({
+      filename: "dist/[name].css",
     }),
   ],
   module: {
-    rules: [{ test: /\.tsx?$/, loader: "ts-loader" }],
+    rules: [
+      { test: /\.tsx?$/, loader: "ts-loader" },
+      {
+        test: /\.scss$/,
+        sideEffects: true,
+        use: [
+          MiniCssExtractPlugin.loader,
+          {
+            loader: "css-loader",
+            options: {
+              modules: {
+                namedExport: true,
+              },
+            },
+          },
+          "sass-loader",
+        ],
+      },
+    ],
   },
   output: {
     path: __dirname,

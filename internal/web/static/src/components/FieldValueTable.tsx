@@ -16,7 +16,7 @@
 
 import { h } from "preact";
 import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
-import { Table, TableRow } from "./lib/Table";
+import { Table, TableRow } from "./lib/Table/Table";
 
 export interface FieldValueTableProps {
   values: TopFieldValueInfo[];

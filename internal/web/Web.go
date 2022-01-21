@@ -87,6 +87,7 @@ func (wi webImpl) Serve() error {
 	r.GET("/", func(c *gin.Context) {
 		tpl.Execute(c.Writer, gin.H{
 			"scriptSrc": "home.js",
+			"styleSrc":  "home.css",
 		})
 		c.Status(200)
 	})
@@ -94,6 +95,7 @@ func (wi webImpl) Serve() error {
 	r.GET("/search", func(c *gin.Context) {
 		tpl.Execute(c.Writer, gin.H{
 			"scriptSrc": "search.js",
+			"styleSrc":  "search.css",
 		})
 		c.Status(200)
 	})

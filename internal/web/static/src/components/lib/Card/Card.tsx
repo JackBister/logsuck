@@ -15,16 +15,17 @@
  */
 
 import { h, RenderableProps } from "preact";
+import { lsCard, lsCardHeader } from "./Card.style.scss";
 
 export interface CardProps {
   className?: string;
 }
 
 export const Card = (props: RenderableProps<CardProps>) => {
-  const className = `ls-card ${props.className ? props.className : ""}`;
+  const className = `${lsCard} ${props.className ? props.className : ""}`;
   return <div className={className}>{props.children}</div>;
 };
 
 export const CardHeader = (props: RenderableProps<any>) => (
-  <div className="ls-card-header">{props.children}</div>
+  <div className={lsCardHeader}>{props.children}</div>
 );

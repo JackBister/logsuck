@@ -21,15 +21,15 @@ import {
   PollJobResult,
   StartJobResult,
 } from "../api/v1";
-import { EventTable } from "../components/EventTable";
+import { EventTable } from "../components/EventTable/EventTable";
 import { FieldTable } from "../components/FieldTable";
 import { FieldValueTable } from "../components/FieldValueTable";
-import { Button } from "../components/lib/Button";
-import { Card, CardHeader } from "../components/lib/Card";
-import { Infobox } from "../components/lib/Infobox";
-import { Popover } from "../components/lib/Popover";
-import { Navbar } from "../components/Navbar";
-import { Pagination } from "../components/Pagination";
+import { Button } from "../components/lib/Button/Button";
+import { Card, CardHeader } from "../components/lib/Card/Card";
+import { Infobox } from "../components/lib/Infobox/Infobox";
+import { Popover } from "../components/lib/Popover/Popover";
+import { Navbar } from "../components/lib/Navbar/Navbar";
+import { Pagination } from "../components/lib/Pagination/Pagination";
 import { SearchInput } from "../components/SearchInput";
 import { createSearchQueryParams } from "../createSearchUrl";
 import { LogEvent } from "../models/Event";

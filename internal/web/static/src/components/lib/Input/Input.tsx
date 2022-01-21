@@ -14,18 +14,13 @@
  * limitations under the License.
  */
 
-import { h, RenderableProps } from "preact";
+import { h, JSX, RenderableProps } from "preact";
+import { lsInput, lsInputGroup } from "./Input.style.scss";
 
-export interface InfoboxProps {
-  type: "info" | "error";
-}
+export const InputGroup = (props: RenderableProps<any>) => (
+  <div className={lsInputGroup}>{props.children}</div>
+);
 
-export const Infobox = (props: RenderableProps<InfoboxProps>) => {
-  let className = "ls-infobox ";
-  if (props.type === "info") {
-    className += "ls-info ";
-  } else if (props.type === "error") {
-    className += "ls-error ";
-  }
-  return <div className={className}>{props.children}</div>;
-};
+export const Input = (props: JSX.IntrinsicElements["input"]) => (
+  <input className={lsInput} {...props} />
+);

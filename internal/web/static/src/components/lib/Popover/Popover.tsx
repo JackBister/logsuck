@@ -14,29 +14,29 @@
  * limitations under the License.
  */
 
-import { Component, createRef, h, JSX, Ref, RenderableProps } from "preact";
-import { Button } from "./Button";
+import { Component, createRef, h, Ref, RenderableProps } from "preact";
+import { lsPopoverContainer } from "./Popover.style.scss";
 
-export interface DropdownProps {
+export interface PopoverProps {
   isOpen: boolean;
   onOpenStateChanged: (isOpen: boolean) => void;
-  triggerText: string;
 }
 
-interface DropdownState {}
+export interface PopoverState {}
 
-export class Dropdown extends Component<
-  RenderableProps<DropdownProps>,
-  DropdownState
+export class Popover extends Component<
+  RenderableProps<PopoverProps>,
+  PopoverState
 > {
   private contentRef: Ref<HTMLDivElement>;
 
-  constructor(props: RenderableProps<DropdownProps>) {
+  constructor(props: RenderableProps<PopoverProps>) {
     super(props);
 
     this.clickHandler = this.clickHandler.bind(this);
 
     this.contentRef = createRef();
+
     this.state = {};
   }
 
@@ -50,29 +50,9 @@ export class Dropdown extends Component<
 
   render() {
     return (
-      <div style={{ position: "relative", height: "100%" }}>
-        <Button
-          type="button"
-          buttonType="secondary"
-          onClick={(evt) => {
-            evt.preventDefault();
-            evt.stopPropagation();
-            this.props.onOpenStateChanged(!this.props.isOpen);
-          }}
-          aria-haspopup="true"
-          aria-expanded={this.props.isOpen}
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            paddingRight: "6px",
-          }}
-        >
-          <span style={{ marginRight: "10px" }}>{this.props.triggerText}</span>
-          <span style={{ fontSize: "10px", marginTop: "2px" }}>&#x25bc;</span>
-        </Button>
+      <div style={{ position: "relative" }}>
         {this.props.isOpen && (
-          <div ref={this.contentRef} className="ls-dropdown-container">
+          <div ref={this.contentRef} className={lsPopoverContainer}>
             {this.props.children}
           </div>
         )}
@@ -98,18 +78,3 @@ export class Dropdown extends Component<
     }
   }
 }
-
-export interface DropdownItemProps {
-  isCurrent: boolean;
-}
-
-export const DropdownItem = (
-  props: JSX.IntrinsicElements["button"] & DropdownItemProps
-) => (
-  <button
-    {...props}
-    className={`ls-dropdown-item ${props.isCurrent ? "ls-current" : ""}`}
-  >
-    {props.children}
-  </button>
-);

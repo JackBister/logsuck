@@ -1,0 +1,32 @@
+@import "../style/shared.scss";
+
+.ls-pagination {
+  display: flex;
+  flex-direction: row;
+  border-radius: $border-card-radius;
+  border: $border-main;
+  list-style: none;
+  padding: 0;
+}
+
+.ls-pagination > * {
+  border-right: $border-main;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.ls-pagination > :last-child {
+  border-right: none;
+}
+
+.ls-pagination .ls-active {
+  background-color: $color-button-primary;
+  color: $color-text-inverted !important;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.ls-pagination .ls-active > span {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}

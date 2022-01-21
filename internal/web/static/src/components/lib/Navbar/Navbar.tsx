@@ -15,14 +15,15 @@
  */
 
 import { h } from "preact";
+import { lsNavbar, lsBrand, lsNavButton } from "./Navbar.style.scss";
 
 export const Navbar = () => (
   <header>
-    <nav className="ls-navbar">
-      <a href="/" className="ls-brand">
+    <nav className={lsNavbar}>
+      <a href="/" className={lsBrand}>
         logsuck
       </a>
-      <a href="/search" className="ls-nav-button">
+      <a href="/search" className={lsNavButton}>
         Search
       </a>
     </nav>

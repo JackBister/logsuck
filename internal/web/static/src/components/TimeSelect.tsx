@@ -17,9 +17,9 @@
 import { h, Component } from "preact";
 import { TimeSelection } from "../models/TimeSelection";
 import { validateIsoTimestamp } from "../validateIsoTimestamp";
-import { Button } from "./lib/Button";
-import { Dropdown, DropdownItem } from "./lib/Dropdown";
-import { Input, InputGroup } from "./lib/Input";
+import { Button } from "./lib/Button/Button";
+import { Dropdown, DropdownItem } from "./lib/Dropdown/Dropdown";
+import { Input, InputGroup } from "./lib/Input/Input";
 
 enum Selection {
   LAST_15_MINUTES,

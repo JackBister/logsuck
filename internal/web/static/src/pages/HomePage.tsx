@@ -16,11 +16,11 @@
 
 import { h, Component } from "preact";
 import { RecentSearch } from "../services/RecentSearches";
-import { Navbar } from "../components/Navbar";
+import { Navbar } from "../components/lib/Navbar/Navbar";
 import { RedirectSearchInput } from "../components/SearchInput";
 import { createSearchUrl } from "../createSearchUrl";
-import { Card, CardHeader } from "../components/lib/Card";
-import { Table, TableRow } from "../components/lib/Table";
+import { Card, CardHeader } from "../components/lib/Card/Card";
+import { Table, TableRow } from "../components/lib/Table/Table";
 
 interface HomeProps {
   getRecentSearches: () => Promise<RecentSearch[]>;

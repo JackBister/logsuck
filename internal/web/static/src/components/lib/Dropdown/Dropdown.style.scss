@@ -1,0 +1,44 @@
+@import "../style/shared.scss";
+
+.ls-dropdown-container {
+  background-color: $color-background-strong;
+  border: $border-main;
+  border-radius: $border-card-radius;
+  box-shadow: $shadow-main;
+
+  position: absolute;
+  min-width: 280px;
+  top: calc(100% + 8px);
+  left: auto;
+  right: 0;
+  z-index: 1000;
+
+  padding: 0.5rem 0;
+}
+
+.ls-dropdown-item {
+  background-color: $color-background-strong;
+  border: none;
+
+  color: $color-text-main;
+  text-align: left;
+
+  transition: background-color 0.1s ease-in, color 0.1s ease-in;
+
+  width: 100%;
+
+  padding: 0.25rem 1rem;
+}
+
+.ls-dropdown-item:hover {
+  background-color: $color-button-secondary;
+}
+
+.ls-dropdown-item.ls-current {
+  background-color: $color-button-primary;
+  color: $color-text-inverted;
+}
+
+.ls-dropdown-item.ls-current:focus {
+  outline-color: $color-text-main;
+}

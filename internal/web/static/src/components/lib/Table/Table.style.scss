@@ -1,0 +1,31 @@
+@import "../style/shared.scss";
+
+.ls-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.ls-table td,
+.ls-table th {
+  padding: 0.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ls-table thead tr {
+  border-bottom: 2px solid $color-border-main;
+}
+
+.ls-table tbody tr:first-child {
+  border-top: $border-main;
+}
+
+.ls-table tbody tr:not(:last-child) {
+  border-bottom: $border-main;
+}
+
+.ls-table-hover tbody tr:hover,
+.ls-table-hover tbody tr:focus {
+  background-color: rgba(0, 0, 0, 0.075);
+}

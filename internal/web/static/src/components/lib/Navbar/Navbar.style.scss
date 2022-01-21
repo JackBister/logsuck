@@ -1,0 +1,26 @@
+@import "../style/shared.scss";
+
+.ls-navbar {
+  padding: 0 3px;
+  height: 50px;
+
+  background-color: $color-background-inverted;
+
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ls-navbar a {
+  color: $color-text-inverted;
+}
+
+.ls-navbar .ls-brand {
+  font-size: 1.5rem;
+  padding: 3px 12px;
+}
+
+.ls-nav-button {
+  padding: 8px 12px;
+}

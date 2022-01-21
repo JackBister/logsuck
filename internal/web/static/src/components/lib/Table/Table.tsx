@@ -15,15 +15,20 @@
  */
 
 import { h, RenderableProps } from "preact";
+import { lsTable, lsTableHover } from "./Table.style.scss";
 
 export interface TableProps {
+  className?: string;
   hoverable: boolean;
 }
 
 export const Table = (props: RenderableProps<TableProps>) => {
-  let className = "ls-table ";
+  let className = lsTable;
   if (props.hoverable) {
-    className += "ls-table-hover";
+    className += " " + lsTableHover;
+  }
+  if (props.className) {
+    className += " " + props.className;
   }
   return <table className={className}>{props.children}</table>;
 };
