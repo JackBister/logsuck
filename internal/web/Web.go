@@ -67,6 +67,7 @@ var Assets embed.FS
 
 func (wi webImpl) Serve() error {
 	r := gin.Default()
+	r.SetTrustedProxies(nil)
 
 	var filesys http.FileSystem
 	if wi.cfg.Web.UsePackagedFiles {
