@@ -18,4 +18,5 @@ type WebConfig struct {
 	Enabled          bool
 	Address          string
 	UsePackagedFiles bool
+	DebugMode        bool
 }

@@ -107,6 +107,10 @@
         "usePackagedFiles": {
           "description": "If true, all static files will be served using the files that are bundled into the executable. If false, the normal filesystem will be used (which means the directory './internal/web/static/dist' must exist in the working directory). This is mostly useful when developing. Default true.",
           "type": "boolean"
+        },
+        "debugMode": {
+          "description": "Enables debug mode in the web server, which may enable features such as extra logging. Default false.",
+          "type": "boolean"
         }
       }
     }

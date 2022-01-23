@@ -66,6 +66,12 @@ func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Reposi
 var Assets embed.FS
 
 func (wi webImpl) Serve() error {
+	if wi.cfg.Web.DebugMode {
+		log.Println("web.debugMode enabled. Will enable Gin debug mode. To disable, remove the debugMode key in the web object in your JSON config or set it to false.")
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
 

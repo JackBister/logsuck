@@ -52,6 +52,7 @@ type jsonWebConfig struct {
 	Enabled          *bool  `json:enabled`
 	Address          string `json:address`
 	UsePackagedFiles *bool  `json:usePackagedFiles`
+	DebugMode        *bool  `json:debugMode`
 }
 
 type jsonConfig struct {
@@ -285,6 +286,12 @@ func FromJSON(r io.Reader) (*Config, error) {
 			web.UsePackagedFiles = true
 		} else {
 			web.UsePackagedFiles = *cfg.Web.UsePackagedFiles
+		}
+		if cfg.Web.DebugMode == nil {
+			log.Println("web.debugMode not specified, defaulting to false")
+			web.DebugMode = false
+		} else {
+			web.DebugMode = *cfg.Web.DebugMode
 		}
 	}
 
