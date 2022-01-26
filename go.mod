@@ -7,7 +7,6 @@ require (
 	github.com/brianvoe/gofakeit v3.18.0+incompatible
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/gin-gonic/gin v1.7.7
-	github.com/go-playground/validator/v10 v10.4.1 // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/uuid v1.2.0
 	github.com/json-iterator/go v1.1.10 // indirect
