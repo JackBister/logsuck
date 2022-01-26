@@ -50,15 +50,14 @@ func main() {
 	logdunkCmd := exec.CommandContext(ctx, *logdunkPath, "-numFiles", "1", "-sleepTime", "0ns")
 	logsuckCmd := exec.CommandContext(ctx, *logsuckPath, "./log-0.txt")
 
-	// TODO: Change order here when https://github.com/JackBister/logsuck/issues/22 is fixed
-	err := logdunkCmd.Start()
-	if err != nil {
-		log.Fatalf("got error when starting logdunk: %v", err)
-		return
-	}
-	err = logsuckCmd.Start()
+	err := logsuckCmd.Start()
 	if err != nil {
 		log.Fatalf("got error when starting logsuck: %v", err)
+		return
+	}
+	err = logdunkCmd.Start()
+	if err != nil {
+		log.Fatalf("got error when starting logdunk: %v", err)
 		return
 	}
 
@@ -67,8 +66,8 @@ func main() {
 	cancel()
 	cancelled = true
 
-	logsuckCmd.Wait()
 	logdunkCmd.Wait()
+	logsuckCmd.Wait()
 
 	f, err := os.Open("log-0.txt")
 	if err != nil {

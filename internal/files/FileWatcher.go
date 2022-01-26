@@ -15,10 +15,13 @@
 package files
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,15 +35,25 @@ import (
 type FileWatcherCommand int
 
 const (
-	// CommandStop stops the FileWatcher and cleans up any resources it may have created
-	CommandStop FileWatcherCommand = 0
 	// CommandReopen closes the file and opens it again
 	CommandReopen FileWatcherCommand = 1
 )
 
+// There is probably a cleaner solution to this.
+// Maybe we could just have one fsnotify.Watcher for all files since we check for glob match anyway?
+var fsWatchers = map[string]*fsnotify.Watcher{}
+var fsWatchersLock = sync.Mutex{}
+
+// GlobWatcher watches a glob pattern to find log files. When a log file is found it will create a FileWatcher to read the file.
+type GlobWatcher struct {
+	m   map[string]*FileWatcher
+	ctx context.Context
+}
+
 // FileWatcher watches files and publishes events as they are written to the file.
 type FileWatcher struct {
 	fileConfig config.IndexedFileConfig
+	ctx        context.Context
 
 	filename string
 	hostName string
@@ -55,42 +68,124 @@ type FileWatcher struct {
 	workingBuf      []byte
 }
 
+// NewGlobWatcher creates a new watcher. The watcher will find any log files matching the glob pattern and create new FileWatchers for them.
+// The FileWatchers will publish events to the given eventPublisher.
+func NewGlobWatcher(
+	fileConfig config.IndexedFileConfig,
+	glob string,
+	hostName string,
+	eventPublisher events.EventPublisher,
+	ctx context.Context,
+) (*GlobWatcher, error) {
+	absGlob, err := filepath.Abs(glob)
+	if err != nil {
+		return nil, fmt.Errorf("error geting absGlob for glob=%s: %w", glob, err)
+	}
+	dir, err := filepath.Abs(filepath.Dir(glob))
+	if err != nil {
+		return nil, fmt.Errorf("error getting directory for glob=%s: %w", glob, err)
+	}
+	fsWatchersLock.Lock()
+	defer fsWatchersLock.Unlock()
+	var watcher *fsnotify.Watcher
+	if w, ok := fsWatchers[dir]; ok {
+		watcher = w
+	} else {
+		watcher, err = fsnotify.NewWatcher()
+		if err != nil {
+			return nil, fmt.Errorf("error creating FileWatcher for dir=%s, filename=%s: %w", dir, glob, err)
+		}
+		err = watcher.Add(dir)
+		if err != nil {
+			return nil, fmt.Errorf("error adding dir to FileWatcher for dir=%s, filename=%s: %w", dir, glob, err)
+		}
+	}
+
+	gw := &GlobWatcher{
+		m:   map[string]*FileWatcher{},
+		ctx: ctx,
+	}
+
+	initial, err := filepath.Glob(glob)
+	if err != nil {
+		return nil, fmt.Errorf("got error when globbing using glob=%s: %w", glob, err)
+	}
+	for _, file := range initial {
+		absPath, err := filepath.Abs(file)
+		if err != nil {
+			log.Printf("got error when performing filepath.Abs(file) with dir=%s, file=%s: %v\n", dir, file, err)
+			continue
+		}
+		fw, err := NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, ctx)
+		if err != nil {
+			log.Printf("got error when creating new FileWatcher for filename=%s matching glob=%s: %v\n", absPath, glob, err)
+			continue
+		}
+		go fw.Start()
+		gw.m[absPath] = fw
+	}
+
+	go func() {
+		for {
+			select {
+			case <-gw.ctx.Done():
+				return
+			case evt := <-watcher.Events:
+				if evt.Op&(fsnotify.Create|fsnotify.Remove) == 0 {
+					continue
+				}
+				log.Println("received fsnotify", evt)
+				path := evt.Name
+				matched, err := filepath.Match(absGlob, path)
+				if err != nil {
+					log.Printf("got error when matching glob=%s against path=%s: %v", glob, path, err)
+					continue
+				}
+				if !matched {
+					log.Printf("path=%s does not match glob=%s, skipping", path, absGlob)
+					continue
+				}
+
+				absPath, err := filepath.Abs(path)
+				if err != nil {
+					log.Printf("got error when performing filepath.Abs(dir/evt.Name) after receiving fsnotify with dir=%s, evt.Name=%s: %v\n", dir, evt.Name, err)
+					continue
+				}
+
+				if fw, ok := gw.m[absPath]; ok {
+					fw.commands <- CommandReopen
+				} else {
+					fw, err = NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, ctx)
+					if err != nil {
+						log.Printf("got error when creating new FileWatcher for filename=%s matching glob=%s: %v\n", absPath, glob, err)
+						continue
+					}
+					go fw.Start()
+					gw.m[absPath] = fw
+				}
+			}
+		}
+	}()
+
+	return gw, nil
+}
+
 // NewFileWatcher returns a FileWatcher which will watch a file and publish events according to the IndexedFileConfig
 func NewFileWatcher(
 	fileConfig config.IndexedFileConfig,
 	filename string,
 	hostName string,
-	commands chan FileWatcherCommand,
 	eventPublisher events.EventPublisher,
+	ctx context.Context,
 ) (*FileWatcher, error) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, fmt.Errorf("error creating FileWatcher for fileName=%s: %w", filename, err)
-	}
-	err = watcher.Add(filename)
-	if err != nil {
-		return nil, fmt.Errorf("error creating FileWatcher for fileName=%s: %w", filename, err)
-	}
-	go func() {
-		for {
-			evt := <-watcher.Events
-			log.Println("received fsnotify", evt)
-			// The reasoning for reopening on "Write" is that os.Create actually does not trigger a Remove or Create event if it truncates a file.
-			// This may end up being a problem though.
-			// TODO: Maybe the write case should be specially handled and just reset the offset/seek position to 0?
-			if evt.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 {
-				log.Printf("filename=%s appears to have been rolled, will try to reopen\n", filename)
-				commands <- CommandReopen
-			}
-		}
-	}()
 	return &FileWatcher{
 		fileConfig: fileConfig,
+		ctx:        ctx,
 
 		filename: filename,
 		hostName: hostName,
 
-		commands:       commands,
+		commands:       make(chan FileWatcherCommand),
 		eventPublisher: eventPublisher,
 		file:           nil,
 
@@ -104,13 +199,12 @@ func NewFileWatcher(
 func (fw *FileWatcher) Start() {
 	ticker := time.NewTicker(fw.fileConfig.ReadInterval)
 	defer ticker.Stop()
-out:
 	for {
 		select {
+		case <-fw.ctx.Done():
+			return
 		case cmd := <-fw.commands:
-			if cmd == CommandStop {
-				break out
-			} else if cmd == CommandReopen && fw.file != nil {
+			if cmd == CommandReopen && fw.file != nil {
 				fw.readToEnd()
 				fw.file.Close()
 				fw.file = nil

@@ -15,12 +15,12 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"regexp"
 	"time"
 
@@ -152,7 +152,7 @@ func main() {
 		}
 	}
 
-	commandChannels := make([]chan files.FileWatcherCommand, len(cfg.IndexedFiles))
+	ctx := context.Background()
 
 	var jobRepo jobs.Repository
 	var jobEngine *jobs.Engine
@@ -177,31 +177,8 @@ func main() {
 		publisher = events.BatchedRepositoryPublisher(&cfg, repo)
 	}
 
-	// files can only be watched once. If a file is matched by multiple globs, the first one wins.
-	seenFiles := map[string]struct{}{}
-	for i, fileCfg := range cfg.IndexedFiles {
-		globFiles, err := filepath.Glob(fileCfg.Filename)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, file := range globFiles {
-			absfile, err := filepath.Abs(file)
-			if err != nil {
-				log.Fatal(err)
-			}
-			if _, seen := seenFiles[absfile]; seen {
-				log.Printf("filename=%v was matched by glob=%v, but this file is already being watched by a previous configuration. This file will be skipped for this configuration.", absfile, fileCfg.Filename)
-				continue
-			}
-			commandChannels[i] = make(chan files.FileWatcherCommand, 1)
-			fw, err := files.NewFileWatcher(fileCfg, file, cfg.HostName, commandChannels[i], publisher)
-			if err != nil {
-				log.Fatal(err)
-			}
-			log.Println("Starting FileWatcher for filename=" + file)
-			go fw.Start()
-			seenFiles[absfile] = struct{}{}
-		}
+	for _, fileCfg := range cfg.IndexedFiles {
+		files.NewGlobWatcher(fileCfg, fileCfg.Filename, cfg.HostName, publisher, ctx)
 	}
 
 	if cfg.Recipient.Enabled {
