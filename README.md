@@ -229,7 +229,7 @@ Since the frontend is necessary to build the backend, lets start off by building
 
 ```sh
 cd internal/web/static
-npm install && npm run build
+npm ci && npm run build
 ```
 
 This will build the frontend and put it in the `./internal/web/static/dist` directory. Time to build the backend.

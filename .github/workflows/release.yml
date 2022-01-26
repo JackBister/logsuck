@@ -40,7 +40,7 @@ jobs:
 
       - name: Build frontend
         working-directory: ./internal/web/static
-        run: npm install && npm run build
+        run: npm ci && npm run build
 
       - name: Build and zip Linux x64
         id: build_linux_x64
