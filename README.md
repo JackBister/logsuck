@@ -205,7 +205,7 @@ The search command starts a new search. It ignores all previous results and inst
 
 #### `| surrounding [count=<number>] eventId=<id>`
 
-Shows the events that have the same source as the given event and which were close to the event in the log file. This is used when clicking "View context" on an event. This is useful if you are finding results from many different files and want to drill down on a specific event.
+Shows the events that have the same source as the given event and which were close to the event in the log file. This is used when clicking "View context" on an event. This is useful if you are finding results from many different files and want to drill down into a specific file.
 
 #### `| where <field1>=<value1> <field2>=<value2>...`
 
