@@ -34,5 +34,7 @@ type Config struct {
 
 	SQLite *SqliteConfig
 
+	Tasks *TasksConfig
+
 	Web *WebConfig
 }

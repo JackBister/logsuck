@@ -48,6 +48,17 @@ type jsonSqliteConfig struct {
 	TrueBatch *bool  `json:trueBatch`
 }
 
+type jsonTaskConfig struct {
+	Name     string            `json:name`
+	Enabled  bool              `json:enabled`
+	Interval string            `json:interval`
+	Config   map[string]string `json:config`
+}
+
+type jsonTasksConfig struct {
+	Tasks []jsonTaskConfig `json:tasks`
+}
+
 type jsonWebConfig struct {
 	Enabled          *bool  `json:enabled`
 	Address          string `json:address`
@@ -64,6 +75,7 @@ type jsonConfig struct {
 	Forwarder *jsonForwarderConfig `json:forwarder`
 	Recipient *jsonRecipientConfig `json:recipient`
 	Sqlite    *jsonSqliteConfig    `json:sqlite`
+	Tasks     *jsonTasksConfig     `json:tasks`
 	Web       *jsonWebConfig       `json:web`
 }
 
@@ -92,6 +104,10 @@ var defaultConfig = Config{
 	SQLite: &SqliteConfig{
 		DatabaseFile: "logsuck.db",
 		TrueBatch:    true,
+	},
+
+	Tasks: &TasksConfig{
+		Tasks: map[string]TaskConfig{},
 	},
 
 	Web: &WebConfig{
@@ -254,6 +270,32 @@ func FromJSON(r io.Reader) (*Config, error) {
 		}
 	}
 
+	var tasksConfig *TasksConfig
+	if cfg.Tasks == nil {
+		log.Println("Using default task configuration.")
+		tasksConfig = defaultConfig.Tasks
+	} else {
+		tasks := make(map[string]TaskConfig, len(cfg.Tasks.Tasks))
+		for _, jsonTask := range cfg.Tasks.Tasks {
+			interval, err := time.ParseDuration(jsonTask.Interval)
+			if err != nil {
+				log.Printf("failed to parse interval for task='%s'\n", jsonTask.Name)
+				continue
+			}
+			tasks[jsonTask.Name] = TaskConfig{
+				Name:     jsonTask.Name,
+				Enabled:  jsonTask.Enabled,
+				Interval: interval,
+				Config: NewDynamicConfig([]ConfigSource{
+					NewMapConfigSource(jsonTask.Config),
+				}),
+			}
+		}
+		tasksConfig = &TasksConfig{
+			Tasks: tasks,
+		}
+	}
+
 	var web *WebConfig
 	if cfg.Web == nil {
 		log.Println("Using default web configuration.")
@@ -305,6 +347,8 @@ func FromJSON(r io.Reader) (*Config, error) {
 		Recipient: recipient,
 
 		SQLite: sqlite,
+
+		Tasks: tasksConfig,
 
 		Web: web,
 	}, nil

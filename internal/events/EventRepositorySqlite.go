@@ -185,6 +185,67 @@ func (repo *sqliteRepository) addBatchOneByOne(events []Event) error {
 	return nil
 }
 
+var delSbBase = "DELETE FROM Events WHERE ID IN ("
+var delSbBaseLen = len(delSbBase)
+var delRawSbBase = "DELETE FROM EventRaws WHERE rowid IN ("
+var delRawSbBaseLen = len(delRawSbBase)
+var delSbPerEvtLen = 3 // "?, " except for the last one which is just ?. So the buffer ends up being two bytes too large.
+var delSbSuffix = ")"
+var delSbSuffixLen = len(delSbSuffix)
+
+func (repo *sqliteRepository) DeleteBatch(ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	var sb strings.Builder
+	var rsb strings.Builder
+	sb.Grow(delSbBaseLen + len(ids)*delSbPerEvtLen + delSbSuffixLen)
+	rsb.Grow(delRawSbBaseLen + len(ids)*delSbPerEvtLen + delSbSuffixLen)
+	sb.WriteString(delSbBase)
+	rsb.WriteString(delRawSbBase)
+	for i := range ids {
+		if i != len(ids)-1 {
+			sb.WriteString("?, ")
+			rsb.WriteString("?, ")
+		} else {
+			sb.WriteString("?")
+			rsb.WriteString("?")
+		}
+	}
+	sb.WriteString(delSbSuffix)
+	rsb.WriteString(delSbSuffix)
+	deleteQuery := sb.String()
+	deleteRawQuery := rsb.String()
+
+	// yuck
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+
+	tx, err := repo.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction when deleting numIds=%v: %w", len(ids), err)
+	}
+
+	_, err = tx.Exec(deleteQuery, args...)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to delete numIds=%v from Events table: %w", len(ids), err)
+	}
+	_, err = tx.Exec(deleteRawQuery, args...)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to delete numIds=%v from EventRaws table: %w", len(ids), err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		// I have no idea what you are supposed to do here. rollback or nah?
+		return fmt.Errorf("failed to commit delete of numIds=%v. unknown state: %w", len(ids), err)
+	}
+	return nil
+}
+
 func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime, searchEndTime *time.Time) <-chan []EventWithId {
 	startTime := time.Now()
 	ret := make(chan []EventWithId)
@@ -303,7 +364,7 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 }
 
 func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventWithId, error) {
-	ret := make([]EventWithId, len(ids))
+	ret := make([]EventWithId, 0, len(ids))
 
 	// TODO: I'm PRETTY sure this code is garbage
 	stmt := "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id IN ("
@@ -330,6 +391,7 @@ func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventW
 
 	idx := 0
 	for res.Next() {
+		ret = append(ret, EventWithId{})
 		err = res.Scan(&ret[idx].Id, &ret[idx].Host, &ret[idx].Source, &ret[idx].SourceId, &ret[idx].Timestamp, &ret[idx].Raw)
 		if err != nil {
 			return nil, fmt.Errorf("error when scanning row in GetByIds: %w", err)

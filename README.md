@@ -142,6 +142,8 @@ The address on which the search GUI will be exposed. (default ":8080")
 
 JSON is the recommended way of configuring Logsuck for more complex usage. By default, Logsuck will look in its working directory for a `logsuck.json` file which will contain the configuration. If the file is found, all command line options will be ignored. There is a JSON schema which documents the configuration file available [here](https://github.com/JackBister/logsuck/blob/master/logsuck-config.schema.json).
 
+Also read [docs/Tasks.md](docs/Tasks.md) to learn about configuring tasks in the JSON configuration.
+
 ## Search syntax
 
 Search queries in Logsuck generally look like this:
@@ -266,8 +268,7 @@ Logsuck is still heavily in development, so there are many features still being 
 ### Before version 1.0
 
 - [x] Glob patterns for finding log files
-- [ ] Compression for the FTS table to reduce storage requirements
-- [ ] Retention setting to delete old events after a certain period of time
+- [x] Retention setting to delete old events after a certain period of time
 - [x] "Show source" / "Show context" button to view events from the same source that are close in time to the selected event
 - [x] Ability to search via time spans that are not relative to the current time, such as "All events between 2020-01-01 and 2020-01-05"
 - [x] Ad hoc field extraction using pipes in the search command (equivalent to Splunk's "| rex")

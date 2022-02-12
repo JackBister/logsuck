@@ -25,17 +25,10 @@ import (
 )
 
 func TestAddBatchTrueBatch(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Fatalf("TestRexPipelineStep got error when creating in-memory SQLite database: %v", err)
-	}
-	repo, err := SqliteRepository(db, &config.SqliteConfig{
+	repo := createRepoWithCfg(t, &config.SqliteConfig{
 		DatabaseFile: ":memory:",
 		TrueBatch:    true,
 	})
-	if err != nil {
-		t.Fatalf("TestRexPipelineStep got error when creating events repo: %v", err)
-	}
 
 	repo.AddBatch([]Event{
 		{
@@ -47,7 +40,7 @@ func TestAddBatchTrueBatch(t *testing.T) {
 		},
 	})
 
-	evts, err := repo.GetByIds([]int64{0}, SortModeNone)
+	evts, err := repo.GetByIds([]int64{1}, SortModeNone)
 	if err != nil {
 		t.Fatalf("got error when retrieving event: %v", err)
 	}
@@ -57,17 +50,10 @@ func TestAddBatchTrueBatch(t *testing.T) {
 }
 
 func TestAddBatchOneByOne(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Fatalf("TestRexPipelineStep got error when creating in-memory SQLite database: %v", err)
-	}
-	repo, err := SqliteRepository(db, &config.SqliteConfig{
+	repo := createRepoWithCfg(t, &config.SqliteConfig{
 		DatabaseFile: ":memory:",
 		TrueBatch:    false,
 	})
-	if err != nil {
-		t.Fatalf("TestRexPipelineStep got error when creating events repo: %v", err)
-	}
 
 	repo.AddBatch([]Event{
 		{
@@ -79,11 +65,88 @@ func TestAddBatchOneByOne(t *testing.T) {
 		},
 	})
 
-	evts, err := repo.GetByIds([]int64{0}, SortModeNone)
+	evts, err := repo.GetByIds([]int64{1}, SortModeNone)
 	if err != nil {
 		t.Fatalf("got error when retrieving event: %v", err)
 	}
 	if len(evts) != 1 {
 		t.Fatalf("got unexpected number of events, expected 1 event but got %v", len(evts))
 	}
+}
+
+func TestDeleteEmptyList(t *testing.T) {
+	repo := createRepo(t)
+
+	repo.AddBatch([]Event{
+		{
+			Raw:       "2022-01-27 00:00:00 my event",
+			Timestamp: time.Date(2022, 1, 27, 0, 0, 0, 0, time.UTC),
+			Host:      "localhost",
+			Source:    "log.txt",
+			Offset:    0,
+		},
+	})
+
+	err := repo.DeleteBatch([]int64{})
+	if err != nil {
+		t.Fatalf("got error when deleting empty list of eventIds: %v", err)
+	}
+	evts, err := repo.GetByIds([]int64{1}, SortModeNone)
+	if err != nil {
+		t.Fatalf("got error when getting events after deleting empty list: %v", err)
+	}
+	if len(evts) != 1 {
+		t.Fatalf("expected 1 event in repository after deleting empty list but got %v", len(evts))
+	}
+}
+
+func TestDeleteOneEvent(t *testing.T) {
+	repo := createRepo(t)
+
+	repo.AddBatch([]Event{
+		{
+			Raw:       "2022-01-27 00:00:00 my event",
+			Timestamp: time.Date(2022, 1, 27, 0, 0, 0, 0, time.UTC),
+			Host:      "localhost",
+			Source:    "log.txt",
+			Offset:    0,
+		},
+	})
+	evts, err := repo.GetByIds([]int64{1}, SortModeNone)
+	if err != nil {
+		t.Fatalf("got error when getting events after deleting empty list: %v", err)
+	}
+	if len(evts) != 1 {
+		t.Fatalf("expected 1 event in repository before deleting it but got %v", len(evts))
+	}
+	err = repo.DeleteBatch([]int64{1})
+	if err != nil {
+		t.Fatalf("got error when deleting eventId: %v", err)
+	}
+	evts, err = repo.GetByIds([]int64{1}, SortModeNone)
+	if err != nil {
+		t.Fatalf("got error when getting events after deleting empty list: %v", err)
+	}
+	if len(evts) != 0 {
+		t.Fatalf("expected 0 events in repository after deleting event but got %v", len(evts))
+	}
+}
+
+func createRepo(t *testing.T) Repository {
+	return createRepoWithCfg(t, &config.SqliteConfig{
+		DatabaseFile: ":memory:",
+		TrueBatch:    true,
+	})
+}
+
+func createRepoWithCfg(t *testing.T, cfg *config.SqliteConfig) Repository {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("got error when creating in-memory SQLite database: %v", err)
+	}
+	repo, err := SqliteRepository(db, cfg)
+	if err != nil {
+		t.Fatalf("got error when creating events repo: %v", err)
+	}
+	return repo
 }

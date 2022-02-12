@@ -92,6 +92,39 @@
         }
       }
     },
+    "tasks": {
+      "description": "Configuration for tasks, which run periodically and perform maintenance tasks like removing old events. If there is no configuration for a task it will never run.",
+      "type": "object",
+      "properties": {
+        "tasks": {
+          "description": "An array of configurations for each task.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "description": "The name of the task.",
+                "type": "string"
+              },
+              "enabled": {
+                "description": "Whether the task should run or not.",
+                "type": "boolean"
+              },
+              "interval": {
+                "description": "How often the task should run.",
+                "type": "string"
+              },
+              "config": {
+                "description": "A key-value map from string to string of task-specific configuration. Check the documentation for a specific task to see which properties are available.",
+                "type": "object",
+                "additionalProperties": { "type": "string" }
+              }
+            },
+            "required": ["name", "enabled", "interval"]
+          }
+        }
+      }
+    },
     "web": {
       "description": "Configuration for the web GUI used to access logsuck.",
       "type": "object",
