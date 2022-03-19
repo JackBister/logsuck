@@ -14,11 +14,12 @@
 
 package config
 
-import "regexp"
+import (
+	"regexp"
+	"time"
+)
 
-type Config struct {
-	IndexedFiles []IndexedFileConfig
-
+type StaticConfig struct {
 	// FieldExtractors are regexes. A FieldExtractor should either match one named group where the group name will
 	//become the field name and the group content will become the field value,
 	//or it should match two groups where the first group will be considered the field name and the second group will be
@@ -28,6 +29,8 @@ type Config struct {
 	FieldExtractors []*regexp.Regexp
 
 	HostName string
+
+	ConfigPollInterval time.Duration
 
 	Forwarder *ForwarderConfig
 	Recipient *RecipientConfig

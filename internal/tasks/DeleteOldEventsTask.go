@@ -37,7 +37,7 @@ func (t *DeleteOldEventsTask) Name() string {
 }
 
 func (t *DeleteOldEventsTask) Run(cfg config.DynamicConfig, ctx context.Context) {
-	minAgeStr := cfg.GetString("minAge", "").Get()
+	minAgeStr, _ := cfg.GetString("minAge", "").Get()
 	if minAgeStr == "" {
 		log.Println("DeleteOldEventsTask: minAgeStr=''. Will not do anything.")
 		return

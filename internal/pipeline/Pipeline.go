@@ -32,7 +32,7 @@ type Pipeline struct {
 }
 
 type PipelineParameters struct {
-	Cfg        *config.Config
+	Cfg        *config.StaticConfig
 	EventsRepo events.Repository
 }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright 2021 Jack Bister
+ * Copyright 2022 Jack Bister
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,8 @@
  */
 
 import { h, render } from "preact";
-import { SearchPageComponent } from "./SearchPage";
-import {
-  startJob,
-  pollJob,
-  getResults,
-  abortJob,
-  getFieldValueCounts,
-} from "../api/v1";
-import { addRecentSearch } from "../services/RecentSearches";
 import { getQueryParams, setQueryParams } from "../queryParams";
+import { ConfigPageComponent } from "./ConfigPage";
 
 function main() {
   const appRoot = document.getElementById("app");
@@ -32,13 +24,7 @@ function main() {
     throw new Error("No element with id 'app' found!");
   }
   render(
-    <SearchPageComponent
-      startJob={startJob}
-      pollJob={pollJob}
-      getResults={getResults}
-      abortJob={abortJob}
-      getFieldValueCounts={getFieldValueCounts}
-      addRecentSearch={addRecentSearch}
+    <ConfigPageComponent
       getQueryParams={getQueryParams}
       setQueryParams={setQueryParams}
     />,

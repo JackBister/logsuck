@@ -121,3 +121,21 @@ export function getFieldValueCounts(
     .then((r) => r.json())
     .then((f: FieldValueCounts) => f);
 }
+
+export type ConfigTypeName = "array" | "int" | "string";
+
+type ConfigType<T> = T extends "array"
+  ? Array<any>
+  : T extends "int"
+  ? number
+  : T extends "string"
+  ? string
+  : never;
+
+export function getConfigByKey<T extends ConfigTypeName>(
+  key: string,
+  type: T
+): Promise<ConfigType<T>> {
+  const queryParams = `?key=${key}&type=${type}`;
+  return fetch("/api/v1/config" + queryParams).then((r) => r.json());
+}

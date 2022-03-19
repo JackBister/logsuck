@@ -29,13 +29,13 @@ import (
 const forwardChunkSize = 1000
 
 type forwardingEventPublisher struct {
-	cfg *config.Config
+	cfg *config.StaticConfig
 
 	accumulated []RawEvent
 	adder       chan<- RawEvent
 }
 
-func ForwardingEventPublisher(cfg *config.Config) EventPublisher {
+func ForwardingEventPublisher(cfg *config.StaticConfig) EventPublisher {
 	adder := make(chan RawEvent)
 	ep := forwardingEventPublisher{
 		cfg: cfg,

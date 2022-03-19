@@ -34,3 +34,44 @@ type IndexedFileConfig struct {
 	// The default is "2006/01/02 15:04:05"
 	TimeLayout string
 }
+
+func FileConfigFromDynamicArray(a []interface{}) []IndexedFileConfig {
+	ret := make([]IndexedFileConfig, 0, len(a))
+	for _, o := range a {
+		if m, ok := o.(map[string]interface{}); !ok {
+			continue
+		} else {
+			filename, ok := m["fileName"].(string)
+			if !ok {
+				continue
+			}
+			eventDelimiter, ok := m["eventDelimiter"].(string)
+			if !ok {
+				eventDelimiter = "\n"
+			}
+			eventDelimiterRegex, err := regexp.Compile(eventDelimiter)
+			if err != nil {
+				continue
+			}
+			readInterval, ok := m["readInterval"].(string)
+			if !ok {
+				readInterval = "1s"
+			}
+			readIntervalDuration, err := time.ParseDuration(readInterval)
+			if err != nil {
+				continue
+			}
+			timeLayout, ok := m["timeLayout"].(string)
+			if !ok {
+				timeLayout = "2006/01/02 15:04:05"
+			}
+			ret = append(ret, IndexedFileConfig{
+				Filename:       filename,
+				EventDelimiter: eventDelimiterRegex,
+				ReadInterval:   readIntervalDuration,
+				TimeLayout:     timeLayout,
+			})
+		}
+	}
+	return ret
+}

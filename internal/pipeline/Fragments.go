@@ -85,7 +85,7 @@ func compileFrag(frag string) (*regexp.Regexp, error) {
 }
 
 func shouldIncludeEvent(evt events.EventWithId,
-	cfg *config.Config,
+	cfg *config.StaticConfig,
 	compiledFrags []*regexp.Regexp, compiledNotFrags []*regexp.Regexp,
 	compiledFields map[string][]*regexp.Regexp, compiledNotFields map[string][]*regexp.Regexp) (map[string]string, bool) {
 	evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), cfg.FieldExtractors)

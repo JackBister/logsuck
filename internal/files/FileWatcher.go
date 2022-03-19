@@ -37,6 +37,8 @@ type FileWatcherCommand int
 const (
 	// CommandReopen closes the file and opens it again
 	CommandReopen FileWatcherCommand = 1
+	// CommandReload updates the file watcher's configuration to the new configuration stored in the "newFileConfig" property
+	CommandReloadConfig FileWatcherCommand = 2
 )
 
 // There is probably a cleaner solution to this.
@@ -46,14 +48,30 @@ var fsWatchersLock = sync.Mutex{}
 
 // GlobWatcher watches a glob pattern to find log files. When a log file is found it will create a FileWatcher to read the file.
 type GlobWatcher struct {
-	m   map[string]*FileWatcher
-	ctx context.Context
+	fileConfig config.IndexedFileConfig
+	m          map[string]*FileWatcher
+	ctx        context.Context
+
+	Cancel func()
+}
+
+func (gw *GlobWatcher) UpdateConfig(cfg config.IndexedFileConfig) {
+	log.Printf("updating fileConfig for GlobWatcher with filename=%s...\n", gw.fileConfig.Filename)
+	if cfg == gw.fileConfig {
+		log.Printf("new config for GlobWatcher with filename=%s is the same as before. will not do anything\n", gw.fileConfig.Filename)
+		return
+	}
+	for _, v := range gw.m {
+		v.newFileConfig = &cfg
+		v.commands <- CommandReloadConfig
+	}
 }
 
 // FileWatcher watches files and publishes events as they are written to the file.
 type FileWatcher struct {
-	fileConfig config.IndexedFileConfig
-	ctx        context.Context
+	fileConfig    config.IndexedFileConfig
+	newFileConfig *config.IndexedFileConfig
+	ctx           context.Context
 
 	filename string
 	hostName string
@@ -101,9 +119,13 @@ func NewGlobWatcher(
 		}
 	}
 
+	gwCtx, cancel := context.WithCancel(ctx)
+
 	gw := &GlobWatcher{
-		m:   map[string]*FileWatcher{},
-		ctx: ctx,
+		fileConfig: fileConfig,
+		m:          map[string]*FileWatcher{},
+		ctx:        gwCtx,
+		Cancel:     cancel,
 	}
 
 	initial, err := filepath.Glob(glob)
@@ -116,7 +138,7 @@ func NewGlobWatcher(
 			log.Printf("got error when performing filepath.Abs(file) with dir=%s, file=%s: %v\n", dir, file, err)
 			continue
 		}
-		fw, err := NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, ctx)
+		fw, err := NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, gwCtx)
 		if err != nil {
 			log.Printf("got error when creating new FileWatcher for filename=%s matching glob=%s: %v\n", absPath, glob, err)
 			continue
@@ -155,7 +177,7 @@ func NewGlobWatcher(
 				if fw, ok := gw.m[absPath]; ok {
 					fw.commands <- CommandReopen
 				} else {
-					fw, err = NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, ctx)
+					fw, err = NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, gwCtx)
 					if err != nil {
 						log.Printf("got error when creating new FileWatcher for filename=%s matching glob=%s: %v\n", absPath, glob, err)
 						continue

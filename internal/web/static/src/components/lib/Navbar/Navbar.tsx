@@ -23,9 +23,14 @@ export const Navbar = () => (
       <a href="/" className={lsBrand}>
         logsuck
       </a>
-      <a href="/search" className={lsNavButton}>
-        Search
-      </a>
+      <div>
+        <a href="/search" className={lsNavButton}>
+          Search
+        </a>
+        <a href="/config" className={lsNavButton}>
+          Config
+        </a>
+      </div>
     </nav>
   </header>
 );

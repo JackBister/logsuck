@@ -14,15 +14,43 @@
 
 package config
 
-import "strconv"
+import (
+	"encoding/json"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+type DynamicArrayProperty struct {
+	name         string
+	defaultValue []interface{}
+	cfg          *RootDynamicConfig
+}
+
+func (d DynamicArrayProperty) Get() ([]interface{}, bool) {
+	for _, cs := range d.cfg.configSources {
+		val, ok := cs.Get(d.name)
+		if !ok {
+			continue
+		}
+		var arr []interface{}
+		err := json.NewDecoder(strings.NewReader(val)).Decode(&arr)
+		if err != nil {
+			continue
+		}
+		return arr, true
+	}
+	return d.defaultValue, false
+}
 
 type DynamicIntProperty struct {
 	name         string
 	defaultValue int
-	cfg          *DynamicConfig
+	cfg          *RootDynamicConfig
 }
 
-func (d DynamicIntProperty) Get() int {
+func (d DynamicIntProperty) Get() (int, bool) {
 	for _, cs := range d.cfg.configSources {
 		val, ok := cs.Get(d.name)
 		if !ok {
@@ -32,59 +60,128 @@ func (d DynamicIntProperty) Get() int {
 		if err != nil {
 			continue
 		}
-		return i
+		return i, true
 	}
-	return d.defaultValue
+	return d.defaultValue, false
 }
 
 type DynamicStringProperty struct {
 	name         string
 	defaultValue string
-	cfg          *DynamicConfig
+	cfg          *RootDynamicConfig
 }
 
-func (d DynamicStringProperty) Get() string {
+func (d DynamicStringProperty) Get() (string, bool) {
 	for _, cs := range d.cfg.configSources {
 		val, ok := cs.Get(d.name)
 		if !ok {
 			continue
 		}
-		return val
+		return val, true
 	}
-	return d.defaultValue
+	return d.defaultValue, false
 }
 
-type DynamicConfig struct {
+type DynamicConfig interface {
+	Cd(name string) DynamicConfig
+	Changes() <-chan struct{}
+	GetArray(name string, defaultValue []interface{}) DynamicArrayProperty
+	GetInt(name string, defaultValue int) DynamicIntProperty
+	GetString(name string, defaultValue string) DynamicStringProperty
+}
+
+type RootDynamicConfig struct {
 	configSources []ConfigSource
+	changes       <-chan struct{}
 }
 
 func NewDynamicConfig(configSources []ConfigSource) DynamicConfig {
-	return DynamicConfig{
+	cs := make([]<-chan struct{}, len(configSources))
+	for i := range configSources {
+		cs[i] = configSources[i].Changes()
+	}
+	return &RootDynamicConfig{
 		configSources: configSources,
+		changes:       mergeChannels(cs),
 	}
 }
 
-func (d *DynamicConfig) GetInt(name string, defaultValue int) DynamicIntProperty {
+func (d *RootDynamicConfig) Cd(name string) DynamicConfig {
+	return &ChildDynamicConfig{
+		context: name,
+		parent:  d,
+	}
+}
+
+func (d *RootDynamicConfig) Changes() <-chan struct{} {
+	return d.changes
+}
+
+func (d *RootDynamicConfig) GetArray(name string, defaultValue []interface{}) DynamicArrayProperty {
+	return DynamicArrayProperty{name: name, defaultValue: defaultValue, cfg: d}
+}
+
+func (d *RootDynamicConfig) GetInt(name string, defaultValue int) DynamicIntProperty {
 	return DynamicIntProperty{name: name, defaultValue: defaultValue, cfg: d}
 }
 
-func (d *DynamicConfig) GetString(name string, defaultValue string) DynamicStringProperty {
+func (d *RootDynamicConfig) GetString(name string, defaultValue string) DynamicStringProperty {
 	return DynamicStringProperty{name: name, defaultValue: defaultValue, cfg: d}
 }
 
+type ChildDynamicConfig struct {
+	context string
+	parent  *RootDynamicConfig
+}
+
+func (d *ChildDynamicConfig) Cd(name string) DynamicConfig {
+	return &ChildDynamicConfig{
+		context: d.context + "." + name,
+		parent:  d.parent,
+	}
+}
+
+func (d *ChildDynamicConfig) Changes() <-chan struct{} {
+	return d.parent.changes
+}
+
+func (d *ChildDynamicConfig) GetArray(name string, defaultValue []interface{}) DynamicArrayProperty {
+	return DynamicArrayProperty{name: d.context + "." + name, defaultValue: defaultValue, cfg: d.parent}
+}
+
+func (d *ChildDynamicConfig) GetInt(name string, defaultValue int) DynamicIntProperty {
+	return DynamicIntProperty{name: d.context + "." + name, defaultValue: defaultValue, cfg: d.parent}
+}
+
+func (d *ChildDynamicConfig) GetString(name string, defaultValue string) DynamicStringProperty {
+	return DynamicStringProperty{name: d.context + "." + name, defaultValue: defaultValue, cfg: d.parent}
+}
+
 type ConfigSource interface {
+	Changes() <-chan struct{}
 	Get(name string) (string, bool)
 }
 
-type MapConfigSource struct {
-	m map[string]string
+type PollableConfigSource interface {
+	ConfigSource
+	GetLastUpdateTime() (*time.Time, error)
 }
 
-func NewMapConfigSource(m map[string]string) *MapConfigSource {
-	return &MapConfigSource{m: m}
-}
-
-func (mc *MapConfigSource) Get(name string) (string, bool) {
-	ret, ok := mc.m[name]
-	return ret, ok
+func mergeChannels(cs []<-chan struct{}) <-chan struct{} {
+	ret := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(len(cs))
+	for _, c := range cs {
+		go func(c <-chan struct{}) {
+			for s := range c {
+				ret <- s
+			}
+			wg.Done()
+		}(c)
+	}
+	go func() {
+		wg.Wait()
+		close(ret)
+	}()
+	return ret
 }

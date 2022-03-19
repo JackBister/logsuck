@@ -32,7 +32,7 @@ func TestSurroundingPipelineStep(t *testing.T) {
 	}
 	repo := newInMemRepo(t)
 	params := PipelineParameters{
-		Cfg:        &config.Config{},
+		Cfg:        &config.StaticConfig{},
 		EventsRepo: repo,
 	}
 	pipe, input, output := newPipe()

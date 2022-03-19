@@ -43,13 +43,13 @@ func TestDeleteOldEventsTaskInvalidMinAgeDoesNotDelete(t *testing.T) {
 	})
 
 	cfgNullMinAge := config.NewDynamicConfig([]config.ConfigSource{
-		config.NewMapConfigSource(map[string]string{}),
+		config.NewMapConfigSource(map[string]interface{}{}),
 	})
 	task.Run(cfgNullMinAge, context.Background())
 	checkForEvent(t, repo)
 
 	cfgEmptyMinAge := config.NewDynamicConfig([]config.ConfigSource{
-		config.NewMapConfigSource(map[string]string{
+		config.NewMapConfigSource(map[string]interface{}{
 			"minAge": "",
 		}),
 	})
@@ -57,7 +57,7 @@ func TestDeleteOldEventsTaskInvalidMinAgeDoesNotDelete(t *testing.T) {
 	checkForEvent(t, repo)
 
 	cfgUnparseableMinAge := config.NewDynamicConfig([]config.ConfigSource{
-		config.NewMapConfigSource(map[string]string{
+		config.NewMapConfigSource(map[string]interface{}{
 			"minAge": "123x",
 		}),
 	})
@@ -91,7 +91,7 @@ func TestDeleteOldEventsDeletesOldEvents(t *testing.T) {
 	})
 
 	cfg := config.NewDynamicConfig([]config.ConfigSource{
-		config.NewMapConfigSource(map[string]string{
+		config.NewMapConfigSource(map[string]interface{}{
 			"minAge": "7d",
 		}),
 	})

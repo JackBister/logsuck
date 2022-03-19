@@ -60,6 +60,7 @@ module.exports = {
     filename: "dist/[name].js",
   },
   entry: {
+    config: "./src/pages/config.tsx",
     home: "./src/pages/home.tsx",
     search: "./src/pages/search.tsx",
   },

@@ -24,13 +24,6 @@ import (
 	"time"
 )
 
-type jsonFileConfig struct {
-	Filename       string `json:fileName`
-	EventDelimiter string `json:eventDelimiter`
-	ReadInterval   string `json:readInterval`
-	TimeLayout     string `json:timeLayout`
-}
-
 type jsonForwarderConfig struct {
 	Enabled           *bool  `json:enabled`
 	MaxBufferedEvents *int   `json:maxBufferedEvents`
@@ -49,10 +42,10 @@ type jsonSqliteConfig struct {
 }
 
 type jsonTaskConfig struct {
-	Name     string            `json:name`
-	Enabled  bool              `json:enabled`
-	Interval string            `json:interval`
-	Config   map[string]string `json:config`
+	Name     string                 `json:name`
+	Enabled  bool                   `json:enabled`
+	Interval string                 `json:interval`
+	Config   map[string]interface{} `json:config`
 }
 
 type jsonTasksConfig struct {
@@ -67,10 +60,10 @@ type jsonWebConfig struct {
 }
 
 type jsonConfig struct {
-	Files           []jsonFileConfig `json:files`
-	FieldExtractors []string         `json:fieldExtractors`
+	FieldExtractors []string `json:fieldExtractors`
 
-	HostName string `json:hostName`
+	ConfigPollInterval string `json:configPollInterval`
+	HostName           string `json:hostName`
 
 	Forwarder *jsonForwarderConfig `json:forwarder`
 	Recipient *jsonRecipientConfig `json:recipient`
@@ -79,13 +72,13 @@ type jsonConfig struct {
 	Web       *jsonWebConfig       `json:web`
 }
 
-var defaultConfig = Config{
-	IndexedFiles: []IndexedFileConfig{},
-
+var defaultConfig = StaticConfig{
 	FieldExtractors: []*regexp.Regexp{
 		regexp.MustCompile("(\\w+)=(\\w+)"),
 		regexp.MustCompile("^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)"),
 	},
+
+	ConfigPollInterval: 1 * time.Minute,
 
 	Forwarder: &ForwarderConfig{
 		Enabled:           false,
@@ -121,49 +114,12 @@ var defaultEventDelimiter = regexp.MustCompile("\n")
 var defaultReadInterval = 1 * time.Second
 var defaultTimeLayout = "2006/01/02 15:04:05"
 
-func FromJSON(r io.Reader) (*Config, error) {
+func FromJSON(r io.Reader) (*StaticConfig, error) {
 	var cfg jsonConfig
 	decoder := json.NewDecoder(r)
 	err := decoder.Decode(&cfg)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding config JSON: %w", err)
-	}
-
-	indexedFiles := make([]IndexedFileConfig, len(cfg.Files))
-	for i, file := range cfg.Files {
-		if file.Filename == "" {
-			return nil, fmt.Errorf("error reading config at files[%v]: pattern is empty", i)
-		}
-		indexedFiles[i].Filename = file.Filename
-
-		if file.EventDelimiter == "" {
-			log.Printf("Using default event delimiter for file=%v, defaultEventDelimiter=%v\n", file.Filename, defaultEventDelimiter)
-			indexedFiles[i].EventDelimiter = defaultEventDelimiter
-		} else {
-			ed, err := regexp.Compile(file.EventDelimiter)
-			if err != nil {
-				return nil, fmt.Errorf("error reading config at files[%v]: error compiling eventDelimiter regexp: %w", i, err)
-			}
-			indexedFiles[i].EventDelimiter = ed
-		}
-
-		if file.ReadInterval == "" {
-			log.Printf("Using default read interval for file=%v, defaultReadInterval=%v\n", file.Filename, defaultReadInterval)
-			indexedFiles[i].ReadInterval = defaultReadInterval
-		} else {
-			ri, err := time.ParseDuration(file.ReadInterval)
-			if err != nil {
-				return nil, fmt.Errorf("error reading config at files[%v]: error parsing readInterval duration: %w", i, err)
-			}
-			indexedFiles[i].ReadInterval = ri
-		}
-
-		if file.TimeLayout == "" {
-			log.Printf("Using default time layout for file=%v, defaultTimeLayout=%v\n", file.Filename, defaultTimeLayout)
-			indexedFiles[i].TimeLayout = defaultTimeLayout
-		} else {
-			indexedFiles[i].TimeLayout = file.TimeLayout
-		}
 	}
 
 	var fieldExtractors []*regexp.Regexp
@@ -179,6 +135,20 @@ func FromJSON(r io.Reader) (*Config, error) {
 			}
 			fieldExtractors[i] = re
 		}
+	}
+
+	var configPollInterval time.Duration
+	if cfg.ConfigPollInterval != "" {
+		configPollInterval, err = time.ParseDuration(cfg.ConfigPollInterval)
+		if err != nil {
+			log.Printf("got error=%v when parsing configPollInterval. will use default configPollInterval=%v\n", err, defaultConfig.ConfigPollInterval)
+			configPollInterval = defaultConfig.ConfigPollInterval
+		} else {
+			log.Printf("will use configPollInterval=%v\n", configPollInterval)
+		}
+	} else {
+		log.Printf("will use default configPollInterval=%v", defaultConfig.ConfigPollInterval)
+		configPollInterval = defaultConfig.ConfigPollInterval
 	}
 
 	var hostName string
@@ -337,11 +307,11 @@ func FromJSON(r io.Reader) (*Config, error) {
 		}
 	}
 
-	return &Config{
-		IndexedFiles:    indexedFiles,
+	return &StaticConfig{
 		FieldExtractors: fieldExtractors,
 
-		HostName: hostName,
+		ConfigPollInterval: configPollInterval,
+		HostName:           hostName,
 
 		Forwarder: forwarder,
 		Recipient: recipient,

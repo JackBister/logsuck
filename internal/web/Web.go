@@ -38,10 +38,11 @@ type Web interface {
 }
 
 type webImpl struct {
-	cfg       *config.Config
-	eventRepo events.Repository
-	jobRepo   jobs.Repository
-	jobEngine *jobs.Engine
+	staticConfig  *config.StaticConfig
+	dynamicConfig config.DynamicConfig
+	eventRepo     events.Repository
+	jobRepo       jobs.Repository
+	jobEngine     *jobs.Engine
 }
 
 type webError struct {
@@ -53,12 +54,13 @@ func (w webError) Error() string {
 	return w.err
 }
 
-func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Repository, jobEngine *jobs.Engine) Web {
+func NewWeb(staticConfig *config.StaticConfig, dynamicConfig config.DynamicConfig, eventRepo events.Repository, jobRepo jobs.Repository, jobEngine *jobs.Engine) Web {
 	return webImpl{
-		cfg:       cfg,
-		eventRepo: eventRepo,
-		jobRepo:   jobRepo,
-		jobEngine: jobEngine,
+		staticConfig:  staticConfig,
+		dynamicConfig: dynamicConfig,
+		eventRepo:     eventRepo,
+		jobRepo:       jobRepo,
+		jobEngine:     jobEngine,
 	}
 }
 
@@ -66,7 +68,7 @@ func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Reposi
 var Assets embed.FS
 
 func (wi webImpl) Serve() error {
-	if wi.cfg.Web.DebugMode {
+	if wi.staticConfig.Web.DebugMode {
 		log.Println("web.debugMode enabled. Will enable Gin debug mode. To disable, remove the debugMode key in the web object in your JSON config or set it to false.")
 		gin.SetMode(gin.DebugMode)
 	} else {
@@ -76,7 +78,7 @@ func (wi webImpl) Serve() error {
 	r.SetTrustedProxies(nil)
 
 	var filesys http.FileSystem
-	if wi.cfg.Web.UsePackagedFiles {
+	if wi.staticConfig.Web.UsePackagedFiles {
 		assets, err := fs.Sub(Assets, "static/dist")
 		if err != nil {
 			return fmt.Errorf("failed to Sub into static/dist directory: %w", err)
@@ -95,6 +97,14 @@ func (wi webImpl) Serve() error {
 		tpl.Execute(c.Writer, gin.H{
 			"scriptSrc": "home.js",
 			"styleSrc":  "home.css",
+		})
+		c.Status(200)
+	})
+
+	r.GET("/config", func(c *gin.Context) {
+		tpl.Execute(c.Writer, gin.H{
+			"scriptSrc": "config.js",
+			"styleSrc":  "config.css",
 		})
 		c.Status(200)
 	})
@@ -198,7 +208,7 @@ func (wi webImpl) Serve() error {
 		}
 		retResults := make([]events.EventWithExtractedFields, 0, len(results))
 		for _, r := range results {
-			fields := parser.ExtractFields(r.Raw, wi.cfg.FieldExtractors)
+			fields := parser.ExtractFields(r.Raw, wi.staticConfig.FieldExtractors)
 			retResults = append(retResults, events.EventWithExtractedFields{
 				Id:        r.Id,
 				Raw:       r.Raw,
@@ -231,13 +241,39 @@ func (wi webImpl) Serve() error {
 		c.JSON(200, values)
 	})
 
+	g.GET("/config", func(c *gin.Context) {
+		key := c.Query("key")
+		if key == "" {
+			c.JSON(404, nil)
+			return
+		}
+		valType := c.Query("type")
+		var val interface{}
+		var ok bool
+		if valType == "array" {
+			val, ok = wi.dynamicConfig.GetArray(key, []interface{}{}).Get()
+		} else if valType == "string" {
+			val, ok = wi.dynamicConfig.GetString(key, "").Get()
+		} else if valType == "int" {
+			val, ok = wi.dynamicConfig.GetInt(key, 0).Get()
+		} else {
+			c.JSON(400, nil)
+		}
+
+		if ok {
+			c.JSON(200, val)
+		} else {
+			c.JSON(404, nil)
+		}
+	})
+
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
 		c.FileFromFS(path, filesys)
 	})
 
-	log.Printf("Starting Web GUI on address='%v'\n", wi.cfg.Web.Address)
-	return r.Run(wi.cfg.Web.Address)
+	log.Printf("Starting Web GUI on address='%v'\n", wi.staticConfig.Web.Address)
+	return r.Run(wi.staticConfig.Web.Address)
 }
 
 func parseTemplate(fs http.FileSystem) (*template.Template, error) {

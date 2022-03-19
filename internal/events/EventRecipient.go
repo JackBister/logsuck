@@ -27,11 +27,11 @@ import (
 )
 
 type EventRecipient struct {
-	cfg  *config.Config
+	cfg  *config.StaticConfig
 	repo Repository
 }
 
-func NewEventRecipient(cfg *config.Config, repo Repository) *EventRecipient {
+func NewEventRecipient(cfg *config.StaticConfig, repo Repository) *EventRecipient {
 	return &EventRecipient{cfg: cfg, repo: repo}
 }
 

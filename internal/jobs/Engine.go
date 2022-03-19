@@ -29,12 +29,12 @@ import (
 
 type Engine struct {
 	cancels   map[int64]func()
-	cfg       *config.Config
+	cfg       *config.StaticConfig
 	eventRepo events.Repository
 	jobRepo   Repository
 }
 
-func NewEngine(cfg *config.Config, eventRepo events.Repository, jobRepo Repository) *Engine {
+func NewEngine(cfg *config.StaticConfig, eventRepo events.Repository, jobRepo Repository) *Engine {
 	return &Engine{
 		cancels:   map[int64]func(){},
 		cfg:       cfg,
