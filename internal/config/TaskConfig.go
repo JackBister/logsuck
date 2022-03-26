@@ -32,13 +32,63 @@ type TasksConfig struct {
 
 func ReadDynamicTasksConfig(dynamicConfig DynamicConfig) (*TasksConfig, error) {
 	tasksCfg := dynamicConfig.Cd("tasks")
-	tasksArr, _ := tasksCfg.GetArray("tasks", []interface{}{}).Get()
+	tasksArr, _ := tasksCfg.GetArray("tasks", []any{}).Get()
 	tasks := make(map[string]TaskConfig, len(tasksArr))
-	for _, t := range tasksArr {
-		_, ok := t.(map[string]interface{})
-		log.Println("task", t, ok)
+	for i, t := range tasksArr {
+		taskConfig, ok := t.(map[string]any)
+		if !ok {
+			log.Printf("failed to convert task config at index=%v to map[string]any. this task will not be enabled.\n", i)
+			continue
+		}
+		name, ok := getValue[string](taskConfig, "name")
+		if !ok {
+			log.Printf("failed to get name for task at index=%v. this task will not be enabled.\n", i)
+			continue
+		}
+		enabled, ok := getValue[bool](taskConfig, "enabled")
+		if !ok {
+			log.Printf("failed to get enabled for task with name=%v. this task will not be enabled.\n", name)
+			continue
+		}
+		intervalString, ok := getValue[string](taskConfig, "interval")
+		if !ok {
+			log.Printf("failed to get interval for task with name=%v. this task will not be enabled.\n", name)
+			continue
+		}
+		interval, err := time.ParseDuration(intervalString)
+		if err != nil {
+			log.Printf("failed to parse interval for task with name=%v. this task will not be enabled: %v\n", name, err)
+			continue
+		}
+		configMap, ok := getValue[map[string]any](taskConfig, "config")
+		if !ok {
+			log.Printf("failed to get config for task with name=%v. this task will not be enabled.\n", name)
+			continue
+		}
+		cfg := NewDynamicConfig([]ConfigSource{
+			NewMapConfigSource(configMap),
+		})
+		tasks[name] = TaskConfig{
+			Name:     name,
+			Enabled:  enabled,
+			Interval: interval,
+			Config:   cfg,
+		}
 	}
 	return &TasksConfig{
 		Tasks: tasks,
 	}, nil
+}
+
+func getValue[T any](m map[string]any, k string) (T, bool) {
+	var ret T
+	v, ok := m[k]
+	if !ok {
+		return ret, false
+	}
+	ret, ok = v.(T)
+	if !ok {
+		return ret, false
+	}
+	return ret, ok
 }

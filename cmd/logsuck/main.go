@@ -29,6 +29,7 @@ import (
 	"github.com/jackbister/logsuck/internal/files"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/jobs"
+	"github.com/jackbister/logsuck/internal/tasks"
 	"github.com/jackbister/logsuck/internal/web"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -275,14 +276,16 @@ func main() {
 		}()
 	}
 
-	config.ReadDynamicTasksConfig(dynamicConfig)
-	/*
-		tm := tasks.NewTaskManager(staticConfig.Tasks, ctx)
-		err = tm.AddTask(&tasks.DeleteOldEventsTask{Repo: repo})
-		if err != nil {
-			log.Printf("got error when adding task: %v", err)
-		}
-	*/
+	// TODO: This should be updated on <-dynamicConfig.Changes() just like the file watchers
+	tasksConfig, err := config.ReadDynamicTasksConfig(dynamicConfig)
+	if err != nil {
+		log.Fatalln("failed to read tasks config from DynamicConfig", err)
+	}
+	tm := tasks.NewTaskManager(tasksConfig, ctx)
+	err = tm.AddTask(&tasks.DeleteOldEventsTask{Repo: repo})
+	if err != nil {
+		log.Printf("got error when adding task: %v", err)
+	}
 
 	select {}
 }
