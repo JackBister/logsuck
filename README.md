@@ -223,7 +223,7 @@ If you have any questions about using Logsuck after reading the documentation, p
 
 Contributions in the form of pull requests and issues are welcome! Here are some tips on running Logsuck locally for developing.
 
-First of all, you will need a version of Go with support for Go modules and the `embed` package (1.16 is used when building in CI), as well as a fairly recent Node/npm installation (Node v12 and npm v6 are used in CI). If cross compiling for Windows, you need [gcc-mingw-w64](http://mingw-w64.org/doku.php/download).
+First of all, you will need a recent version of Go (1.18 is used when building in CI), as well as a fairly recent Node/npm installation (Node v12 and npm v6 are used in CI). If cross compiling for Windows, you need [gcc-mingw-w64](http://mingw-w64.org/doku.php/download).
 
 Logsuck consists of two parts: A Go application for the backend and a [preact](https://preactjs.com/) GUI for the frontend. When the Go application is built, the frontend is bundled into the executable using [the embed package](https://golang.org/pkg/embed). This bundling step allows Logsuck to be deployed as a single executable.
 
