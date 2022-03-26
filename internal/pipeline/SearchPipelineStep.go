@@ -21,6 +21,7 @@ import (
 
 	"github.com/araddon/dateparse"
 	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/search"
 )
 
@@ -45,9 +46,19 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 			if !ok {
 				return
 			}
+			indexedFiles, err := indexedfiles.ReadDynamicFileConfig(params.DynamicConfig)
+			if err != nil {
+				// TODO: signal error to rest of pipe??
+				return
+			}
+			sourceToIfc := getSourceToIndexedFileConfig(evts, indexedFiles)
 			retEvts := make([]events.EventWithExtractedFields, 0)
 			for _, evt := range evts {
-				evtFields, include := shouldIncludeEvent(evt, params.Cfg, compiledFrags, compiledNotFrags, compiledFields, compiledNotFields)
+				ifc, ok := sourceToIfc[evt.Source]
+				if !ok {
+					// TODO: Error or automatically get default IFC?
+				}
+				evtFields, include := shouldIncludeEvent(evt, ifc.FileParser, compiledFrags, compiledNotFrags, compiledFields, compiledNotFields)
 				if include {
 					retEvts = append(retEvts, events.EventWithExtractedFields{
 						Id:        evt.Id,

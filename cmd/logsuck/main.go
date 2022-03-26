@@ -22,24 +22,20 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
-	"time"
+	"strconv"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/files"
+	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/jobs"
-	"github.com/jackbister/logsuck/internal/tasks"
 	"github.com/jackbister/logsuck/internal/web"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 var staticConfig = config.StaticConfig{
-	FieldExtractors: []*regexp.Regexp{
-		regexp.MustCompile("(\\w+)=(\\w+)"),
-		regexp.MustCompile("^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)"),
-	},
+	HostType: "DEFAULT",
 
 	Forwarder: &config.ForwarderConfig{
 		Enabled: false,
@@ -135,6 +131,7 @@ func main() {
 		}
 	} else {
 		log.Printf("Could not open config file '%v', will use command line configuration\n", cfgFileFlag)
+		configMap := map[string]interface{}{}
 		hostName, err := os.Hostname()
 		if err != nil {
 			log.Fatalf("error getting hostname: %v\n", err)
@@ -144,33 +141,49 @@ func main() {
 		if databaseFileFlag != "" {
 			staticConfig.SQLite.DatabaseFile = databaseFileFlag
 		}
-		if len(fieldExtractorFlags) > 0 {
-			staticConfig.FieldExtractors = make([]*regexp.Regexp, len(fieldExtractorFlags))
-			for i, fe := range fieldExtractorFlags {
-				re, err := regexp.Compile(fe)
-				if err != nil {
-					log.Fatalf("failed to compile regex '%v': %v\n", fe, err)
-				}
-				staticConfig.FieldExtractors[i] = re
-			}
-		}
 		if webAddrFlag != "" {
 			staticConfig.Web.Address = webAddrFlag
 		}
 
-		indexedFiles := make([]config.IndexedFileConfig, len(flag.Args()))
-		for i, file := range flag.Args() {
-			indexedFiles[i] = config.IndexedFileConfig{
-				Filename:       file,
-				EventDelimiter: regexp.MustCompile(eventDelimiterFlag),
-				ReadInterval:   1 * time.Second,
-				TimeLayout:     timeLayoutFlag,
+		defaultFieldExtractors := make([]string, len(fieldExtractorFlags))
+		if len(fieldExtractorFlags) > 0 {
+			fieldExtractors := make(map[string]string, len(fieldExtractorFlags))
+			for i, fe := range fieldExtractorFlags {
+				k := strconv.Itoa(i)
+				fieldExtractors[k] = fe
+				defaultFieldExtractors[i] = k
 			}
+			configMap["fieldExtractors"] = fieldExtractors
 		}
 
-		configMap := map[string]interface{}{
-			"files": indexedFiles,
+		defaultFileType := map[string]interface{}{}
+		defaultFileType["timeLayout"] = timeLayoutFlag
+		defaultFileType["parser"] = map[string]interface{}{
+			"type": "Regex",
+			"regexConfig": map[string]interface{}{
+				"eventDelimiter":  eventDelimiterFlag,
+				"fieldExtractors": defaultFieldExtractors,
+			},
 		}
+		configMap["fileTypes"] = map[string]interface{}{
+			"DEFAULT": defaultFileType,
+		}
+
+		defaultFiles := make([]map[string]interface{}, len(flag.Args()))
+		for i, file := range flag.Args() {
+			defaultFiles[i] = map[string]interface{}{
+				"fileName":     file,
+				"fileTypes":    []string{"DEFAULT"},
+				"readInterval": "1s",
+			}
+		}
+		configMap["hostTypes"] = map[string]interface{}{
+			"DEFAULT": map[string]interface{}{
+				"configPollInterval": "1m",
+				"files":              defaultFiles,
+			},
+		}
+
 		configSources = append(configSources, config.NewMapConfigSource(configMap))
 	}
 
@@ -195,7 +208,6 @@ func main() {
 		if err != nil {
 			log.Fatalln(err.Error())
 		}
-		jobEngine = jobs.NewEngine(&staticConfig, repo, jobRepo)
 		publisher = events.BatchedRepositoryPublisher(&staticConfig, repo)
 		sqliteConfigSource, err := config.NewSqliteConfigSource(db)
 		if err != nil {
@@ -210,13 +222,23 @@ func main() {
 	}
 
 	dynamicConfig := config.NewDynamicConfig(configSources)
-
-	dynamicFileArray := dynamicConfig.GetArray("files", []interface{}{})
-	fileArray, ok := dynamicFileArray.Get()
-	if !ok {
-		log.Fatalln("did not get ok when reading file config from dynamicConfig")
+	jobEngine = jobs.NewEngine(&staticConfig, dynamicConfig, repo, jobRepo)
+	allFiles, err := indexedfiles.ReadDynamicFileConfig(dynamicConfig)
+	if err != nil {
+		log.Fatalln("got error when reading dynamic file config", err)
 	}
-	indexedFiles := config.FileConfigFromDynamicArray(fileArray)
+	hostCfg, err := config.GetHostConfig(dynamicConfig, staticConfig.HostType)
+	if err != nil {
+		log.Fatalln("got error when reading host config", err)
+	}
+	indexedFiles := make([]indexedfiles.IndexedFileConfig, 0)
+	for _, file := range hostCfg.Files {
+		for _, ifc := range allFiles {
+			if file.Name == ifc.Filename {
+				indexedFiles = append(indexedFiles, ifc)
+			}
+		}
+	}
 
 	watchers := map[string]*files.GlobWatcher{}
 	reloadFileWatchers(&watchers, indexedFiles, staticConfig, dynamicConfig, publisher, ctx)
@@ -224,12 +246,20 @@ func main() {
 	go func() {
 		for {
 			<-dynamicConfig.Changes()
-			arr, ok := dynamicFileArray.Get()
-			if !ok {
+			allFiles, err := indexedfiles.ReadDynamicFileConfig(dynamicConfig)
+			if err != nil {
+				log.Printf("got error when reading updated dynamic file config. file config will not be updated: %v\n", err)
 				continue
 			}
-			indexedFiles := config.FileConfigFromDynamicArray(arr)
-			reloadFileWatchers(&watchers, indexedFiles, staticConfig, dynamicConfig, publisher, ctx)
+			newIndexedFiles := make([]indexedfiles.IndexedFileConfig, 0)
+			for _, file := range hostCfg.Files {
+				for _, ifc := range allFiles {
+					if file.Name == ifc.Filename {
+						newIndexedFiles = append(indexedFiles, ifc)
+					}
+				}
+			}
+			reloadFileWatchers(&watchers, newIndexedFiles, staticConfig, dynamicConfig, publisher, ctx)
 		}
 	}()
 
@@ -245,18 +275,21 @@ func main() {
 		}()
 	}
 
-	tm := tasks.NewTaskManager(staticConfig.Tasks, ctx)
-	err = tm.AddTask(&tasks.DeleteOldEventsTask{Repo: repo})
-	if err != nil {
-		log.Printf("got error when adding task: %v", err)
-	}
+	config.ReadDynamicTasksConfig(dynamicConfig)
+	/*
+		tm := tasks.NewTaskManager(staticConfig.Tasks, ctx)
+		err = tm.AddTask(&tasks.DeleteOldEventsTask{Repo: repo})
+		if err != nil {
+			log.Printf("got error when adding task: %v", err)
+		}
+	*/
 
 	select {}
 }
 
-func reloadFileWatchers(watchers *map[string]*files.GlobWatcher, indexedFiles []config.IndexedFileConfig, staticConfig config.StaticConfig, dynamicConfig config.DynamicConfig, publisher events.EventPublisher, ctx context.Context) {
+func reloadFileWatchers(watchers *map[string]*files.GlobWatcher, indexedFiles []indexedfiles.IndexedFileConfig, staticConfig config.StaticConfig, dynamicConfig config.DynamicConfig, publisher events.EventPublisher, ctx context.Context) {
 	log.Printf("reloading file watchers. newIndexedFilesLen=%v, oldIndexedFilesLen=%v\n", len(indexedFiles), len(*watchers))
-	indexedFilesMap := map[string]config.IndexedFileConfig{}
+	indexedFilesMap := map[string]indexedfiles.IndexedFileConfig{}
 	for _, cfg := range indexedFiles {
 		indexedFilesMap[cfg.Filename] = cfg
 	}

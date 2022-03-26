@@ -20,9 +20,13 @@ import (
 	"io"
 	"log"
 	"os"
-	"regexp"
 	"time"
 )
+
+type jsonHostConfig struct {
+	Name string `json:name`
+	Type string `json:type`
+}
 
 type jsonForwarderConfig struct {
 	Enabled           *bool  `json:enabled`
@@ -41,17 +45,6 @@ type jsonSqliteConfig struct {
 	TrueBatch *bool  `json:trueBatch`
 }
 
-type jsonTaskConfig struct {
-	Name     string                 `json:name`
-	Enabled  bool                   `json:enabled`
-	Interval string                 `json:interval`
-	Config   map[string]interface{} `json:config`
-}
-
-type jsonTasksConfig struct {
-	Tasks []jsonTaskConfig `json:tasks`
-}
-
 type jsonWebConfig struct {
 	Enabled          *bool  `json:enabled`
 	Address          string `json:address`
@@ -60,26 +53,16 @@ type jsonWebConfig struct {
 }
 
 type jsonConfig struct {
-	FieldExtractors []string `json:fieldExtractors`
-
-	ConfigPollInterval string `json:configPollInterval`
-	HostName           string `json:hostName`
-
-	Forwarder *jsonForwarderConfig `json:forwarder`
-	Recipient *jsonRecipientConfig `json:recipient`
-	Sqlite    *jsonSqliteConfig    `json:sqlite`
-	Tasks     *jsonTasksConfig     `json:tasks`
-	Web       *jsonWebConfig       `json:web`
+	ConfigPollInterval string               `json:configPollInterval`
+	Host               *jsonHostConfig      `json:host`
+	Forwarder          *jsonForwarderConfig `json:forwarder`
+	Recipient          *jsonRecipientConfig `json:recipient`
+	Sqlite             *jsonSqliteConfig    `json:sqlite`
+	Web                *jsonWebConfig       `json:web`
 }
 
 var defaultConfig = StaticConfig{
-	FieldExtractors: []*regexp.Regexp{
-		regexp.MustCompile("(\\w+)=(\\w+)"),
-		regexp.MustCompile("^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)"),
-	},
-
 	ConfigPollInterval: 1 * time.Minute,
-
 	Forwarder: &ForwarderConfig{
 		Enabled:           false,
 		MaxBufferedEvents: 1000000,
@@ -89,18 +72,11 @@ var defaultConfig = StaticConfig{
 	Recipient: &RecipientConfig{
 		Enabled: false,
 		Address: ":8081",
-		TimeLayouts: map[string]string{
-			"DEFAULT": defaultTimeLayout,
-		},
 	},
 
 	SQLite: &SqliteConfig{
 		DatabaseFile: "logsuck.db",
 		TrueBatch:    true,
-	},
-
-	Tasks: &TasksConfig{
-		Tasks: map[string]TaskConfig{},
 	},
 
 	Web: &WebConfig{
@@ -110,10 +86,6 @@ var defaultConfig = StaticConfig{
 	},
 }
 
-var defaultEventDelimiter = regexp.MustCompile("\n")
-var defaultReadInterval = 1 * time.Second
-var defaultTimeLayout = "2006/01/02 15:04:05"
-
 func FromJSON(r io.Reader) (*StaticConfig, error) {
 	var cfg jsonConfig
 	decoder := json.NewDecoder(r)
@@ -122,46 +94,40 @@ func FromJSON(r io.Reader) (*StaticConfig, error) {
 		return nil, fmt.Errorf("error decoding config JSON: %w", err)
 	}
 
-	var fieldExtractors []*regexp.Regexp
-	if len(cfg.FieldExtractors) == 0 {
-		log.Printf("Using default field extractors. defaultFieldExtractors=%v\n", defaultConfig.FieldExtractors)
-		fieldExtractors = defaultConfig.FieldExtractors
-	} else {
-		fieldExtractors = make([]*regexp.Regexp, len(cfg.FieldExtractors))
-		for i, fe := range cfg.FieldExtractors {
-			re, err := regexp.Compile(fe)
+	var hostName string
+	var hostType string
+	if cfg.Host != nil {
+		if cfg.Host.Name == "" {
+			hostName, err = getDefaultHostName()
 			if err != nil {
-				return nil, fmt.Errorf("error reading config at fieldExtractors[%v]: error compiling regexp: %w", i, err)
+				return nil, err
 			}
-			fieldExtractors[i] = re
+		} else {
+			hostName = cfg.Host.Name
 		}
+		if cfg.Host.Type == "" {
+			hostType = cfg.Host.Type
+		}
+	} else {
+		hostName, err = getDefaultHostName()
+		if err != nil {
+			return nil, err
+		}
+		hostType = "DEFAULT"
 	}
 
 	var configPollInterval time.Duration
 	if cfg.ConfigPollInterval != "" {
-		configPollInterval, err = time.ParseDuration(cfg.ConfigPollInterval)
+		d, err := time.ParseDuration(cfg.ConfigPollInterval)
 		if err != nil {
-			log.Printf("got error=%v when parsing configPollInterval. will use default configPollInterval=%v\n", err, defaultConfig.ConfigPollInterval)
+			log.Printf("failed to parse configPollInterval=%v, will use defaultConfigPollInterval=%v: %v\n", cfg.ConfigPollInterval, defaultConfig.ConfigPollInterval, err)
 			configPollInterval = defaultConfig.ConfigPollInterval
 		} else {
-			log.Printf("will use configPollInterval=%v\n", configPollInterval)
+			configPollInterval = d
 		}
 	} else {
-		log.Printf("will use default configPollInterval=%v", defaultConfig.ConfigPollInterval)
+		log.Printf("using defaultConfigPollInterval=%v\n", defaultConfig.ConfigPollInterval)
 		configPollInterval = defaultConfig.ConfigPollInterval
-	}
-
-	var hostName string
-	if cfg.HostName != "" {
-		log.Printf("Using hostName=%v\n", cfg.HostName)
-		hostName = cfg.HostName
-	} else {
-		log.Println("No hostName in configuration, will try to get host name from operating system.")
-		hostName, err = os.Hostname()
-		if err != nil {
-			return nil, fmt.Errorf("error getting host name: %w", err)
-		}
-		log.Printf("Got host name from operating system. hostName=%v\n", hostName)
 	}
 
 	var forwarder *ForwarderConfig
@@ -208,16 +174,6 @@ func FromJSON(r io.Reader) (*StaticConfig, error) {
 		} else {
 			recipient.Address = cfg.Recipient.Address
 		}
-		if cfg.Recipient.TimeLayouts == nil {
-			log.Printf("Using default time layouts for recipient. defaultTimeLayouts=%v\n", defaultConfig.Recipient.TimeLayouts)
-			recipient.TimeLayouts = defaultConfig.Recipient.TimeLayouts
-		} else {
-			recipient.TimeLayouts = cfg.Recipient.TimeLayouts
-			if _, ok := recipient.TimeLayouts["DEFAULT"]; !ok {
-				log.Printf("No DEFAULT key found in recipient.timeLayouts, will add DEFAULT timeLayout '%v'\n", defaultConfig.Recipient.TimeLayouts["DEFAULT"])
-				recipient.TimeLayouts["DEFAULT"] = defaultConfig.Recipient.TimeLayouts["DEFAULT"]
-			}
-		}
 	}
 
 	var sqlite *SqliteConfig
@@ -237,32 +193,6 @@ func FromJSON(r io.Reader) (*StaticConfig, error) {
 			sqlite.TrueBatch = true
 		} else {
 			sqlite.TrueBatch = *cfg.Sqlite.TrueBatch
-		}
-	}
-
-	var tasksConfig *TasksConfig
-	if cfg.Tasks == nil {
-		log.Println("Using default task configuration.")
-		tasksConfig = defaultConfig.Tasks
-	} else {
-		tasks := make(map[string]TaskConfig, len(cfg.Tasks.Tasks))
-		for _, jsonTask := range cfg.Tasks.Tasks {
-			interval, err := time.ParseDuration(jsonTask.Interval)
-			if err != nil {
-				log.Printf("failed to parse interval for task='%s'\n", jsonTask.Name)
-				continue
-			}
-			tasks[jsonTask.Name] = TaskConfig{
-				Name:     jsonTask.Name,
-				Enabled:  jsonTask.Enabled,
-				Interval: interval,
-				Config: NewDynamicConfig([]ConfigSource{
-					NewMapConfigSource(jsonTask.Config),
-				}),
-			}
-		}
-		tasksConfig = &TasksConfig{
-			Tasks: tasks,
 		}
 	}
 
@@ -308,18 +238,25 @@ func FromJSON(r io.Reader) (*StaticConfig, error) {
 	}
 
 	return &StaticConfig{
-		FieldExtractors: fieldExtractors,
-
-		ConfigPollInterval: configPollInterval,
 		HostName:           hostName,
+		HostType:           hostType,
+		ConfigPollInterval: configPollInterval,
 
 		Forwarder: forwarder,
 		Recipient: recipient,
 
 		SQLite: sqlite,
 
-		Tasks: tasksConfig,
-
 		Web: web,
 	}, nil
+}
+
+func getDefaultHostName() (string, error) {
+	log.Println("No hostName in configuration, will try to get host name from operating system.")
+	hostName, err := os.Hostname()
+	if err != nil {
+		return "", fmt.Errorf("error getting host name: %w", err)
+	}
+	log.Printf("Got host name from operating system. hostName=%v\n", hostName)
+	return hostName, nil
 }

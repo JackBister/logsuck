@@ -55,3 +55,7 @@ func (p *PollingConfigSource) Changes() <-chan struct{} {
 func (p *PollingConfigSource) Get(name string) (string, bool) {
 	return p.cs.Get(name)
 }
+
+func (p *PollingConfigSource) GetKeys() ([]string, bool) {
+	return p.cs.GetKeys()
+}

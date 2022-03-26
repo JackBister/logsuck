@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
+	"github.com/jackbister/logsuck/internal/parser"
 )
 
 const forwardChunkSize = 1000
@@ -78,7 +79,7 @@ func ForwardingEventPublisher(cfg *config.StaticConfig) EventPublisher {
 	return &ep
 }
 
-func (ep *forwardingEventPublisher) PublishEvent(evt RawEvent, timeLayout string) {
+func (ep *forwardingEventPublisher) PublishEvent(evt RawEvent, timeLayout string, fileParser parser.FileParser) {
 	ep.adder <- evt
 }
 
@@ -91,7 +92,8 @@ func (ep *forwardingEventPublisher) forward() error {
 		}
 		evts := ep.accumulated[:chunkSize]
 		req := receiveEventsRequest{
-			Events: evts,
+			HostType: ep.cfg.HostType,
+			Events:   evts,
 		}
 		serialized, err := json.Marshal(req)
 		if err != nil {

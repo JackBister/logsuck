@@ -49,3 +49,23 @@ func (mc *MapConfigSource) Get(name string) (string, bool) {
 	}
 	return "", false
 }
+
+func (mc *MapConfigSource) GetKeys() ([]string, bool) {
+	return getKeysRecursive(mc.m, "", 0), true
+}
+
+func getKeysRecursive(m map[string]interface{}, prefix string, recursionDepth int) []string {
+	if recursionDepth > 1000 {
+		return []string{}
+	}
+	ret := make([]string, 0, len(m))
+	for k, v := range m {
+		if vm, ok := v.(map[string]interface{}); ok {
+			inner := getKeysRecursive(vm, prefix+k+".", recursionDepth+1)
+			ret = append(ret, inner...)
+		} else {
+			ret = append(ret, prefix+k)
+		}
+	}
+	return ret
+}

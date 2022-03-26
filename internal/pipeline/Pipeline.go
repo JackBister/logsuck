@@ -32,8 +32,9 @@ type Pipeline struct {
 }
 
 type PipelineParameters struct {
-	Cfg        *config.StaticConfig
-	EventsRepo events.Repository
+	Cfg           *config.StaticConfig
+	DynamicConfig config.DynamicConfig
+	EventsRepo    events.Repository
 }
 
 type PipelineStepResult struct {

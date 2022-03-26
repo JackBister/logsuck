@@ -14,7 +14,10 @@
 
 package config
 
-import "time"
+import (
+	"log"
+	"time"
+)
 
 type TaskConfig struct {
 	Name     string
@@ -25,4 +28,17 @@ type TaskConfig struct {
 
 type TasksConfig struct {
 	Tasks map[string]TaskConfig
+}
+
+func ReadDynamicTasksConfig(dynamicConfig DynamicConfig) (*TasksConfig, error) {
+	tasksCfg := dynamicConfig.Cd("tasks")
+	tasksArr, _ := tasksCfg.GetArray("tasks", []interface{}{}).Get()
+	tasks := make(map[string]TaskConfig, len(tasksArr))
+	for _, t := range tasksArr {
+		_, ok := t.(map[string]interface{})
+		log.Println("task", t, ok)
+	}
+	return &TasksConfig{
+		Tasks: tasks,
+	}, nil
 }

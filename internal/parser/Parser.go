@@ -17,8 +17,6 @@ package parser
 import (
 	"errors"
 	"fmt"
-	"log"
-	"regexp"
 )
 
 type parser struct {
@@ -94,28 +92,6 @@ func (p *parser) take() *token {
 	return ret
 }
 
-func ExtractFields(input string, fieldExtractors []*regexp.Regexp) map[string]string {
-	ret := map[string]string{}
-	for _, rex := range fieldExtractors {
-		subExpNames := rex.SubexpNames()[1:]
-		isNamedOnlyExtractor := true
-		for _, name := range subExpNames {
-			if name == "" {
-				isNamedOnlyExtractor = false
-			}
-		}
-		matches := rex.FindAllStringSubmatch(input, -1)
-		for _, match := range matches {
-			if isNamedOnlyExtractor && len(rex.SubexpNames()) == len(match) {
-				for j, name := range subExpNames {
-					ret[name] = match[j+1]
-				}
-			} else if len(match) == 3 {
-				ret[match[1]] = match[2]
-			} else {
-				log.Printf("Malformed field extractor '%v': If there are any unnamed capture groups in the regex, there must be exactly two capture groups.\n", rex)
-			}
-		}
-	}
-	return ret
+func ExtractFields(input string, internalParser FileParser) map[string]string {
+	return internalParser.Extract(input).Fields
 }

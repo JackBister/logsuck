@@ -24,6 +24,14 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+func newDynamicConfig() (map[string]interface{}, config.DynamicConfig) {
+	m := map[string]interface{}{}
+	dc := config.NewDynamicConfig([]config.ConfigSource{
+		config.NewMapConfigSource(m),
+	})
+	return m, dc
+}
+
 func newInMemRepo(t *testing.T) events.Repository {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {

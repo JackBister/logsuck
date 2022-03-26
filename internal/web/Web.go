@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
@@ -29,6 +30,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/jobs"
 	"github.com/jackbister/logsuck/internal/parser"
 )
@@ -206,9 +208,19 @@ func (wi webImpl) Serve() error {
 			c.AbortWithError(500, err)
 			return
 		}
+		indexedFileConfigs, err := indexedfiles.ReadDynamicFileConfig(wi.dynamicConfig)
+		if err != nil {
+			c.AbortWithError(500, err)
+			return
+		}
+		sourceToIfc := getSourceToIndexedFileConfig(results, indexedFileConfigs)
 		retResults := make([]events.EventWithExtractedFields, 0, len(results))
 		for _, r := range results {
-			fields := parser.ExtractFields(r.Raw, wi.staticConfig.FieldExtractors)
+			ifc, ok := sourceToIfc[r.Source]
+			if !ok {
+				// TODO: default
+			}
+			fields := parser.ExtractFields(r.Raw, ifc.FileParser)
 			retResults = append(retResults, events.EventWithExtractedFields{
 				Id:        r.Id,
 				Raw:       r.Raw,
@@ -332,4 +344,26 @@ func parseTimeParametersGin(c *gin.Context) (*time.Time, *time.Time, *webError) 
 	}
 
 	return startTime, endTime, nil
+}
+
+func getSourceToIndexedFileConfig(evts []events.EventWithId, indexedFileConfigs []indexedfiles.IndexedFileConfig) map[string]*indexedfiles.IndexedFileConfig {
+	sourceToConfig := map[string]*indexedfiles.IndexedFileConfig{}
+	for _, evt := range evts {
+		if _, ok := sourceToConfig[evt.Source]; ok {
+			continue
+		}
+		for i, ifc := range indexedFileConfigs {
+			absGlob, err := filepath.Abs(ifc.Filename)
+			if err != nil {
+				// TODO:
+				continue
+			}
+			if m, err := filepath.Match(absGlob, evt.Source); err == nil && m {
+				sourceToConfig[evt.Source] = &indexedFileConfigs[i]
+				goto nextfile
+			}
+		}
+	nextfile:
+	}
+	return sourceToConfig
 }

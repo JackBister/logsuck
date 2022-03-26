@@ -28,18 +28,20 @@ import (
 )
 
 type Engine struct {
-	cancels   map[int64]func()
-	cfg       *config.StaticConfig
-	eventRepo events.Repository
-	jobRepo   Repository
+	cancels       map[int64]func()
+	cfg           *config.StaticConfig
+	dynamicConfig config.DynamicConfig
+	eventRepo     events.Repository
+	jobRepo       Repository
 }
 
-func NewEngine(cfg *config.StaticConfig, eventRepo events.Repository, jobRepo Repository) *Engine {
+func NewEngine(cfg *config.StaticConfig, dynamicConfig config.DynamicConfig, eventRepo events.Repository, jobRepo Repository) *Engine {
 	return &Engine{
-		cancels:   map[int64]func(){},
-		cfg:       cfg,
-		eventRepo: eventRepo,
-		jobRepo:   jobRepo,
+		cancels:       map[int64]func(){},
+		cfg:           cfg,
+		dynamicConfig: dynamicConfig,
+		eventRepo:     eventRepo,
+		jobRepo:       jobRepo,
 	}
 }
 
@@ -61,8 +63,9 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 		results := pl.Execute(
 			ctx,
 			pipeline.PipelineParameters{
-				Cfg:        e.cfg,
-				EventsRepo: e.eventRepo,
+				Cfg:           e.cfg,
+				DynamicConfig: e.dynamicConfig,
+				EventsRepo:    e.eventRepo,
 			})
 		wasCancelled := false
 	out:

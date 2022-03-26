@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/parser"
 )
 
@@ -39,9 +40,19 @@ func (s *surroundingPipelineStep) Execute(ctx context.Context, pipe pipelinePipe
 		return
 	}
 
+	indexedFileConfigs, err := indexedfiles.ReadDynamicFileConfig(params.DynamicConfig)
+	if err != nil {
+		// TODO: signal error to rest of pipe??
+		return
+	}
+	sourceToIfc := getSourceToIndexedFileConfig(evts, indexedFileConfigs)
 	retEvts := make([]events.EventWithExtractedFields, len(evts))
 	for i, evt := range evts {
-		evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), params.Cfg.FieldExtractors)
+		ifc, ok := sourceToIfc[evt.Source]
+		if !ok {
+			// TODO: Error or automatically get default IFC?
+		}
+		evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), ifc.FileParser)
 		retEvts[i] = events.EventWithExtractedFields{
 			Id:        evt.Id,
 			Raw:       evt.Raw,

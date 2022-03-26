@@ -29,9 +29,11 @@ func TestWherePipelineStep(t *testing.T) {
 		t.Fatalf("TestRexPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
+	_, dc := newDynamicConfig()
 	params := PipelineParameters{
-		Cfg:        &config.StaticConfig{},
-		EventsRepo: repo,
+		Cfg:           &config.StaticConfig{},
+		DynamicConfig: dc,
+		EventsRepo:    repo,
 	}
 	pipe, input, output := newPipe()
 

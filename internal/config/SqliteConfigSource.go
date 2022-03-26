@@ -51,6 +51,7 @@ func (s *SqliteConfigSource) GetLastUpdateTime() (*time.Time, error) {
 	if err != nil {
 		return nil, fmt.Errorf("got error when getting last update time: %w", err)
 	}
+	defer rows.Close()
 	if !rows.Next() {
 		return nil, fmt.Errorf("did not get any rows when getting last update time")
 	}
@@ -60,4 +61,24 @@ func (s *SqliteConfigSource) GetLastUpdateTime() (*time.Time, error) {
 		return nil, fmt.Errorf("got error when scanning last update time: %w", err)
 	}
 	return ret, nil
+}
+
+func (s *SqliteConfigSource) GetKeys() ([]string, bool) {
+	rows, err := s.db.Query("SELECT key FROM Config")
+	if err != nil {
+		log.Printf("got error when getting keys from Config table: %v\n", err)
+		return []string{}, false
+	}
+	defer rows.Close()
+	ret := make([]string, 0)
+	for rows.Next() {
+		var s string
+		err = rows.Scan(&s)
+		if err != nil {
+			log.Printf("got error when scanning key from Config table: %v\n", err)
+			return []string{}, false
+		}
+		ret = append(ret, s)
+	}
+	return ret, true
 }

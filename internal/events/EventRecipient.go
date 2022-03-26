@@ -19,16 +19,19 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
+	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/parser"
 )
 
 type EventRecipient struct {
-	cfg  *config.StaticConfig
-	repo Repository
+	cfg           *config.StaticConfig
+	dynamicConfig config.DynamicConfig
+	repo          Repository
 }
 
 func NewEventRecipient(cfg *config.StaticConfig, repo Repository) *EventRecipient {
@@ -54,6 +57,30 @@ func (er *EventRecipient) Serve() error {
 			http.Error(w, fmt.Sprintf("failed to decode JSON: %v", err), 500)
 			return
 		}
+		indexedFileConfigs, err := indexedfiles.ReadDynamicFileConfig(er.dynamicConfig)
+		if err != nil {
+			// TODO:
+		}
+
+		sourceToConfig := map[string]*indexedfiles.IndexedFileConfig{}
+		for _, evt := range req.Events {
+			if _, ok := sourceToConfig[evt.Source]; ok {
+				continue
+			}
+			for i, ifc := range indexedFileConfigs {
+				absGlob, err := filepath.Abs(ifc.Filename)
+				if err != nil {
+					// TODO:
+					continue
+				}
+				if m, err := filepath.Match(absGlob, evt.Source); err == nil && m {
+					sourceToConfig[evt.Source] = &indexedFileConfigs[i]
+					goto nextfile
+				}
+			}
+		nextfile:
+		}
+
 		processed := make([]Event, len(req.Events))
 		for i, evt := range req.Events {
 			processed[i] = Event{
@@ -64,16 +91,14 @@ func (er *EventRecipient) Serve() error {
 				Offset:   evt.Offset,
 			}
 
-			var timeLayout string
-			if tl, ok := er.cfg.Recipient.TimeLayouts[evt.Source]; ok {
-				timeLayout = tl
-			} else {
-				timeLayout = er.cfg.Recipient.TimeLayouts["DEFAULT"]
+			ifc, ok := sourceToConfig[evt.Source]
+			if !ok {
+				// TODO:
 			}
 
-			fields := parser.ExtractFields(strings.ToLower(evt.Raw), er.cfg.FieldExtractors)
+			fields := parser.ExtractFields(strings.ToLower(evt.Raw), ifc.FileParser)
 			if t, ok := fields["_time"]; ok {
-				parsed, err := time.Parse(timeLayout, t)
+				parsed, err := time.Parse(ifc.TimeLayout, t)
 				if err != nil {
 					log.Printf("failed to parse _time field, will use current time as timestamp: %v\n", err)
 					processed[i].Timestamp = time.Now()
@@ -102,5 +127,6 @@ func (er *EventRecipient) Serve() error {
 }
 
 type receiveEventsRequest struct {
-	Events []RawEvent
+	HostType string
+	Events   []RawEvent
 }

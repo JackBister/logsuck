@@ -29,9 +29,11 @@ func TestSearchPipelineStep(t *testing.T) {
 		t.Fatalf("TestSearchPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
+	_, dc := newDynamicConfig()
 	params := PipelineParameters{
-		Cfg:        &config.StaticConfig{},
-		EventsRepo: repo,
+		Cfg:           &config.StaticConfig{},
+		DynamicConfig: dc,
+		EventsRepo:    repo,
 	}
 	pipe, input, output := newPipe()
 	close(input)

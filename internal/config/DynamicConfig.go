@@ -88,6 +88,7 @@ type DynamicConfig interface {
 	GetArray(name string, defaultValue []interface{}) DynamicArrayProperty
 	GetInt(name string, defaultValue int) DynamicIntProperty
 	GetString(name string, defaultValue string) DynamicStringProperty
+	Ls(recursive bool) ([]string, bool)
 }
 
 type RootDynamicConfig struct {
@@ -129,6 +130,25 @@ func (d *RootDynamicConfig) GetString(name string, defaultValue string) DynamicS
 	return DynamicStringProperty{name: name, defaultValue: defaultValue, cfg: d}
 }
 
+func (d *RootDynamicConfig) Ls(recursive bool) ([]string, bool) {
+	ret := make([]string, 0)
+	allOk := true
+	for _, cs := range d.configSources {
+		keys, ok := cs.GetKeys()
+		if !ok {
+			allOk = false
+			continue
+		}
+		for _, k := range keys {
+			if !recursive {
+				k = strings.Split(k, ".")[0]
+			}
+			ret = append(ret, k)
+		}
+	}
+	return ret, allOk
+}
+
 type ChildDynamicConfig struct {
 	context string
 	parent  *RootDynamicConfig
@@ -157,9 +177,30 @@ func (d *ChildDynamicConfig) GetString(name string, defaultValue string) Dynamic
 	return DynamicStringProperty{name: d.context + "." + name, defaultValue: defaultValue, cfg: d.parent}
 }
 
+func (d *ChildDynamicConfig) Ls(recursive bool) ([]string, bool) {
+	keys, ok := d.parent.Ls(true)
+	ret := make([]string, 0, len(keys))
+	seen := make(map[string]struct{}, len(keys))
+	for _, k := range keys {
+		if strings.HasPrefix(k, d.context) {
+			k = strings.TrimPrefix(k, d.context+".")
+			if !recursive {
+				k = strings.Split(k, ".")[0]
+			}
+			if _, ok := seen[k]; ok {
+				continue
+			}
+			seen[k] = struct{}{}
+			ret = append(ret, k)
+		}
+	}
+	return ret, ok
+}
+
 type ConfigSource interface {
 	Changes() <-chan struct{}
 	Get(name string) (string, bool)
+	GetKeys() ([]string, bool)
 }
 
 type PollableConfigSource interface {

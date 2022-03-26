@@ -20,7 +20,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/parser"
 )
@@ -85,10 +84,10 @@ func compileFrag(frag string) (*regexp.Regexp, error) {
 }
 
 func shouldIncludeEvent(evt events.EventWithId,
-	cfg *config.StaticConfig,
+	internalParser parser.FileParser,
 	compiledFrags []*regexp.Regexp, compiledNotFrags []*regexp.Regexp,
 	compiledFields map[string][]*regexp.Regexp, compiledNotFields map[string][]*regexp.Regexp) (map[string]string, bool) {
-	evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), cfg.FieldExtractors)
+	evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), internalParser)
 	// TODO: This could produce unexpected results
 	evtFields["host"] = evt.Host
 	evtFields["source"] = evt.Source
