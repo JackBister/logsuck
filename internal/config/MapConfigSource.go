@@ -12,7 +12,7 @@ type MapConfigSource struct {
 	changes chan struct{}
 }
 
-func NewMapConfigSource(m map[string]interface{}) *MapConfigSource {
+func NewMapConfigSource(m map[string]any) *MapConfigSource {
 	return &MapConfigSource{
 		m:       m,
 		changes: make(chan struct{}),

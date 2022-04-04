@@ -38,9 +38,10 @@ type IndexedFileConfig struct {
 }
 
 var defaultReadInterval = 1 * time.Second
+var defaultTimeLayout = "2006/01/02 15:04:05"
 
 func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedFileConfig, error) {
-	var regexParserConfig parser.RegexParserConfig
+	var regexParserConfig *parser.RegexParserConfig
 	timeLayout := ""
 	var readInterval *time.Duration
 	for _, t := range fileTypes {
@@ -61,6 +62,9 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedF
 		}
 
 		if t.Regex != nil {
+			if regexParserConfig == nil {
+				regexParserConfig = &parser.RegexParserConfig{}
+			}
 			eventDelimiter := t.Regex.EventDelimiter
 			if regexParserConfig.EventDelimiter == nil {
 				regexParserConfig.EventDelimiter = eventDelimiter
@@ -75,17 +79,26 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedF
 		}
 	}
 
+	if timeLayout == "" {
+		timeLayout = defaultTimeLayout
+	}
+
 	if readInterval == nil {
 		readInterval = &defaultReadInterval
+	}
+
+	var fp parser.FileParser
+	if regexParserConfig != nil {
+		fp = &parser.RegexFileParser{
+			Cfg: *regexParserConfig,
+		}
 	}
 
 	return &IndexedFileConfig{
 		Filename:     filename,
 		ReadInterval: *readInterval,
 		TimeLayout:   timeLayout,
-		FileParser: &parser.RegexFileParser{
-			Cfg: regexParserConfig,
-		},
+		FileParser:   fp,
 	}, nil
 }
 

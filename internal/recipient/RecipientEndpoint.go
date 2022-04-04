@@ -1,4 +1,4 @@
-// Copyright 2021 Jack Bister
+// Copyright 2022 Jack Bister
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,49 +12,60 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package events
+package recipient
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/jackbister/logsuck/internal/config"
+	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/internal/rpc"
 )
 
-type EventRecipient struct {
+type RecipientEndpoint struct {
 	cfg           *config.StaticConfig
 	dynamicConfig config.DynamicConfig
-	repo          Repository
+	repo          events.Repository
 }
 
-func NewEventRecipient(cfg *config.StaticConfig, repo Repository) *EventRecipient {
-	return &EventRecipient{cfg: cfg, repo: repo}
+func NewRecipientEndpoint(cfg *config.StaticConfig, dynamicConfig config.DynamicConfig, repo events.Repository) *RecipientEndpoint {
+	return &RecipientEndpoint{cfg: cfg, dynamicConfig: dynamicConfig, repo: repo}
 }
 
-func (er *EventRecipient) Serve() error {
-	mux := http.NewServeMux()
+func (er *RecipientEndpoint) Serve() error {
+	r := gin.Default()
+	r.SetTrustedProxies(nil)
 
-	mux.HandleFunc("/v1/receiveEvents", func(w http.ResponseWriter, r *http.Request) {
-		if r.Body == nil {
-			http.Error(w, "no body: body must be a JSON encoded object", 400)
+	r.GET("/v1/config", func(c *gin.Context) {
+		allKeys, ok := er.dynamicConfig.Ls(true)
+		if !ok {
+			c.AbortWithError(500, fmt.Errorf("did not get ok when listing all config keys"))
 			return
 		}
-		defer r.Body.Close()
-		if r.Method != "POST" {
-			http.Error(w, "unsupported method: must be POST", 405)
-			return
+		m := map[string]string{}
+		for _, k := range allKeys {
+			v := er.dynamicConfig.GetCurrentValueAsString(k)
+			m[k] = v
 		}
-		var req receiveEventsRequest
-		err := json.NewDecoder(r.Body).Decode(&req)
+		c.JSON(200, rpc.ConfigResponse{
+			LastUpdateTime: er.dynamicConfig.GetLastUpdateTime(),
+			Config:         m,
+		})
+	})
+
+	r.POST("/v1/receiveEvents", func(c *gin.Context) {
+		var req rpc.ReceiveEventsRequest
+		err := json.NewDecoder(c.Request.Body).Decode(&req)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("failed to decode JSON: %v", err), 500)
+			c.AbortWithError(500, fmt.Errorf("failed to decode JSON: %w", err))
 			return
 		}
 		indexedFileConfigs, err := indexedfiles.ReadDynamicFileConfig(er.dynamicConfig)
@@ -80,10 +91,9 @@ func (er *EventRecipient) Serve() error {
 			}
 		nextfile:
 		}
-
-		processed := make([]Event, len(req.Events))
+		processed := make([]events.Event, len(req.Events))
 		for i, evt := range req.Events {
-			processed[i] = Event{
+			processed[i] = events.Event{
 				Raw:      evt.Raw,
 				Host:     evt.Host,
 				Source:   evt.Source,
@@ -112,21 +122,12 @@ func (er *EventRecipient) Serve() error {
 		}
 		err = er.repo.AddBatch(processed)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("failed to add events to repository: %v", err), 500)
+			c.AbortWithError(500, fmt.Errorf("failed to add events to repository: %w", err))
 			return
 		}
+		c.Status(200)
 	})
 
-	s := &http.Server{
-		Addr:    er.cfg.Recipient.Address,
-		Handler: mux,
-	}
-
-	log.Printf("Starting EventRecipient on address='%v'\n", er.cfg.Recipient.Address)
-	return s.ListenAndServe()
-}
-
-type receiveEventsRequest struct {
-	HostType string
-	Events   []RawEvent
+	log.Printf("Starting Recipient on address='%v'\n", er.cfg.Recipient.Address)
+	return r.Run(er.cfg.Recipient.Address)
 }

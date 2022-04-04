@@ -148,10 +148,6 @@
         "address": {
           "description": "The addreess where the API endpoints that the forwarders will communicate with should be exposed. Default ':8081'.",
           "type": "string"
-        },
-        "timeLayouts": {
-          "description": "timeLayouts is a map from source name to a string specifying the layout of timestamps in that file. It is the equivalent to setting timeLayout on an object in the files array when running in single host mode. The special key \"DEFAULT\" will be used for any source that is not specified in the map. Default '2006/01/02 15:04:05'.",
-          "type": "object"
         }
       }
     },

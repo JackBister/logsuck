@@ -219,6 +219,10 @@ func NewFileWatcher(
 
 // Start begins watching the file according to its IndexedFileConfig
 func (fw *FileWatcher) Start() {
+	if fw.fileConfig.FileParser == nil {
+		log.Printf("FileParser is nil for file=%v. will not watch this file. review your configuration to make sure that this file has an associated file type with a parser configured.\n", fw.filename)
+		return
+	}
 	ticker := time.NewTicker(fw.fileConfig.ReadInterval)
 	defer ticker.Stop()
 	for {

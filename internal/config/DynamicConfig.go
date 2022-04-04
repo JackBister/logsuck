@@ -88,6 +88,8 @@ type DynamicConfig interface {
 	GetArray(name string, defaultValue []interface{}) DynamicArrayProperty
 	GetInt(name string, defaultValue int) DynamicIntProperty
 	GetString(name string, defaultValue string) DynamicStringProperty
+	GetCurrentValueAsString(name string) string
+	GetLastUpdateTime() *time.Time
 	Ls(recursive bool) ([]string, bool)
 }
 
@@ -128,6 +130,29 @@ func (d *RootDynamicConfig) GetInt(name string, defaultValue int) DynamicIntProp
 
 func (d *RootDynamicConfig) GetString(name string, defaultValue string) DynamicStringProperty {
 	return DynamicStringProperty{name: name, defaultValue: defaultValue, cfg: d}
+}
+
+func (d *RootDynamicConfig) GetCurrentValueAsString(name string) string {
+	for _, cs := range d.configSources {
+		v, ok := cs.Get(name)
+		if ok {
+			return v
+		}
+	}
+	return ""
+}
+
+func (d *RootDynamicConfig) GetLastUpdateTime() *time.Time {
+	var ret *time.Time
+	for _, cs := range d.configSources {
+		if p, ok := cs.(PollableConfigSource); ok {
+			t, _ := p.GetLastUpdateTime()
+			if t != nil && (ret == nil || t.After(*ret)) {
+				ret = t
+			}
+		}
+	}
+	return ret
 }
 
 func (d *RootDynamicConfig) Ls(recursive bool) ([]string, bool) {
@@ -175,6 +200,14 @@ func (d *ChildDynamicConfig) GetInt(name string, defaultValue int) DynamicIntPro
 
 func (d *ChildDynamicConfig) GetString(name string, defaultValue string) DynamicStringProperty {
 	return DynamicStringProperty{name: d.context + "." + name, defaultValue: defaultValue, cfg: d.parent}
+}
+
+func (d *ChildDynamicConfig) GetCurrentValueAsString(name string) string {
+	return d.parent.GetCurrentValueAsString(d.context + "." + name)
+}
+
+func (d *ChildDynamicConfig) GetLastUpdateTime() *time.Time {
+	return d.GetLastUpdateTime()
 }
 
 func (d *ChildDynamicConfig) Ls(recursive bool) ([]string, bool) {

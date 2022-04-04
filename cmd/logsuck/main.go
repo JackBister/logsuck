@@ -27,8 +27,10 @@ import (
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/files"
+	"github.com/jackbister/logsuck/internal/forwarder"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/jobs"
+	"github.com/jackbister/logsuck/internal/recipient"
 	"github.com/jackbister/logsuck/internal/tasks"
 	"github.com/jackbister/logsuck/internal/web"
 
@@ -195,7 +197,11 @@ func main() {
 	var publisher events.EventPublisher
 	var repo events.Repository
 	if staticConfig.Forwarder.Enabled {
-		publisher = events.ForwardingEventPublisher(&staticConfig)
+		publisher = forwarder.ForwardingEventPublisher(&staticConfig)
+		configSources = append([]config.ConfigSource{
+			forwarder.NewRemoteConfigSource(&staticConfig),
+		},
+			configSources...)
 	} else {
 		db, err := sql.Open("sqlite3", staticConfig.SQLite.DatabaseFile+"?cache=shared&_journal_mode=WAL")
 		if err != nil {
@@ -241,32 +247,36 @@ func main() {
 		}
 	}
 
-	watchers := map[string]*files.GlobWatcher{}
-	reloadFileWatchers(&watchers, indexedFiles, staticConfig, dynamicConfig, publisher, ctx)
+	if staticConfig.Recipient.Enabled {
+		log.Println("recipient is enabled, will not read any files on this host.")
+	} else {
+		watchers := map[string]*files.GlobWatcher{}
+		reloadFileWatchers(&watchers, indexedFiles, staticConfig, dynamicConfig, publisher, ctx)
 
-	go func() {
-		for {
-			<-dynamicConfig.Changes()
-			allFiles, err := indexedfiles.ReadDynamicFileConfig(dynamicConfig)
-			if err != nil {
-				log.Printf("got error when reading updated dynamic file config. file config will not be updated: %v\n", err)
-				continue
-			}
-			newIndexedFiles := make([]indexedfiles.IndexedFileConfig, 0)
-			for _, file := range hostCfg.Files {
-				for _, ifc := range allFiles {
-					if file.Name == ifc.Filename {
-						newIndexedFiles = append(indexedFiles, ifc)
+		go func() {
+			for {
+				<-dynamicConfig.Changes()
+				allFiles, err := indexedfiles.ReadDynamicFileConfig(dynamicConfig)
+				if err != nil {
+					log.Printf("got error when reading updated dynamic file config. file config will not be updated: %v\n", err)
+					continue
+				}
+				newIndexedFiles := make([]indexedfiles.IndexedFileConfig, 0)
+				for _, file := range hostCfg.Files {
+					for _, ifc := range allFiles {
+						if file.Name == ifc.Filename {
+							newIndexedFiles = append(indexedFiles, ifc)
+						}
 					}
 				}
+				reloadFileWatchers(&watchers, newIndexedFiles, staticConfig, dynamicConfig, publisher, ctx)
 			}
-			reloadFileWatchers(&watchers, newIndexedFiles, staticConfig, dynamicConfig, publisher, ctx)
-		}
-	}()
+		}()
+	}
 
 	if staticConfig.Recipient.Enabled {
 		go func() {
-			log.Fatal(events.NewEventRecipient(&staticConfig, repo).Serve())
+			log.Fatal(recipient.NewRecipientEndpoint(&staticConfig, dynamicConfig, repo).Serve())
 		}()
 	}
 

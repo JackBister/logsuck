@@ -24,6 +24,13 @@ type FileTypeConfig struct {
 }
 
 const defaultEventDelimiter = "\n"
+
+var defaultEventDelimiterRegexp = regexp.MustCompile(defaultEventDelimiter)
+var defaultFieldExtractors = []*regexp.Regexp{
+	regexp.MustCompile("(\\w+)=(\\w+)"),
+	regexp.MustCompile("^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)"),
+}
+
 const defaultTimeLayout = "2006/01/02 15:04:05"
 
 func GetFileTypeConfig(dynamicConfig DynamicConfig) (map[string]FileTypeConfig, error) {
@@ -63,6 +70,21 @@ func GetFileTypeConfig(dynamicConfig DynamicConfig) (map[string]FileTypeConfig, 
 			ReadInterval: readInterval,
 			ParserType:   parserType,
 			Regex:        regexParserConfig,
+		}
+	}
+	if _, ok := ret["DEFAULT"]; !ok {
+		defaultReadIntervalDuration, err := time.ParseDuration(defaultReadInterval)
+		if err != nil {
+			panic("defaultReadInterval could not be parsed as a duration. this indicates that someone has seriously screwed up. you can probably work around this by adding a DEFAULT key to your fileTypes in the configuration.")
+		}
+		ret["DEFAULT"] = FileTypeConfig{
+			TimeLayout:   defaultTimeLayout,
+			ReadInterval: defaultReadIntervalDuration,
+			ParserType:   ParserTypeRegex,
+			Regex: &parser.RegexParserConfig{
+				EventDelimiter:  defaultEventDelimiterRegexp,
+				FieldExtractors: defaultFieldExtractors,
+			},
 		}
 	}
 	return ret, nil
