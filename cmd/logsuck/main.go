@@ -42,7 +42,8 @@ var staticConfig = config.StaticConfig{
 	ConfigPollInterval: 1 * time.Minute,
 
 	Forwarder: &config.ForwarderConfig{
-		Enabled: false,
+		Enabled:           false,
+		MaxBufferedEvents: 5000,
 	},
 
 	Recipient: &config.RecipientConfig{
@@ -82,8 +83,10 @@ var versionString string // This must be set using -ldflags "-X main.versionStri
 var cfgFileFlag string
 var databaseFileFlag string
 var eventDelimiterFlag string
+var forwarderFlag string
 var fieldExtractorFlags flagStringArray
 var printVersion bool
+var recipientFlag string
 var timeLayoutFlag string
 var webAddrFlag string
 
@@ -99,8 +102,10 @@ func main() {
 			"If a field with the name '_time' is extracted and matches the given timelayout, it will be used as the timestamp of the event. Otherwise the time the event was read will be used.\n"+
 			"Multiple extractors can be specified by using the fieldextractor flag multiple times. "+
 			"(defaults \"(\\w+)=(\\w+)\" and \"(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)\")")
+	flag.StringVar(&forwarderFlag, "forwarder", "", "Enables forwarder mode and sets the address to forward events to. Forwarding is off by default.")
 	flag.StringVar(&timeLayoutFlag, "timelayout", "2006/01/02 15:04:05", "The layout of the timestamp which will be extracted in the _time field. For more information on how to write a timelayout and examples, see https://golang.org/pkg/time/#Parse and https://golang.org/pkg/time/#pkg-constants.")
 	flag.BoolVar(&printVersion, "version", false, "Print version info and quit.")
+	flag.StringVar(&recipientFlag, "recipient", "", "Enables recipient mode and sets the port to expose the recipient on. Recipient mode is off by default.")
 	flag.StringVar(&webAddrFlag, "webaddr", ":8080", "The address on which the search GUI will be exposed.")
 	flag.Parse()
 	if len(fieldExtractorFlags) == 0 {
@@ -155,6 +160,15 @@ func main() {
 		}
 		if webAddrFlag != "" {
 			staticConfig.Web.Address = webAddrFlag
+		}
+		if forwarderFlag != "" {
+			staticConfig.Forwarder.Enabled = true
+			staticConfig.Forwarder.RecipientAddress = forwarderFlag
+			staticConfig.Web.Enabled = false
+		}
+		if recipientFlag != "" {
+			staticConfig.Recipient.Enabled = true
+			staticConfig.Recipient.Address = recipientFlag
 		}
 
 		fieldExtractors := make([]string, len(fieldExtractorFlags))
