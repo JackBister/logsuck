@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -32,6 +33,7 @@ func (mc *MapConfigSource) Get(name string) (string, bool) {
 		if m, ok := c.(map[string]interface{}); ok {
 			current = m
 		} else if i == len(split)-1 {
+			rt := reflect.TypeOf(c)
 			if ss, ok := c.(string); ok {
 				return ss, true
 			} else if f, ok := c.(float64); ok {
@@ -40,6 +42,12 @@ func (mc *MapConfigSource) Get(name string) (string, bool) {
 				return strconv.FormatBool(b), true
 			} else if a, ok := c.([]interface{}); ok {
 				bytes, err := json.Marshal(a)
+				if err != nil {
+					return "", false
+				}
+				return string(bytes), true
+			} else if rt != nil && rt.Kind() == reflect.Slice {
+				bytes, err := json.Marshal(c)
 				if err != nil {
 					return "", false
 				}

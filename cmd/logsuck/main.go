@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
+	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
@@ -38,7 +38,8 @@ import (
 )
 
 var staticConfig = config.StaticConfig{
-	HostType: "DEFAULT",
+	HostType:           "DEFAULT",
+	ConfigPollInterval: 1 * time.Minute,
 
 	Forwarder: &config.ForwarderConfig{
 		Enabled: false,
@@ -58,6 +59,11 @@ var staticConfig = config.StaticConfig{
 		Address:          ":8080",
 		UsePackagedFiles: true,
 	},
+}
+
+var defaultFieldExtractors = []string{
+	"(\\w+)=(\\w+)",
+	"^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)",
 }
 
 type flagStringArray []string
@@ -97,6 +103,9 @@ func main() {
 	flag.BoolVar(&printVersion, "version", false, "Print version info and quit.")
 	flag.StringVar(&webAddrFlag, "webaddr", ":8080", "The address on which the search GUI will be exposed.")
 	flag.Parse()
+	if len(fieldExtractorFlags) == 0 {
+		fieldExtractorFlags = defaultFieldExtractors
+	}
 
 	if printVersion {
 		if versionString == "" {
@@ -148,42 +157,42 @@ func main() {
 			staticConfig.Web.Address = webAddrFlag
 		}
 
-		defaultFieldExtractors := make([]string, len(fieldExtractorFlags))
+		fieldExtractors := make([]string, len(fieldExtractorFlags))
 		if len(fieldExtractorFlags) > 0 {
-			fieldExtractors := make(map[string]string, len(fieldExtractorFlags))
 			for i, fe := range fieldExtractorFlags {
-				k := strconv.Itoa(i)
-				fieldExtractors[k] = fe
-				defaultFieldExtractors[i] = k
+				fieldExtractors[i] = fe
 			}
-			configMap["fieldExtractors"] = fieldExtractors
 		}
 
 		defaultFileType := map[string]interface{}{}
 		defaultFileType["timeLayout"] = timeLayoutFlag
+		defaultFileType["readInterval"] = "1s"
 		defaultFileType["parser"] = map[string]interface{}{
 			"type": "Regex",
 			"regexConfig": map[string]interface{}{
 				"eventDelimiter":  eventDelimiterFlag,
-				"fieldExtractors": defaultFieldExtractors,
+				"fieldExtractors": fieldExtractors,
 			},
 		}
 		configMap["fileTypes"] = map[string]interface{}{
 			"DEFAULT": defaultFileType,
 		}
 
-		defaultFiles := make([]map[string]interface{}, len(flag.Args()))
+		files := make([]map[string]interface{}, len(flag.Args()))
+		hostFiles := make([]map[string]interface{}, len(flag.Args()))
 		for i, file := range flag.Args() {
-			defaultFiles[i] = map[string]interface{}{
-				"fileName":     file,
-				"fileTypes":    []string{"DEFAULT"},
-				"readInterval": "1s",
+			files[i] = map[string]interface{}{
+				"fileName": file,
+			}
+			hostFiles[i] = map[string]interface{}{
+				"fileName": file,
 			}
 		}
+		configMap["files"] = files
 		configMap["hostTypes"] = map[string]interface{}{
 			"DEFAULT": map[string]interface{}{
 				"configPollInterval": "1m",
-				"files":              defaultFiles,
+				"files":              hostFiles,
 			},
 		}
 
