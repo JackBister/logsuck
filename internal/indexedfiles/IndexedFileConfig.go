@@ -124,7 +124,7 @@ func ReadDynamicFileConfig(dynamicConfig config.DynamicConfig) ([]IndexedFileCon
 			log.Printf("failed to convert filename to string for file at index=%v. fn=%v\n", i, fn)
 		}
 		typesCfg, ok := fileMap["fileTypes"]
-		types := []string{"DEFAULT"}
+		types := []string{}
 		if !ok {
 			log.Printf("did not get any fileTypes for filename=%v. will only use default config for these files.\n", fn)
 		} else {
@@ -142,6 +142,7 @@ func ReadDynamicFileConfig(dynamicConfig config.DynamicConfig) ([]IndexedFileCon
 				}
 			}
 		}
+		types = append(types, "DEFAULT")
 		fileTypes := make([]config.FileTypeConfig, 0, len(types))
 		for _, tn := range types {
 			t, ok := fileTypeCfg[tn]
