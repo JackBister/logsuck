@@ -15,10 +15,14 @@
  */
 
 import { Component, h } from "preact";
-import { Card, CardHeader } from "../components/lib/Card/Card";
+import { FileTypeConfig } from "../api/v1";
+import { FileTypeConfigsComponent } from "../components/Config/FileTypeConfig";
 import { Navbar } from "../components/lib/Navbar/Navbar";
 
 interface ConfigPageProps {
+  getFileTypeConfigs: () => Promise<FileTypeConfig[]>;
+  updateFileTypeConfig: (cfg: FileTypeConfig) => Promise<any>;
+
   getQueryParams: () => URLSearchParams;
   setQueryParams: (params: URLSearchParams) => void;
 }
@@ -65,18 +69,13 @@ export class ConfigPageComponent extends Component<
       <div>
         <Navbar />
         <main role="main" className="ls-container">
-          {this.state.type === "loading" && <div>Loading...</div>}
-          {this.state.type === "loadingerror" && <div>Error while loading</div>}
-          {this.state.type === "loaded" && (
-            <div className="w-100 d-flex flex-row align-start gap-6">
-              <Card className="shrink-1">
-                <CardHeader>Configuration</CardHeader>
-              </Card>
-              <div className="grow-1 shrink-0" style={{ flexBasis: "80%" }}>
-                <Card>
-                  <CardHeader>{this.state.topLevelProperty}</CardHeader>
-                </Card>
-              </div>
+          {(!this.state.topLevelProperty ||
+            this.state.topLevelProperty === "fileTypes") && (
+            <div>
+              <FileTypeConfigsComponent
+                getFileTypeConfigs={this.props.getFileTypeConfigs}
+                updateFileTypeConfig={this.props.updateFileTypeConfig}
+              />
             </div>
           )}
         </main>

@@ -35,7 +35,9 @@ export class SimpleExpansionPanel extends Component<
         expanded={this.state.expanded}
         onExpansionStateChanged={(expanded) => this.setState({ expanded })}
         title={this.props.title}
-      />
+      >
+        {this.props.children}
+      </ExpansionPanel>
     );
   }
 }

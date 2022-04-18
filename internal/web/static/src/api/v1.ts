@@ -122,20 +122,33 @@ export function getFieldValueCounts(
     .then((f: FieldValueCounts) => f);
 }
 
-export type ConfigTypeName = "array" | "int" | "string";
+export interface RegexParserConfig {
+  eventDelimiter: string | undefined;
+  fieldExtractors: string[];
+}
 
-type ConfigType<T> = T extends "array"
-  ? Array<any>
-  : T extends "int"
-  ? number
-  : T extends "string"
-  ? string
-  : never;
+export interface FileParserConfig {
+  type: "Regex";
+  regexConfig: RegexParserConfig;
+}
 
-export function getConfigByKey<T extends ConfigTypeName>(
-  key: string,
-  type: T
-): Promise<ConfigType<T>> {
-  const queryParams = `?key=${key}&type=${type}`;
-  return fetch("/api/v1/config" + queryParams).then((r) => r.json());
+export interface FileTypeConfig {
+  name: string;
+  timeLayout: string | undefined;
+  readInterval: string | undefined;
+  parser: FileParserConfig;
+}
+
+export function getFileTypeConfigs(): Promise<FileTypeConfig[]> {
+  return fetch("/api/v1/config/fileTypes").then((r) => r.json());
+}
+
+export function updateFileTypeConfig(cfg: FileTypeConfig): Promise<any> {
+  return fetch("/api/v1/config/fileTypes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(cfg),
+  });
 }

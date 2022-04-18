@@ -45,6 +45,7 @@ type webImpl struct {
 	eventRepo     events.Repository
 	jobRepo       jobs.Repository
 	jobEngine     *jobs.Engine
+	configRepo    config.ConfigRepository
 }
 
 type webError struct {
@@ -56,13 +57,14 @@ func (w webError) Error() string {
 	return w.err
 }
 
-func NewWeb(staticConfig *config.StaticConfig, dynamicConfig config.DynamicConfig, eventRepo events.Repository, jobRepo jobs.Repository, jobEngine *jobs.Engine) Web {
+func NewWeb(staticConfig *config.StaticConfig, dynamicConfig config.DynamicConfig, eventRepo events.Repository, jobRepo jobs.Repository, jobEngine *jobs.Engine, configRepo config.ConfigRepository) Web {
 	return webImpl{
 		staticConfig:  staticConfig,
 		dynamicConfig: dynamicConfig,
 		eventRepo:     eventRepo,
 		jobRepo:       jobRepo,
 		jobEngine:     jobEngine,
+		configRepo:    configRepo,
 	}
 }
 
@@ -253,31 +255,7 @@ func (wi webImpl) Serve() error {
 		c.JSON(200, values)
 	})
 
-	g.GET("/config", func(c *gin.Context) {
-		key := c.Query("key")
-		if key == "" {
-			c.JSON(404, nil)
-			return
-		}
-		valType := c.Query("type")
-		var val interface{}
-		var ok bool
-		if valType == "array" {
-			val, ok = wi.dynamicConfig.GetArray(key, []interface{}{}).Get()
-		} else if valType == "string" {
-			val, ok = wi.dynamicConfig.GetString(key, "").Get()
-		} else if valType == "int" {
-			val, ok = wi.dynamicConfig.GetInt(key, 0).Get()
-		} else {
-			c.JSON(400, nil)
-		}
-
-		if ok {
-			c.JSON(200, val)
-		} else {
-			c.JSON(404, nil)
-		}
-	})
+	addConfigEndpoints(g, &wi)
 
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path

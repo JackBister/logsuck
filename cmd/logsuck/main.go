@@ -215,6 +215,7 @@ func main() {
 
 	ctx := context.Background()
 
+	var configRepo config.ConfigRepository
 	var jobRepo jobs.Repository
 	var jobEngine *jobs.Engine
 	var publisher events.EventPublisher
@@ -230,6 +231,7 @@ func main() {
 		if err != nil {
 			log.Fatalln(err.Error())
 		}
+		configRepo = config.NewSqliteConfigRepository(db)
 		repo, err = events.SqliteRepository(db, staticConfig.SQLite)
 		if err != nil {
 			log.Fatalln(err.Error())
@@ -305,7 +307,7 @@ func main() {
 
 	if staticConfig.Web.Enabled {
 		go func() {
-			log.Fatal(web.NewWeb(&staticConfig, dynamicConfig, repo, jobRepo, jobEngine).Serve())
+			log.Fatal(web.NewWeb(&staticConfig, dynamicConfig, repo, jobRepo, jobEngine, configRepo).Serve())
 		}()
 	}
 

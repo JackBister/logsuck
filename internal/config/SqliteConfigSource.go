@@ -13,7 +13,7 @@ type SqliteConfigSource struct {
 }
 
 func NewSqliteConfigSource(db *sql.DB) (*SqliteConfigSource, error) {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Config (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL, value TEXT NOT NULL, modified DATETIME NOT NULL, UNIQUE(key))")
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Config (key TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL, modified DATETIME NOT NULL, UNIQUE(key))")
 	if err != nil {
 		return nil, fmt.Errorf("error creating config table: %w", err)
 	}
@@ -34,6 +34,7 @@ func (s *SqliteConfigSource) Get(name string) (string, bool) {
 		log.Printf("got error when getting config key='%s' from sqlite: %v\n", name, err)
 		return "", false
 	}
+	defer rows.Close()
 	if !rows.Next() {
 		return "", false
 	}
@@ -55,12 +56,16 @@ func (s *SqliteConfigSource) GetLastUpdateTime() (*time.Time, error) {
 	if !rows.Next() {
 		return nil, fmt.Errorf("did not get any rows when getting last update time")
 	}
-	var ret *time.Time
-	err = rows.Scan(&ret)
+	var timeString string
+	err = rows.Scan(&timeString)
 	if err != nil {
 		return nil, fmt.Errorf("got error when scanning last update time: %w", err)
 	}
-	return ret, nil
+	t, err := time.Parse("2006-01-02 15:04:05.9999999-07:00", timeString)
+	if err != nil {
+		return nil, fmt.Errorf("got error when parsing timeString=%v: %w", timeString, err)
+	}
+	return &t, nil
 }
 
 func (s *SqliteConfigSource) GetKeys() ([]string, bool) {

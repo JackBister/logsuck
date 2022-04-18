@@ -42,35 +42,12 @@ func GetFileTypeConfig(dynamicConfig DynamicConfig) (map[string]FileTypeConfig, 
 	ret := make(map[string]FileTypeConfig, len(keys))
 	for _, k := range keys {
 		fileTypeCfg := fileTypesCfg.Cd(k)
-		timeLayout, _ := fileTypeCfg.GetString("timeLayout", defaultTimeLayout).Get()
-		readIntervalString, _ := fileTypeCfg.GetString("readInterval", defaultReadInterval).Get()
-		readInterval, err := time.ParseDuration(readIntervalString)
+		cfg, err := FileTypeConfigFromDynamicConfig(k, fileTypeCfg)
 		if err != nil {
-			log.Printf("failed to parse duration=%v for file type with key=%v. will use defaultReadInterval=%v\n", readIntervalString, k, defaultReadInterval)
-			readInterval, _ = time.ParseDuration(defaultReadInterval)
-		}
-		parserCfg := fileTypeCfg.Cd("parser")
-		parserTypeString, _ := parserCfg.GetString("type", "Regex").Get()
-		var parserType ParserType
-		var regexParserConfig *parser.RegexParserConfig
-		if parserTypeString == "Regex" {
-			parserType = ParserTypeRegex
-			r, err := getRegexParserConfig(parserCfg.Cd("regexConfig"))
-			if err != nil {
-				log.Printf("failed to convert regex parser config for file type with key=%v. this file type will not be usable: %v\n", k, err)
-				continue
-			}
-			regexParserConfig = r
-		} else {
-			log.Printf("got unknown parser type=%v for file type with key=%v. this file type will not be usable.\n", parserTypeString, k)
+			log.Printf("got error when reading configuration for filetype=%v: %v\n", k, err)
 			continue
 		}
-		ret[k] = FileTypeConfig{
-			TimeLayout:   timeLayout,
-			ReadInterval: readInterval,
-			ParserType:   parserType,
-			Regex:        regexParserConfig,
-		}
+		ret[k] = *cfg
 	}
 	if _, ok := ret["DEFAULT"]; !ok {
 		defaultReadIntervalDuration, err := time.ParseDuration(defaultReadInterval)
@@ -88,6 +65,36 @@ func GetFileTypeConfig(dynamicConfig DynamicConfig) (map[string]FileTypeConfig, 
 		}
 	}
 	return ret, nil
+}
+
+func FileTypeConfigFromDynamicConfig(name string, fileTypeCfg DynamicConfig) (*FileTypeConfig, error) {
+	timeLayout, _ := fileTypeCfg.GetString("timeLayout", defaultTimeLayout).Get()
+	readIntervalString, _ := fileTypeCfg.GetString("readInterval", defaultReadInterval).Get()
+	readInterval, err := time.ParseDuration(readIntervalString)
+	if err != nil {
+		log.Printf("failed to parse duration=%v for file type with key=%v. will use defaultReadInterval=%v\n", readIntervalString, name, defaultReadInterval)
+		readInterval, _ = time.ParseDuration(defaultReadInterval)
+	}
+	parserCfg := fileTypeCfg.Cd("parser")
+	parserTypeString, _ := parserCfg.GetString("type", "Regex").Get()
+	var parserType ParserType
+	var regexParserConfig *parser.RegexParserConfig
+	if parserTypeString == "Regex" {
+		parserType = ParserTypeRegex
+		r, err := getRegexParserConfig(parserCfg.Cd("regexConfig"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert regex parser config for file type with key=%v. this file type will not be usable: %v", name, err)
+		}
+		regexParserConfig = r
+	} else {
+		return nil, fmt.Errorf("got unknown parser type=%v for file type with key=%v. this file type will not be usable.\n", parserTypeString, name)
+	}
+	return &FileTypeConfig{
+		TimeLayout:   timeLayout,
+		ReadInterval: readInterval,
+		ParserType:   parserType,
+		Regex:        regexParserConfig,
+	}, nil
 }
 
 func getRegexParserConfig(dynamicConfig DynamicConfig) (*parser.RegexParserConfig, error) {
