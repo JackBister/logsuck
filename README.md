@@ -1,6 +1,6 @@
 # Logsuck
 
-![CI Status](https://img.shields.io/github/workflow/status/jackbister/logsuck/ci)
+![CI Status](https://img.shields.io/github/actions/workflow/status/jackbister/logsuck/ci.yml?branch=master)
 ![Apache License 2.0](https://img.shields.io/github/license/jackbister/logsuck)
 
 Logsuck is a program that makes it easier for you to deal with your logs. It serves a similar purpose to Splunk or the ELK stack. You can use it to search your logs, correlate logs from different log files with each other and set up alerts and dashboards based on your logs. On top of that, Logsuck is extremely simple to deploy, and is free.
