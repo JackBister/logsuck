@@ -15,7 +15,6 @@
 package indexedfiles
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -48,7 +47,7 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedF
 		if timeLayout == "" {
 			timeLayout = t.TimeLayout
 		} else {
-			if timeLayout != t.TimeLayout {
+			if t.Name != "DEFAULT" && timeLayout != t.TimeLayout {
 				log.Printf("encountered multiple timeLayouts for filename=%v. will use timeLayout=%v. to avoid this error all fileTypes used by this filename must have the same timeLayout.\n", filename, timeLayout)
 			}
 		}
@@ -56,7 +55,7 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedF
 		if readInterval == nil {
 			readInterval = &t.ReadInterval
 		} else {
-			if readInterval != &t.ReadInterval {
+			if t.Name != "DEFAULT" && readInterval != &t.ReadInterval {
 				log.Printf("encountered multiple readIntervals for filename=%v. will use readInterval=%v. to avoid this error all fileTypes used by this filename must have the same readInterval.\n", filename, readInterval)
 			}
 		}
@@ -69,7 +68,7 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedF
 			if regexParserConfig.EventDelimiter == nil {
 				regexParserConfig.EventDelimiter = eventDelimiter
 			} else {
-				if regexParserConfig.EventDelimiter.String() != eventDelimiter.String() {
+				if t.Name != "DEFAULT" && regexParserConfig.EventDelimiter.String() != eventDelimiter.String() {
 					log.Printf("encountered multiple eventDelimiters for filename=%v. will use eventDelimiter=%v. to avoid this error all fileTypes used by this filename must have the same eventDelimiter in their regex config.\n", filename, eventDelimiter)
 				}
 			}
@@ -102,60 +101,31 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedF
 	}, nil
 }
 
-func ReadDynamicFileConfig(dynamicConfig config.DynamicConfig) ([]IndexedFileConfig, error) {
-	fileTypeCfg, err := config.GetFileTypeConfig(dynamicConfig)
-	if err != nil {
-		return nil, fmt.Errorf("got error when getting file type config: %w", err)
-	}
-	filesCfg, _ := dynamicConfig.GetArray("files", []interface{}{}).Get()
-	indexedFiles := make([]IndexedFileConfig, 0, len(filesCfg))
-	for i, file := range filesCfg {
-		fileMap, ok := file.(map[string]interface{})
+func ReadFileConfig(cfg *config.Config) ([]IndexedFileConfig, error) {
+	fileTypes := cfg.FileTypes
+	files := cfg.Files
+	indexedFiles := make([]IndexedFileConfig, 0, len(fileTypes))
+	hostType := cfg.HostTypes[cfg.HostType]
+	defaultHostType := cfg.HostTypes["DEFAULT"]
+	hostTypeFiles := append(hostType.Files, defaultHostType.Files...)
+	for _, v := range hostTypeFiles {
+		fileCfg, ok := files[v.Name]
 		if !ok {
-			log.Printf("failed to convert file at index=%v to map[string]interface{}. this file will be skipped. file=%v\n", i, file)
+			log.Printf("Failed to find config for file with filename=%v. This filename will be ignored.\n", v.Name)
 			continue
 		}
-		fn, ok := fileMap["fileName"]
-		if !ok {
-			log.Printf("did not get a fileName for file at index=%v\n", i)
-		}
-		filename, ok := fn.(string)
-		if !ok {
-			log.Printf("failed to convert filename to string for file at index=%v. fn=%v\n", i, fn)
-		}
-		typesCfg, ok := fileMap["fileTypes"]
-		types := []string{}
-		if !ok {
-			log.Printf("did not get any fileTypes for filename=%v. will only use default config for these files.\n", fn)
-		} else {
-			typesCfgArr, ok := typesCfg.([]interface{})
+		fileTypeCfgs := make([]config.FileTypeConfig, 0, len(fileCfg.Filetypes))
+		for _, ftn := range append(fileCfg.Filetypes, "DEFAULT") {
+			ftc, ok := fileTypes[ftn]
 			if !ok {
-				log.Printf("failed to convert fileTypes to []interface{} for filename=%v. will only use default config for these files.\n", fn)
-			} else {
-				for j, ti := range typesCfgArr {
-					ts, ok := ti.(string)
-					if !ok {
-						log.Printf("failed to convert fileType at index=%v to string for filename=%v. will not use this fileType for these files.\n", j, fn)
-					} else {
-						types = append(types, ts)
-					}
-				}
-			}
-		}
-		types = append(types, "DEFAULT")
-		fileTypes := make([]config.FileTypeConfig, 0, len(types))
-		for _, tn := range types {
-			t, ok := fileTypeCfg[tn]
-			if !ok {
-				log.Printf("did not find filetype=%v for filename=%v. will ignore this filetype.", tn, fn)
+				log.Printf("Failed to find fileType with name=%v when configuring filename=%v. This file will be indexed but may be incorrectly configured.\n", ftn, v.Name)
 				continue
 			}
-			fileTypes = append(fileTypes, t)
+			fileTypeCfgs = append(fileTypeCfgs, ftc)
 		}
-		ifc, err := mergeConfigs(filename, fileTypes)
+		ifc, err := mergeConfigs(v.Name, fileTypeCfgs)
 		if err != nil {
-			log.Printf("failed to merge configs for filename=%v. this file will be skipped: %v\n", filename, err)
-			continue
+			log.Printf("Failed to merge configuration for file with filename=%v. This filename will be ignored. error: %v\n", v.Name, err)
 		}
 		indexedFiles = append(indexedFiles, *ifc)
 	}

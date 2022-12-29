@@ -15,53 +15,96 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"time"
 )
 
 type jsonHostConfig struct {
-	Name string `json:name`
-	Type string `json:type`
+	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 type jsonForwarderConfig struct {
-	Enabled           *bool  `json:enabled`
-	MaxBufferedEvents *int   `json:maxBufferedEvents`
-	RecipientAddress  string `json:recipientAddress`
+	Enabled           *bool  `json:"enabled"`
+	MaxBufferedEvents *int   `json:"maxBufferedEvents"`
+	RecipientAddress  string `json:"recipientAddress"`
 }
 
 type jsonRecipientConfig struct {
-	Enabled     *bool             `json:enabled`
-	Address     string            `json:address`
-	TimeLayouts map[string]string `json:timeLayouts`
+	Enabled *bool  `json:"enabled"`
+	Address string `json:"address"`
 }
 
 type jsonSqliteConfig struct {
-	FileName  string `json:fileName`
-	TrueBatch *bool  `json:trueBatch`
+	FileName  string `json:"fileName"`
+	TrueBatch *bool  `json:"trueBatch"`
 }
 
 type jsonWebConfig struct {
-	Enabled          *bool  `json:enabled`
-	Address          string `json:address`
-	UsePackagedFiles *bool  `json:usePackagedFiles`
-	DebugMode        *bool  `json:debugMode`
+	Enabled          *bool  `json:"enabled"`
+	Address          string `json:"address"`
+	UsePackagedFiles *bool  `json:"usePackagedFiles"`
+	DebugMode        *bool  `json:"debugMode"`
 }
 
-type jsonConfig struct {
-	ConfigPollInterval string               `json:configPollInterval`
-	Host               *jsonHostConfig      `json:host`
-	Forwarder          *jsonForwarderConfig `json:forwarder`
-	Recipient          *jsonRecipientConfig `json:recipient`
-	Sqlite             *jsonSqliteConfig    `json:sqlite`
-	Web                *jsonWebConfig       `json:web`
+type jsonRegexFileTypeParserConfig struct {
+	EventDelimiter  string   `json:"eventDelimiter"`
+	FieldExtractors []string `json:"fieldExtractors"`
 }
 
-var defaultConfig = StaticConfig{
+type jsonFileTypeParserConfig struct {
+	Type string `json:"type"`
+
+	RegexConfig *jsonRegexFileTypeParserConfig `json:"regexConfig"`
+}
+
+type jsonFileConfig struct {
+	Filename  string   `json:"fileName"`
+	FileTypes []string `json:"fileTypes"`
+}
+
+type jsonFileTypeConfig struct {
+	TimeLayout   string                    `json:"timeLayout"`
+	ReadInterval string                    `json:"configPollInterval"`
+	Parser       *jsonFileTypeParserConfig `json:"parser"`
+}
+
+type jsonHostTypeFileConfig struct {
+	FileName string `json:"fileName"`
+}
+
+type jsonHostTypeConfig struct {
+	Files []jsonHostTypeFileConfig `json:"files"`
+}
+
+type jsonTaskConfig struct {
+	Name     string         `json:"name"`
+	Enabled  bool           `json:"enabled"`
+	Interval string         `json:"interval"`
+	Config   map[string]any `json:"config"`
+}
+
+type jsonTasksConfig struct {
+	Tasks []jsonTaskConfig `json:"tasks"`
+}
+
+type JsonConfig struct {
+	ConfigPollInterval string               `json:"configPollInterval"`
+	Host               *jsonHostConfig      `json:"host"`
+	Forwarder          *jsonForwarderConfig `json:"forwarder"`
+	Recipient          *jsonRecipientConfig `json:"recipient"`
+	Sqlite             *jsonSqliteConfig    `json:"sqlite"`
+	Web                *jsonWebConfig       `json:"web"`
+
+	Files     []jsonFileConfig              `json:"files"`
+	FileTypes map[string]jsonFileTypeConfig `json:"fileTypes"`
+	HostTypes map[string]jsonHostTypeConfig `json:"hostTypes"`
+	Tasks     jsonTasksConfig               `json:"tasks"`
+}
+
+var defaultConfig = Config{
 	ConfigPollInterval: 1 * time.Minute,
 	Forwarder: &ForwarderConfig{
 		Enabled:           false,
@@ -86,14 +129,8 @@ var defaultConfig = StaticConfig{
 	},
 }
 
-func FromJSON(r io.Reader) (*StaticConfig, error) {
-	var cfg jsonConfig
-	decoder := json.NewDecoder(r)
-	err := decoder.Decode(&cfg)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding config JSON: %w", err)
-	}
-
+func FromJSON(cfg JsonConfig) (*Config, error) {
+	var err error
 	var hostName string
 	var hostType string
 	if cfg.Host != nil {
@@ -128,6 +165,19 @@ func FromJSON(r io.Reader) (*StaticConfig, error) {
 	} else {
 		log.Printf("using defaultConfigPollInterval=%v\n", defaultConfig.ConfigPollInterval)
 		configPollInterval = defaultConfig.ConfigPollInterval
+	}
+
+	files := make(map[string]FileConfig, len(cfg.Files))
+	for _, f := range cfg.Files {
+		files[f.Filename] = FileConfig{
+			Filename:  f.Filename,
+			Filetypes: f.FileTypes,
+		}
+	}
+
+	fileTypes, err := FileTypeConfigFromJSON(cfg.FileTypes)
+	if err != nil {
+		return nil, err
 	}
 
 	var forwarder *ForwarderConfig
@@ -237,7 +287,38 @@ func FromJSON(r io.Reader) (*StaticConfig, error) {
 		}
 	}
 
-	return &StaticConfig{
+	hostTypes := map[string]HostTypeConfig{}
+	for k, v := range cfg.HostTypes {
+		files := make([]HostFileConfig, 0, len(v.Files))
+		for _, f := range v.Files {
+			files = append(files, HostFileConfig{
+				Name: f.FileName,
+			})
+		}
+		hostTypes[k] = HostTypeConfig{
+			Files: files,
+		}
+	}
+
+	tasksConfig := TasksConfig{
+		Tasks: map[string]TaskConfig{},
+	}
+	for _, v := range cfg.Tasks.Tasks {
+		enabled := v.Enabled
+		intervalDuration, err := time.ParseDuration(v.Interval)
+		if err != nil {
+			log.Printf("got invalid duration=%v when parsing interval for task with name=%v. This task will be disabled. error: %v\n", v.Interval, v.Name, err)
+			enabled = false
+		}
+		tasksConfig.Tasks[v.Name] = TaskConfig{
+			Name:     v.Name,
+			Enabled:  enabled,
+			Interval: intervalDuration,
+			Config:   v.Config,
+		}
+	}
+
+	return &Config{
 		HostName:           hostName,
 		HostType:           hostType,
 		ConfigPollInterval: configPollInterval,
@@ -248,6 +329,11 @@ func FromJSON(r io.Reader) (*StaticConfig, error) {
 		SQLite: sqlite,
 
 		Web: web,
+
+		Files:     files,
+		FileTypes: fileTypes,
+		HostTypes: hostTypes,
+		Tasks:     tasksConfig,
 	}, nil
 }
 
@@ -259,4 +345,92 @@ func getDefaultHostName() (string, error) {
 	}
 	log.Printf("Got host name from operating system. hostName=%v\n", hostName)
 	return hostName, nil
+}
+
+func ToJSON(c *Config) (*JsonConfig, error) {
+	files := make([]jsonFileConfig, 0, len(c.Files))
+	for _, v := range c.Files {
+		files = append(files, jsonFileConfig{
+			Filename:  v.Filename,
+			FileTypes: v.Filetypes,
+		})
+	}
+	fileTypes := map[string]jsonFileTypeConfig{}
+	for _, v := range c.FileTypes {
+		parserType := ""
+		if v.ParserType == ParserTypeRegex {
+			parserType = "Regex"
+		} else {
+			return nil, fmt.Errorf("failed to convert config to json: unknown parserType=%v", v.ParserType)
+		}
+		fieldExtractors := make([]string, len(v.Regex.FieldExtractors))
+		for i, fe := range v.Regex.FieldExtractors {
+			fieldExtractors[i] = fe.String()
+		}
+		fileTypes[v.Name] = jsonFileTypeConfig{
+			TimeLayout:   v.TimeLayout,
+			ReadInterval: v.ReadInterval.String(),
+			Parser: &jsonFileTypeParserConfig{
+				Type: parserType,
+				RegexConfig: &jsonRegexFileTypeParserConfig{
+					EventDelimiter:  v.Regex.EventDelimiter.String(),
+					FieldExtractors: fieldExtractors,
+				},
+			},
+		}
+	}
+	hostTypes := map[string]jsonHostTypeConfig{}
+	for k, v := range c.HostTypes {
+		hostTypeFileConfigs := make([]jsonHostTypeFileConfig, len(v.Files))
+		for i, f := range v.Files {
+			hostTypeFileConfigs[i] = jsonHostTypeFileConfig{
+				FileName: f.Name,
+			}
+		}
+		hostTypes[k] = jsonHostTypeConfig{
+			Files: hostTypeFileConfigs,
+		}
+	}
+	tasks := make([]jsonTaskConfig, 0, len(c.Tasks.Tasks))
+	for _, v := range c.Tasks.Tasks {
+		tasks = append(tasks, jsonTaskConfig{
+			Name:     v.Name,
+			Enabled:  v.Enabled,
+			Interval: v.Interval.String(),
+			Config:   v.Config,
+		})
+	}
+	jsonCfg := JsonConfig{
+		ConfigPollInterval: c.ConfigPollInterval.String(),
+		Host: &jsonHostConfig{
+			Name: c.HostName,
+			Type: c.HostType,
+		},
+		Forwarder: &jsonForwarderConfig{
+			Enabled:           &c.Forwarder.Enabled,
+			MaxBufferedEvents: &c.Forwarder.MaxBufferedEvents,
+			RecipientAddress:  c.Forwarder.RecipientAddress,
+		},
+		Recipient: &jsonRecipientConfig{
+			Enabled: &c.Recipient.Enabled,
+			Address: c.Recipient.Address,
+		},
+		Sqlite: &jsonSqliteConfig{
+			FileName:  c.SQLite.DatabaseFile,
+			TrueBatch: &c.SQLite.TrueBatch,
+		},
+		Web: &jsonWebConfig{
+			Enabled:          &c.Web.Enabled,
+			Address:          c.Web.Address,
+			UsePackagedFiles: &c.Web.UsePackagedFiles,
+			DebugMode:        &c.Web.DebugMode,
+		},
+		Files:     files,
+		FileTypes: fileTypes,
+		HostTypes: hostTypes,
+		Tasks: jsonTasksConfig{
+			Tasks: tasks,
+		},
+	}
+	return &jsonCfg, nil
 }

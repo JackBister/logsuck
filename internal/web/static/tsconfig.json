@@ -1,10 +1,11 @@
 {
-    "compilerOptions": {
-        "jsx": "react",
-        "jsxFactory": "h",
-        "module": "commonjs",
-        "sourceMap": true,
-        "target": "ES2015",
-        "strict": true
-    }
+  "compilerOptions": {
+    "jsx": "react",
+    "jsxFactory": "h",
+    "module": "commonjs",
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "target": "ES2015",
+    "strict": true
+  }
 }

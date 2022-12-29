@@ -31,33 +31,38 @@ import (
 )
 
 type RecipientEndpoint struct {
-	cfg           *config.StaticConfig
-	dynamicConfig config.DynamicConfig
-	repo          events.Repository
+	configSource config.ConfigSource
+	repo         events.Repository
 }
 
-func NewRecipientEndpoint(cfg *config.StaticConfig, dynamicConfig config.DynamicConfig, repo events.Repository) *RecipientEndpoint {
-	return &RecipientEndpoint{cfg: cfg, dynamicConfig: dynamicConfig, repo: repo}
+func NewRecipientEndpoint(configSource config.ConfigSource, repo events.Repository) *RecipientEndpoint {
+	return &RecipientEndpoint{configSource: configSource, repo: repo}
 }
 
 func (er *RecipientEndpoint) Serve() error {
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
 
+	cfgResp, err := er.configSource.Get()
+	if err != nil {
+		return fmt.Errorf("failed to start recipient endpoint: failed to get config: %w", err)
+	}
+	staticCfg := cfgResp.Cfg
+
 	r.GET("/v1/config", func(c *gin.Context) {
-		allKeys, ok := er.dynamicConfig.Ls(true)
-		if !ok {
-			c.AbortWithError(500, fmt.Errorf("did not get ok when listing all config keys"))
+		cfg, err := er.configSource.Get()
+		if err != nil {
+			c.AbortWithError(500, err)
 			return
 		}
-		m := map[string]string{}
-		for _, k := range allKeys {
-			v := er.dynamicConfig.GetCurrentValueAsString(k)
-			m[k] = v
+		cfgJson, err := config.ToJSON(&cfg.Cfg)
+		if err != nil {
+			c.AbortWithError(500, err)
+			return
 		}
 		c.JSON(200, rpc.ConfigResponse{
-			LastUpdateTime: er.dynamicConfig.GetLastUpdateTime(),
-			Config:         m,
+			Modified: &cfg.Modified,
+			Config:   *cfgJson,
 		})
 	})
 
@@ -68,7 +73,12 @@ func (er *RecipientEndpoint) Serve() error {
 			c.AbortWithError(500, fmt.Errorf("failed to decode JSON: %w", err))
 			return
 		}
-		indexedFileConfigs, err := indexedfiles.ReadDynamicFileConfig(er.dynamicConfig)
+		cfg, err := er.configSource.Get()
+		if err != nil {
+			c.AbortWithError(500, err)
+			return
+		}
+		indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg)
 		if err != nil {
 			// TODO:
 		}
@@ -84,7 +94,12 @@ func (er *RecipientEndpoint) Serve() error {
 					// TODO:
 					continue
 				}
-				if m, err := filepath.Match(absGlob, evt.Source); err == nil && m {
+				absSource, err := filepath.Abs(evt.Source)
+				if err != nil {
+					// TODO:
+					continue
+				}
+				if m, err := filepath.Match(absGlob, absSource); err == nil && m {
 					sourceToConfig[evt.Source] = &indexedFileConfigs[i]
 					goto nextfile
 				}
@@ -116,7 +131,7 @@ func (er *RecipientEndpoint) Serve() error {
 					processed[i].Timestamp = parsed
 				}
 			} else {
-				log.Println("no _time field extracted, will use current time as timestamp")
+				log.Printf("no _time field extracted for event='%v', got fields=%v, will use current time as timestamp\n", evt.Raw, fields)
 				processed[i].Timestamp = time.Now()
 			}
 		}
@@ -128,6 +143,6 @@ func (er *RecipientEndpoint) Serve() error {
 		c.Status(200)
 	})
 
-	log.Printf("Starting Recipient on address='%v'\n", er.cfg.Recipient.Address)
-	return r.Run(er.cfg.Recipient.Address)
+	log.Printf("Starting Recipient on address='%v'\n", staticCfg.Recipient.Address)
+	return r.Run(staticCfg.Recipient.Address)
 }

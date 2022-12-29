@@ -19,7 +19,12 @@ func getSourceToIndexedFileConfig(evts []events.EventWithId, indexedFileConfigs 
 				// TODO:
 				continue
 			}
-			if m, err := filepath.Match(absGlob, evt.Source); err == nil && m {
+			absSource, err := filepath.Abs(evt.Source)
+			if err != nil {
+				// TODO:
+				continue
+			}
+			if m, err := filepath.Match(absGlob, absSource); err == nil && m {
 				sourceToConfig[evt.Source] = &indexedFileConfigs[i]
 				goto nextfile
 			}

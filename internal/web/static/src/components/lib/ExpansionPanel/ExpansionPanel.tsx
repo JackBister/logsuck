@@ -1,4 +1,5 @@
 import { Component, h, RenderableProps } from "preact";
+import { expansionPanelButton } from "./ExpansionPanel.style.scss";
 
 export interface ExpansionPanelProps {
   expanded: boolean;
@@ -53,17 +54,16 @@ export class ExpansionPanel extends Component<
   }
 
   render() {
-    return (
-      <div>
-        <button
-          onClick={() =>
-            this.props.onExpansionStateChanged(!this.props.expanded)
-          }
-        >
-          {this.props.title}
-        </button>
-        {this.props.expanded && <div>{this.props.children}</div>}
-      </div>
-    );
+    return [
+      <button
+        type="button"
+        className={expansionPanelButton}
+        onClick={() => this.props.onExpansionStateChanged(!this.props.expanded)}
+      >
+        {this.props.title}
+        <span style={{ fontSize: "1rem" }}>&#x25bc;</span>
+      </button>,
+      this.props.expanded && <div>{this.props.children}</div>,
+    ];
   }
 }

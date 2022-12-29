@@ -28,13 +28,13 @@ type EventPublisher interface {
 }
 
 type batchedRepositoryPublisher struct {
-	cfg  *config.StaticConfig
+	cfg  *config.Config
 	repo Repository
 
 	adder chan<- Event
 }
 
-func BatchedRepositoryPublisher(cfg *config.StaticConfig, repo Repository) EventPublisher {
+func BatchedRepositoryPublisher(cfg *config.Config, repo Repository) EventPublisher {
 	adder := make(chan Event, 5000)
 
 	go func() {
@@ -97,7 +97,7 @@ func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout stri
 }
 
 type repositoryPublisher struct {
-	cfg        *config.StaticConfig
+	cfg        *config.Config
 	repository Repository
 }
 

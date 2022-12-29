@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"log"
 	"regexp"
 	"time"
@@ -16,6 +15,7 @@ const (
 )
 
 type FileTypeConfig struct {
+	Name         string
 	TimeLayout   string
 	ReadInterval time.Duration
 	ParserType   ParserType
@@ -28,98 +28,91 @@ const defaultEventDelimiter = "\n"
 var defaultEventDelimiterRegexp = regexp.MustCompile(defaultEventDelimiter)
 var defaultFieldExtractors = []*regexp.Regexp{
 	regexp.MustCompile("(\\w+)=(\\w+)"),
-	regexp.MustCompile("^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d.\\d\\d\\d\\d\\d\\d)"),
+	regexp.MustCompile("^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d\\.\\d\\d\\d\\d\\d\\d)"),
+}
+
+var defaultRegexParserConfig = parser.RegexParserConfig{
+	EventDelimiter:  defaultEventDelimiterRegexp,
+	FieldExtractors: defaultFieldExtractors,
 }
 
 const defaultTimeLayout = "2006/01/02 15:04:05"
 
-func GetFileTypeConfig(dynamicConfig DynamicConfig) (map[string]FileTypeConfig, error) {
-	fileTypesCfg := dynamicConfig.Cd("fileTypes")
-	keys, ok := fileTypesCfg.Ls(false)
-	if !ok {
-		return map[string]FileTypeConfig{}, fmt.Errorf("did not get ok when getting list of keys from DynamicConfig")
-	}
-	ret := make(map[string]FileTypeConfig, len(keys))
-	for _, k := range keys {
-		fileTypeCfg := fileTypesCfg.Cd(k)
-		cfg, err := FileTypeConfigFromDynamicConfig(k, fileTypeCfg)
-		if err != nil {
-			log.Printf("got error when reading configuration for filetype=%v: %v\n", k, err)
-			continue
+func FileTypeConfigFromJSON(jsonFileTypes map[string]jsonFileTypeConfig) (map[string]FileTypeConfig, error) {
+	var err error
+	fileTypes := make(map[string]FileTypeConfig, len(jsonFileTypes))
+	for name, ft := range jsonFileTypes {
+		var readInterval time.Duration
+		if ft.ReadInterval != "" {
+			readInterval, err = time.ParseDuration(ft.ReadInterval)
+			if err != nil {
+				// TODO:
+				log.Printf("failed to read config for filetype with name=%v: failed to parse ReadInterval=%v\n", name, ft.ReadInterval)
+				continue
+			}
+		} else {
+			log.Printf("will use default readInterval for filetype with name=%v", name)
+			readInterval = defaultReadInterval
 		}
-		ret[k] = *cfg
-	}
-	if _, ok := ret["DEFAULT"]; !ok {
-		defaultReadIntervalDuration, err := time.ParseDuration(defaultReadInterval)
-		if err != nil {
-			panic("defaultReadInterval could not be parsed as a duration. this indicates that someone has seriously screwed up. you can probably work around this by adding a DEFAULT key to your fileTypes in the configuration.")
+
+		var parserType ParserType
+		var regexParserConfig *parser.RegexParserConfig
+		if ft.Parser == nil {
+			log.Printf("will use default paser config for filetype with name=%v", name)
+			parserType = ParserTypeRegex
+			regexParserConfig = &defaultRegexParserConfig
+		} else {
+
+			if ft.Parser.Type != "" && ft.Parser.Type != "Regex" {
+				// TODO:
+				log.Printf("failed to read config for filetype with name=%v: parser.type was not 'Regex'\n", name)
+				continue
+			}
+
+			if ft.Parser.RegexConfig == nil {
+				log.Printf("failed to read config for filetype with name=%v: parser.regexConfig was nil\n", name)
+				continue
+			}
+
+			parserType = ParserTypeRegex
+			eventDelimiter, err := regexp.Compile(ft.Parser.RegexConfig.EventDelimiter)
+			if err != nil {
+				log.Printf("failed to read config for filetype with name=%v: failed to compile eventDelimiter regexp: %v\n", name, err)
+			}
+
+			fe := make([]*regexp.Regexp, 0, len(ft.Parser.RegexConfig.FieldExtractors))
+			for i, s := range ft.Parser.RegexConfig.FieldExtractors {
+				rex, err := regexp.Compile(s)
+				if err != nil {
+					log.Printf("failed to read config for filetype with name=%v: failed to compile fieldExtractor regexp at index=%v: %v\n", name, i, err)
+					continue
+				}
+				fe = append(fe, rex)
+			}
+
+			regexParserConfig = &parser.RegexParserConfig{
+				EventDelimiter: eventDelimiter,
+
+				FieldExtractors: fe,
+			}
 		}
-		ret["DEFAULT"] = FileTypeConfig{
+
+		fileTypes[name] = FileTypeConfig{
+			Name:         name,
+			TimeLayout:   ft.TimeLayout,
+			ReadInterval: readInterval,
+			ParserType:   parserType,
+			Regex:        regexParserConfig,
+		}
+	}
+	if _, ok := fileTypes["DEFAULT"]; !ok {
+		fileTypes["DEFAULT"] = FileTypeConfig{
+			Name:         "DEFAULT",
 			TimeLayout:   defaultTimeLayout,
-			ReadInterval: defaultReadIntervalDuration,
+			ReadInterval: defaultReadInterval,
 			ParserType:   ParserTypeRegex,
-			Regex: &parser.RegexParserConfig{
-				EventDelimiter:  defaultEventDelimiterRegexp,
-				FieldExtractors: defaultFieldExtractors,
-			},
+			Regex:        &defaultRegexParserConfig,
 		}
 	}
-	return ret, nil
-}
-
-func FileTypeConfigFromDynamicConfig(name string, fileTypeCfg DynamicConfig) (*FileTypeConfig, error) {
-	timeLayout, _ := fileTypeCfg.GetString("timeLayout", defaultTimeLayout).Get()
-	readIntervalString, _ := fileTypeCfg.GetString("readInterval", defaultReadInterval).Get()
-	readInterval, err := time.ParseDuration(readIntervalString)
-	if err != nil {
-		log.Printf("failed to parse duration=%v for file type with key=%v. will use defaultReadInterval=%v\n", readIntervalString, name, defaultReadInterval)
-		readInterval, _ = time.ParseDuration(defaultReadInterval)
-	}
-	parserCfg := fileTypeCfg.Cd("parser")
-	parserTypeString, _ := parserCfg.GetString("type", "Regex").Get()
-	var parserType ParserType
-	var regexParserConfig *parser.RegexParserConfig
-	if parserTypeString == "Regex" {
-		parserType = ParserTypeRegex
-		r, err := getRegexParserConfig(parserCfg.Cd("regexConfig"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert regex parser config for file type with key=%v. this file type will not be usable: %v", name, err)
-		}
-		regexParserConfig = r
-	} else {
-		return nil, fmt.Errorf("got unknown parser type=%v for file type with key=%v. this file type will not be usable.\n", parserTypeString, name)
-	}
-	return &FileTypeConfig{
-		TimeLayout:   timeLayout,
-		ReadInterval: readInterval,
-		ParserType:   parserType,
-		Regex:        regexParserConfig,
-	}, nil
-}
-
-func getRegexParserConfig(dynamicConfig DynamicConfig) (*parser.RegexParserConfig, error) {
-	eventDelimiterString, _ := dynamicConfig.GetString("eventDelimiter", defaultEventDelimiter).Get()
-	eventDelimiter, err := regexp.Compile(eventDelimiterString)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile event delimiter regex: %w", err)
-	}
-
-	fieldExtractorsArr, _ := dynamicConfig.GetArray("fieldExtractors", []interface{}{}).Get()
-	fieldExtractors := make([]*regexp.Regexp, len(fieldExtractorsArr))
-	for i, fieldExtractorInterface := range fieldExtractorsArr {
-		fieldExtractorString, ok := fieldExtractorInterface.(string)
-		if !ok {
-			return nil, fmt.Errorf("failed to convert field extractor at index=%v to string. fieldExtractor=%v", i, fieldExtractorInterface)
-		}
-		fieldExtractor, err := regexp.Compile(fieldExtractorString)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile field extractor regex: %w", err)
-		}
-		fieldExtractors[i] = fieldExtractor
-	}
-
-	return &parser.RegexParserConfig{
-		EventDelimiter:  eventDelimiter,
-		FieldExtractors: fieldExtractors,
-	}, nil
+	return fileTypes, nil
 }

@@ -115,6 +115,14 @@ ul {
   margin: 0;
 }
 
+.bg-none {
+  background: none;
+}
+
+.border-none {
+  border: none;
+}
+
 .mb-3 {
   margin-bottom: 1rem !important;
 }

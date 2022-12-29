@@ -16,7 +16,7 @@ package config
 
 import "time"
 
-type StaticConfig struct {
+type Config struct {
 	HostName           string
 	HostType           string
 	ConfigPollInterval time.Duration
@@ -27,4 +27,9 @@ type StaticConfig struct {
 	SQLite *SqliteConfig
 
 	Web *WebConfig
+
+	Files     map[string]FileConfig
+	FileTypes map[string]FileTypeConfig
+	HostTypes map[string]HostTypeConfig
+	Tasks     TasksConfig
 }

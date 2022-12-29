@@ -9,6 +9,8 @@ log-*.txt
 *.bat
 *.exe
 logsuck.json
+logsuck-forwarder.json
+logsuck-recipient.json
 main
 
 internal/web/static/dist

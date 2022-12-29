@@ -36,11 +36,16 @@ func (s *surroundingPipelineStep) Execute(ctx context.Context, pipe pipelinePipe
 
 	evts, err := params.EventsRepo.GetSurroundingEvents(s.eventId, s.count)
 	if err != nil {
-		log.Printf("got error when executing surrounding pipeline step: %v", err) // TODO: This needs to make it to the frontend somehow
+		log.Printf("got error when executing surrounding pipeline step: %v\n", err) // TODO: This needs to make it to the frontend somehow
 		return
 	}
 
-	indexedFileConfigs, err := indexedfiles.ReadDynamicFileConfig(params.DynamicConfig)
+	cfg, err := params.ConfigSource.Get()
+	if err != nil {
+		log.Printf("got error when executing surrounding pipeline step: failed to get config: %v\n", err)
+		return
+	}
+	indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg)
 	if err != nil {
 		// TODO: signal error to rest of pipe??
 		return
@@ -50,7 +55,9 @@ func (s *surroundingPipelineStep) Execute(ctx context.Context, pipe pipelinePipe
 	for i, evt := range evts {
 		ifc, ok := sourceToIfc[evt.Source]
 		if !ok {
-			// TODO: Error or automatically get default IFC?
+			// TODO: How does the user get feedback about this?
+			log.Printf("failed to find file configuration for event with source=%v. this event will be ignored.\n", evt.Source)
+			continue
 		}
 		evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), ifc.FileParser)
 		retEvts[i] = events.EventWithExtractedFields{

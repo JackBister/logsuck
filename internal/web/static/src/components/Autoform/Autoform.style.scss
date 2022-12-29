@@ -1,0 +1,7 @@
+@import "../lib/style/shared.scss";
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1rem;
+}

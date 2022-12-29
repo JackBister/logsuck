@@ -15,7 +15,7 @@
  */
 
 import { h, render } from "preact";
-import { getFileTypeConfigs, updateFileTypeConfig } from "../api/v1";
+import { getConfig, updateConfig } from "../api/v1";
 import { getQueryParams, setQueryParams } from "../queryParams";
 import { ConfigPageComponent } from "./ConfigPage";
 
@@ -26,8 +26,8 @@ function main() {
   }
   render(
     <ConfigPageComponent
-      getFileTypeConfigs={getFileTypeConfigs}
-      updateFileTypeConfig={updateFileTypeConfig}
+      getConfig={getConfig}
+      updateConfig={updateConfig}
       getQueryParams={getQueryParams}
       setQueryParams={setQueryParams}
     />,

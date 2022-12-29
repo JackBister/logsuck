@@ -29,11 +29,9 @@ func TestRexPipelineStep(t *testing.T) {
 		t.Fatalf("TestRexPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	_, dc := newDynamicConfig()
 	params := PipelineParameters{
-		Cfg:           &config.StaticConfig{},
-		DynamicConfig: dc,
-		EventsRepo:    repo,
+		ConfigSource: &config.NullConfigSource{},
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 
@@ -64,11 +62,9 @@ func TestRexPipelineStep_MultipleExtractions(t *testing.T) {
 		t.Fatalf("TestRexPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	_, dc := newDynamicConfig()
 	params := PipelineParameters{
-		Cfg:           &config.StaticConfig{},
-		DynamicConfig: dc,
-		EventsRepo:    repo,
+		ConfigSource: &config.NullConfigSource{},
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 
@@ -102,11 +98,9 @@ func TestRexPipelineStep_ExtractedField(t *testing.T) {
 		t.Fatalf("TestRexPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	_, dc := newDynamicConfig()
 	params := PipelineParameters{
-		Cfg:           &config.StaticConfig{},
-		DynamicConfig: dc,
-		EventsRepo:    repo,
+		ConfigSource: &config.NullConfigSource{},
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 
@@ -141,11 +135,9 @@ func TestRexPipelineStep_Source(t *testing.T) {
 		t.Fatalf("TestRexPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	_, dc := newDynamicConfig()
 	params := PipelineParameters{
-		Cfg:           &config.StaticConfig{},
-		DynamicConfig: dc,
-		EventsRepo:    repo,
+		ConfigSource: &config.NullConfigSource{},
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 
@@ -178,11 +170,9 @@ func TestRexPipelineStep_Host(t *testing.T) {
 		t.Fatalf("TestRexPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	_, dc := newDynamicConfig()
 	params := PipelineParameters{
-		Cfg:           &config.StaticConfig{},
-		DynamicConfig: dc,
-		EventsRepo:    repo,
+		ConfigSource: &config.NullConfigSource{},
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 

@@ -1,6 +1,10 @@
 package rpc
 
-import "time"
+import (
+	"time"
+
+	"github.com/jackbister/logsuck/internal/config"
+)
 
 type RawEvent struct {
 	Raw      string
@@ -16,6 +20,6 @@ type ReceiveEventsRequest struct {
 }
 
 type ConfigResponse struct {
-	LastUpdateTime *time.Time
-	Config         map[string]string
+	Modified *time.Time
+	Config   config.JsonConfig
 }

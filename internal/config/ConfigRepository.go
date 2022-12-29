@@ -1,5 +1,7 @@
 package config
 
 type ConfigRepository interface {
-	SetAll(m map[string]string) error
+	Upsert(c *Config) error
+	Get() (*ConfigResponse, error)
+	Changes() <-chan struct{}
 }

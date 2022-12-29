@@ -40,12 +40,11 @@ type Web interface {
 }
 
 type webImpl struct {
-	staticConfig  *config.StaticConfig
-	dynamicConfig config.DynamicConfig
-	eventRepo     events.Repository
-	jobRepo       jobs.Repository
-	jobEngine     *jobs.Engine
-	configRepo    config.ConfigRepository
+	configSource config.ConfigSource
+	configRepo   config.ConfigRepository
+	eventRepo    events.Repository
+	jobRepo      jobs.Repository
+	jobEngine    *jobs.Engine
 }
 
 type webError struct {
@@ -57,14 +56,13 @@ func (w webError) Error() string {
 	return w.err
 }
 
-func NewWeb(staticConfig *config.StaticConfig, dynamicConfig config.DynamicConfig, eventRepo events.Repository, jobRepo jobs.Repository, jobEngine *jobs.Engine, configRepo config.ConfigRepository) Web {
+func NewWeb(configSource config.ConfigSource, configRepo config.ConfigRepository, eventRepo events.Repository, jobRepo jobs.Repository, jobEngine *jobs.Engine) Web {
 	return webImpl{
-		staticConfig:  staticConfig,
-		dynamicConfig: dynamicConfig,
-		eventRepo:     eventRepo,
-		jobRepo:       jobRepo,
-		jobEngine:     jobEngine,
-		configRepo:    configRepo,
+		configSource: configSource,
+		configRepo:   configRepo,
+		eventRepo:    eventRepo,
+		jobRepo:      jobRepo,
+		jobEngine:    jobEngine,
 	}
 }
 
@@ -72,7 +70,12 @@ func NewWeb(staticConfig *config.StaticConfig, dynamicConfig config.DynamicConfi
 var Assets embed.FS
 
 func (wi webImpl) Serve() error {
-	if wi.staticConfig.Web.DebugMode {
+	cfgResp, err := wi.configSource.Get()
+	if err != nil {
+		return fmt.Errorf("failed to start web server: failed to get config: %w", err)
+	}
+	staticCfg := cfgResp.Cfg
+	if staticCfg.Web.DebugMode {
 		log.Println("web.debugMode enabled. Will enable Gin debug mode. To disable, remove the debugMode key in the web object in your JSON config or set it to false.")
 		gin.SetMode(gin.DebugMode)
 	} else {
@@ -82,7 +85,7 @@ func (wi webImpl) Serve() error {
 	r.SetTrustedProxies(nil)
 
 	var filesys http.FileSystem
-	if wi.staticConfig.Web.UsePackagedFiles {
+	if staticCfg.Web.UsePackagedFiles {
 		assets, err := fs.Sub(Assets, "static/dist")
 		if err != nil {
 			return fmt.Errorf("failed to Sub into static/dist directory: %w", err)
@@ -210,7 +213,12 @@ func (wi webImpl) Serve() error {
 			c.AbortWithError(500, err)
 			return
 		}
-		indexedFileConfigs, err := indexedfiles.ReadDynamicFileConfig(wi.dynamicConfig)
+		cfg, err := wi.configSource.Get()
+		if err != nil {
+			c.AbortWithError(500, err)
+			return
+		}
+		indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg)
 		if err != nil {
 			c.AbortWithError(500, err)
 			return
@@ -262,8 +270,8 @@ func (wi webImpl) Serve() error {
 		c.FileFromFS(path, filesys)
 	})
 
-	log.Printf("Starting Web GUI on address='%v'\n", wi.staticConfig.Web.Address)
-	return r.Run(wi.staticConfig.Web.Address)
+	log.Printf("Starting Web GUI on address='%v'\n", staticCfg.Web.Address)
+	return r.Run(staticCfg.Web.Address)
 }
 
 func parseTemplate(fs http.FileSystem) (*template.Template, error) {

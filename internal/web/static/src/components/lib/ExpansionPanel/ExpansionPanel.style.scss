@@ -1,0 +1,23 @@
+
+.expansion-panel-button {
+    height: 3rem;
+    width: 100%;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+
+    background: none;
+    border-left: none;
+    border-right: none;
+    border-top: 1px solid black;
+    border-bottom: 1px solid black;
+
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.expansion-panel-button + .expansion-panel-button {
+    border-top: none;
+}

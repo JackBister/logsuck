@@ -17,6 +17,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/araddon/dateparse"
@@ -32,6 +33,13 @@ type searchPipelineStep struct {
 
 func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, params PipelineParameters) {
 	defer close(pipe.output)
+
+	cfg, err := params.ConfigSource.Get()
+	if err != nil {
+		log.Printf("got error when executing search pipeline step: failed to get config: %v\n", err)
+		return
+	}
+
 	inputEvents := params.EventsRepo.FilterStream(s.srch, s.startTime, s.endTime)
 	compiledFrags := compileKeys(s.srch.Fragments)
 	compiledNotFrags := compileKeys(s.srch.NotFragments)
@@ -46,7 +54,7 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 			if !ok {
 				return
 			}
-			indexedFiles, err := indexedfiles.ReadDynamicFileConfig(params.DynamicConfig)
+			indexedFiles, err := indexedfiles.ReadFileConfig(&cfg.Cfg)
 			if err != nil {
 				// TODO: signal error to rest of pipe??
 				return
@@ -56,7 +64,9 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 			for _, evt := range evts {
 				ifc, ok := sourceToIfc[evt.Source]
 				if !ok {
-					// TODO: Error or automatically get default IFC?
+					// TODO: How does the user get feedback about this?
+					log.Printf("failed to find file configuration for event with source=%v. this event will be ignored.\n", evt.Source)
+					continue
 				}
 				evtFields, include := shouldIncludeEvent(evt, ifc.FileParser, compiledFrags, compiledNotFrags, compiledFields, compiledNotFields)
 				if include {

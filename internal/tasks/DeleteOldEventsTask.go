@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/search"
 )
@@ -36,8 +35,17 @@ func (t *DeleteOldEventsTask) Name() string {
 	return "@logsuck/DeleteOldEventsTask"
 }
 
-func (t *DeleteOldEventsTask) Run(cfg config.DynamicConfig, ctx context.Context) {
-	minAgeStr, _ := cfg.GetString("minAge", "").Get()
+func (t *DeleteOldEventsTask) Run(cfg map[string]any, ctx context.Context) {
+	minAgeAny, ok := cfg["minAge"]
+	if !ok {
+		log.Println("DeleteOldEventsTask: failed to get minAge. Will not do anything.")
+		return
+	}
+	minAgeStr, ok := minAgeAny.(string)
+	if !ok {
+		log.Println("DeleteOldEventsTask: failed to cast minAge to string. Will not do anything.")
+		return
+	}
 	if minAgeStr == "" {
 		log.Println("DeleteOldEventsTask: minAgeStr=''. Will not do anything.")
 		return

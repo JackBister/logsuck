@@ -122,33 +122,18 @@ export function getFieldValueCounts(
     .then((f: FieldValueCounts) => f);
 }
 
-export interface RegexParserConfig {
-  eventDelimiter: string | undefined;
-  fieldExtractors: string[];
+export interface Config {}
+
+export function getConfig(): Promise<Config> {
+  return fetch(`/api/v1/config`).then((r) => r.json());
 }
 
-export interface FileParserConfig {
-  type: "Regex";
-  regexConfig: RegexParserConfig;
-}
-
-export interface FileTypeConfig {
-  name: string;
-  timeLayout: string | undefined;
-  readInterval: string | undefined;
-  parser: FileParserConfig;
-}
-
-export function getFileTypeConfigs(): Promise<FileTypeConfig[]> {
-  return fetch("/api/v1/config/fileTypes").then((r) => r.json());
-}
-
-export function updateFileTypeConfig(cfg: FileTypeConfig): Promise<any> {
-  return fetch("/api/v1/config/fileTypes", {
+export function updateConfig(value: Config): Promise<any> {
+  return fetch(`/api/v1/config`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(cfg),
+    body: JSON.stringify(value),
   });
 }

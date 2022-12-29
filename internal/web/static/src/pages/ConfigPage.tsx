@@ -15,13 +15,15 @@
  */
 
 import { Component, h } from "preact";
-import { FileTypeConfig } from "../api/v1";
-import { FileTypeConfigsComponent } from "../components/Config/FileTypeConfig";
+import { Config } from "../api/v1";
+import { Autoform, FormSpec } from "../components/Autoform/Autoform";
+import { Card } from "../components/lib/Card/Card";
 import { Navbar } from "../components/lib/Navbar/Navbar";
+import { Table, TableRow } from "../components/lib/Table/Table";
 
 interface ConfigPageProps {
-  getFileTypeConfigs: () => Promise<FileTypeConfig[]>;
-  updateFileTypeConfig: (cfg: FileTypeConfig) => Promise<any>;
+  getConfig: () => Promise<Config>;
+  updateConfig: (value: Config) => Promise<any>;
 
   getQueryParams: () => URLSearchParams;
   setQueryParams: (params: URLSearchParams) => void;
@@ -39,6 +41,7 @@ interface ConfigPageStateLoading extends ConfigPageStateBase {
 
 interface ConfigPageStateLoaded extends ConfigPageStateBase {
   type: "loaded";
+  initialValues: Config;
 }
 
 interface ConfigPageStateLoadingError extends ConfigPageStateBase {
@@ -49,6 +52,31 @@ type ConfigPageState =
   | ConfigPageStateLoading
   | ConfigPageStateLoaded
   | ConfigPageStateLoadingError;
+
+const FILE_PAGE_SPEC: FormSpec = {
+  fields: [
+    {
+      name: "files",
+      type: "ARRAY",
+      headerFieldName: "fileName",
+      itemTypes: {
+        type: "OBJECT",
+        name: "file",
+        fields: [
+          { type: "STRING", name: "fileName" },
+          {
+            type: "ARRAY",
+            name: "fileTypes",
+            itemTypes: {
+              type: "STRING",
+              name: "fileType",
+            },
+          },
+        ],
+      },
+    },
+  ],
+};
 
 export class ConfigPageComponent extends Component<
   ConfigPageProps,
@@ -62,24 +90,69 @@ export class ConfigPageComponent extends Component<
     };
   }
 
-  async componentDidMount() {}
+  async componentDidMount() {
+    const cfg = await this.props.getConfig();
+    this.setState({
+      type: "loaded",
+      topLevelProperty: "files",
+      initialValues: cfg,
+    });
+  }
 
   render() {
     return (
       <div>
         <Navbar />
         <main role="main" className="ls-container">
-          {(!this.state.topLevelProperty ||
-            this.state.topLevelProperty === "fileTypes") && (
-            <div>
-              <FileTypeConfigsComponent
-                getFileTypeConfigs={this.props.getFileTypeConfigs}
-                updateFileTypeConfig={this.props.updateFileTypeConfig}
-              />
+          <div className="d-flex flex-row gap-6">
+            <div className="shrink-1">
+              <Card>
+                <Table hoverable={true}>
+                  <tbody>
+                    <TableRow onClick={() => this.navigate("files")}>
+                      <td>Files</td>
+                    </TableRow>
+                  </tbody>
+                </Table>
+              </Card>
             </div>
-          )}
+            <div className="grow-1 shrink-0" style={{ flexBasis: "80%" }}>
+              {this.state.type === "loaded" && (
+                <div>
+                  {this.state.topLevelProperty === "files" && (
+                    <Autoform
+                      spec={FILE_PAGE_SPEC}
+                      initialValues={this.state.initialValues}
+                      onSubmit={async (v: Config) => {
+                        await this.props.updateConfig(v);
+                        await this.reload();
+                      }}
+                    ></Autoform>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </main>
       </div>
     );
+  }
+
+  private navigate(topLevelProperty: string) {
+    if (this.state.type !== "loaded") {
+      return;
+    }
+    this.setState({ type: "loaded", topLevelProperty });
+  }
+
+  private async reload() {
+    this.setState({
+      type: "loading",
+    });
+    const cfg = await this.props.getConfig();
+    this.setState({
+      type: "loaded",
+      initialValues: cfg,
+    });
   }
 }

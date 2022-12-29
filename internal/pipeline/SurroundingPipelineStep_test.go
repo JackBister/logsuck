@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 )
 
@@ -31,11 +30,9 @@ func TestSurroundingPipelineStep(t *testing.T) {
 		t.Fatalf("TestSurroundingPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	_, dc := newDynamicConfig()
 	params := PipelineParameters{
-		Cfg:           &config.StaticConfig{},
-		DynamicConfig: dc,
-		EventsRepo:    repo,
+		ConfigSource: newConfigSource(),
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 	close(input)

@@ -42,6 +42,12 @@
   background-color: $color-button-primary-active;
 }
 
+.ls-button-primary:disabled {
+  background-color: $color-button-primary-disabled;
+  color: rgba(255, 255, 255, 0.651);
+  cursor: default;
+}
+
 .ls-button-secondary {
   background-color: $color-button-secondary;
   color: $color-text-main;
