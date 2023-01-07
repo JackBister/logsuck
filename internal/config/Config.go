@@ -20,6 +20,7 @@ type Config struct {
 	HostName           string
 	HostType           string
 	ConfigPollInterval time.Duration
+	ForceStaticConfig  bool
 
 	Forwarder *ForwarderConfig
 	Recipient *RecipientConfig

@@ -11,46 +11,52 @@ export interface LogsuckConfig {
    */
   configPollInterval?: string;
   /**
+   * If enabled, the JSON configuration file will be used instead of the configuration saved in the database. This means that you cannot alter configuration at runtime and must instead update the JSON file and restart logsuck. Default false.
+   */
+  forceStaticConfig?: boolean;
+  /**
    * A fileType combines configuration related to a type of file. For example you may have certain config that is only applicable to access logs, in which case you might name a fileType "access_log" and put access log specific config there. The special fileType "DEFAULT" is applied to all files. In a forwarder/recipient setup this only needs to be configured on the recipient host.
    */
   fileTypes?: {
-    [k: string]: {
+    /**
+     * The name of this file type. Must be unique.
+     */
+    name?: string;
+    /**
+     * The layout of the _time field which will be extracted from this file. If no _time field is extracted or it doesn't match this layout, the time when the event was read will be used as the timestamp for that event. Default '2006/01/02 15:04:05'.
+     */
+    timeLayout?: string;
+    /**
+     * The duration between checking the file for updates. A low value will make the events searchable sooner at the cost of using more CPU and doing more disk reads. Default '1s'.
+     */
+    readInterval?: string;
+    parser?: {
       /**
-       * The layout of the _time field which will be extracted from this file. If no _time field is extracted or it doesn't match this layout, the time when the event was read will be used as the timestamp for that event. Default '2006/01/02 15:04:05'.
+       * The name of the parser to use for this file. Default 'Regex'. Regex uses regular expressions to delimit events and extract values from them.
        */
-      timeLayout?: string;
+      type?: "Regex";
       /**
-       * The duration between checking the file for updates. A low value will make the events searchable sooner at the cost of using more CPU and doing more disk reads. Default '1s'.
+       * Configuration specific to the Regex parser
        */
-      readInterval?: string;
-      parser?: {
+      regexConfig?: {
         /**
-         * The name of the parser to use for this file. Default 'Regex'. Regex uses regular expressions to delimit events and extract values from them.
+         * A regex specifying the delimiter between events. For example, if the file contains one event per row this should be '\n'. Default '\n'.
          */
-        type?: "Regex";
+        eventDelimiter?: string;
         /**
-         * Configuration specific to the Regex parser
+         * Regular expressions which will be used to extract field values from events.
+         * Can be given in two variants:
+         * 1. An expression containing any number of named capture groups. The names of the capture groups will be used as the field names and the captured strings will be used as the values.
+         * 2. An expression with two unnamed capture groups. The first capture group will be used as the field name and the second group as the value.
+         * If a field with the name '_time' is extracted and matches the given timelayout, it will be used as the timestamp of the event. Otherwise the time the event was read will be used.
+         * Multiple extractors can be specified by using the fieldextractor flag multiple times. Defaults "(\w+)=(\w+)" and "(?P<_time>\d\d\d\d/\d\d/\d\d \d\d:\d\d:\d\d\.\d\d\d\d\d\d)")
          */
-        regexConfig?: {
-          /**
-           * A regex specifying the delimiter between events. For example, if the file contains one event per row this should be '\n'. Default '\n'.
-           */
-          eventDelimiter?: string;
-          /**
-           * Regular expressions which will be used to extract field values from events.
-           * Can be given in two variants:
-           * 1. An expression containing any number of named capture groups. The names of the capture groups will be used as the field names and the captured strings will be used as the values.
-           * 2. An expression with two unnamed capture groups. The first capture group will be used as the field name and the second group as the value.
-           * If a field with the name '_time' is extracted and matches the given timelayout, it will be used as the timestamp of the event. Otherwise the time the event was read will be used.
-           * Multiple extractors can be specified by using the fieldextractor flag multiple times. Defaults "(\w+)=(\w+)" and "(?P<_time>\d\d\d\d/\d\d/\d\d \d\d:\d\d:\d\d.\d\d\d\d\d\d)")
-           */
-          fieldExtractors?: string[];
-          [k: string]: unknown;
-        };
+        fieldExtractors?: string[];
         [k: string]: unknown;
       };
+      [k: string]: unknown;
     };
-  };
+  }[];
   files?: {
     /**
      * The name of the file. This can also be a glob pattern such as "log-*.txt".
@@ -62,19 +68,21 @@ export interface LogsuckConfig {
    * A hostType contains configuration related to a type of host. For example your web server hosts may have different configuration than your database server hosts. The special hostType "DEFAULT" is applied to all hosts. In a forwarder/recipient setup this only needs to be configured on the recipient host.
    */
   hostTypes?: {
-    [k: string]: {
+    /**
+     * The name of the host type. Must be unique.
+     */
+    name?: string;
+    /**
+     * The files which should be indexed.
+     */
+    files?: {
       /**
-       * The files which should be indexed.
+       * The name of the file. This can also be a glob pattern such as "log-*.txt".
        */
-      files?: {
-        /**
-         * The name of the file. This can also be a glob pattern such as "log-*.txt".
-         */
-        fileName: string;
-        [k: string]: unknown;
-      }[];
-    };
-  };
+      fileName: string;
+      [k: string]: unknown;
+    }[];
+  }[];
   /**
    * Configuration related to the current host machine.
    */
@@ -155,8 +163,10 @@ export interface LogsuckConfig {
        * A key-value map from string to string of task-specific configuration. Check the documentation for a specific task to see which properties are available.
        */
       config?: {
-        [k: string]: string;
-      };
+        key?: string;
+        value?: string;
+        [k: string]: unknown;
+      }[];
       [k: string]: unknown;
     }[];
   };

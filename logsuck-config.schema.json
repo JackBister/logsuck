@@ -14,13 +14,21 @@
       "description": "How often the host should poll for configuration updates. Must be a string like '1m', '15s', etc. Default '1m'.",
       "type": "string"
     },
+    "forceStaticConfig": {
+      "description": "If enabled, the JSON configuration file will be used instead of the configuration saved in the database. This means that you cannot alter configuration at runtime and must instead update the JSON file and restart logsuck. Has no effect in forwarder mode. Default false.",
+      "type": "boolean"
+    },
     "fileTypes": {
       "description": "A fileType combines configuration related to a type of file. For example you may have certain config that is only applicable to access logs, in which case you might name a fileType \"access_log\" and put access log specific config there. The special fileType \"DEFAULT\" is applied to all files. In a forwarder/recipient setup this only needs to be configured on the recipient host.",
-      "type": "object",
-      "additionalProperties": {
+      "type": "array",
+      "items": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "name": {
+            "description": "The name of this file type. Must be unique.",
+            "type": "string"
+          },
           "timeLayout": {
             "description": "The layout of the _time field which will be extracted from this file. If no _time field is extracted or it doesn't match this layout, the time when the event was read will be used as the timestamp for that event. Default '2006/01/02 15:04:05'.",
             "type": "string"
@@ -80,11 +88,15 @@
     },
     "hostTypes": {
       "description": "A hostType contains configuration related to a type of host. For example your web server hosts may have different configuration than your database server hosts. The special hostType \"DEFAULT\" is applied to all hosts. In a forwarder/recipient setup this only needs to be configured on the recipient host.",
-      "type": "object",
-      "additionalProperties": {
+      "type": "array",
+      "items": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "name": {
+            "description": "The name of the host type. Must be unique.",
+            "type": "string"
+          },
           "files": {
             "description": "The files which should be indexed.",
             "type": "array",
@@ -191,8 +203,18 @@
               },
               "config": {
                 "description": "A key-value map from string to string of task-specific configuration. Check the documentation for a specific task to see which properties are available.",
-                "type": "object",
-                "additionalProperties": { "type": "string" }
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  }
+                }
               }
             },
             "required": ["name", "enabled", "interval"]

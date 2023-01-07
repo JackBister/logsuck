@@ -13,7 +13,7 @@ type SqliteConfigRepository struct {
 	changes chan struct{}
 }
 
-func NewSqliteConfigRepository(staticConfig *Config, db *sql.DB) (ConfigRepository, error) {
+func NewSqliteConfigRepository(staticConfig *Config, db *sql.DB, writeInitialConfig bool) (ConfigRepository, error) {
 	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Config (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, config_json TEXT, modified DATETIME)")
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: %w", err)
@@ -34,7 +34,7 @@ func NewSqliteConfigRepository(staticConfig *Config, db *sql.DB) (ConfigReposito
 	}
 	changes := make(chan struct{}, 1) // We need to buffer to avoid hanging on startup
 	ret := &SqliteConfigRepository{db: db, changes: changes}
-	if c == 0 {
+	if c == 0 && writeInitialConfig {
 		err = ret.Upsert(staticConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: failed to upsert initial config: %w", err)

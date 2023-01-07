@@ -15,15 +15,23 @@
  */
 
 import { Component, h } from "preact";
-import { Config } from "../api/v1";
-import { Autoform, FormSpec } from "../components/Autoform/Autoform";
+import {
+  Autoform,
+  FormSpec,
+  jsonSchemaToFormSpec,
+  ObjectFormField,
+} from "../components/Autoform/Autoform";
 import { Card } from "../components/lib/Card/Card";
 import { Navbar } from "../components/lib/Navbar/Navbar";
 import { Table, TableRow } from "../components/lib/Table/Table";
 
+import * as configSchema from "../../../../../logsuck-config.schema.json";
+import { LogsuckConfig } from "../api/config";
+import { Infobox } from "../components/lib/Infobox/Infobox";
+
 interface ConfigPageProps {
-  getConfig: () => Promise<Config>;
-  updateConfig: (value: Config) => Promise<any>;
+  getConfig: () => Promise<LogsuckConfig>;
+  updateConfig: (value: LogsuckConfig) => Promise<any>;
 
   getQueryParams: () => URLSearchParams;
   setQueryParams: (params: URLSearchParams) => void;
@@ -41,7 +49,7 @@ interface ConfigPageStateLoading extends ConfigPageStateBase {
 
 interface ConfigPageStateLoaded extends ConfigPageStateBase {
   type: "loaded";
-  initialValues: Config;
+  initialValues: LogsuckConfig;
 }
 
 interface ConfigPageStateLoadingError extends ConfigPageStateBase {
@@ -53,30 +61,10 @@ type ConfigPageState =
   | ConfigPageStateLoaded
   | ConfigPageStateLoadingError;
 
-const FILE_PAGE_SPEC: FormSpec = {
-  fields: [
-    {
-      name: "files",
-      type: "ARRAY",
-      headerFieldName: "fileName",
-      itemTypes: {
-        type: "OBJECT",
-        name: "file",
-        fields: [
-          { type: "STRING", name: "fileName" },
-          {
-            type: "ARRAY",
-            name: "fileTypes",
-            itemTypes: {
-              type: "STRING",
-              name: "fileType",
-            },
-          },
-        ],
-      },
-    },
-  ],
-};
+const CONFIG_SCHEMA_SPEC = jsonSchemaToFormSpec(
+  "",
+  configSchema
+) as ObjectFormField;
 
 export class ConfigPageComponent extends Component<
   ConfigPageProps,
@@ -94,12 +82,28 @@ export class ConfigPageComponent extends Component<
     const cfg = await this.props.getConfig();
     this.setState({
       type: "loaded",
-      topLevelProperty: "files",
+      topLevelProperty: null,
       initialValues: cfg,
     });
   }
 
   render() {
+    const currentField = CONFIG_SCHEMA_SPEC.fields.filter(
+      (f) => f.name === this.state.topLevelProperty
+    )[0];
+    let currentSpec: FormSpec | undefined;
+    if (currentField) {
+      currentSpec = {
+        type: "OBJECT",
+        name: "",
+        fields: [
+          {
+            ...currentField,
+            name: this.state.topLevelProperty,
+          },
+        ],
+      } as FormSpec;
+    }
     return (
       <div>
         <Navbar />
@@ -109,9 +113,11 @@ export class ConfigPageComponent extends Component<
               <Card>
                 <Table hoverable={true}>
                   <tbody>
-                    <TableRow onClick={() => this.navigate("files")}>
-                      <td>Files</td>
-                    </TableRow>
+                    {CONFIG_SCHEMA_SPEC.fields.map((f) => (
+                      <TableRow onClick={() => this.navigate(f.name)}>
+                        <td>{f.name}</td>
+                      </TableRow>
+                    ))}
                   </tbody>
                 </Table>
               </Card>
@@ -119,14 +125,32 @@ export class ConfigPageComponent extends Component<
             <div className="grow-1 shrink-0" style={{ flexBasis: "80%" }}>
               {this.state.type === "loaded" && (
                 <div>
-                  {this.state.topLevelProperty === "files" && (
+                  {this.state.initialValues.forceStaticConfig && (
+                    <div className="mb-3">
+                      <Infobox type="info">
+                        "forceStaticConfig" is set in the configuration. The
+                        configuration is in read only mode. In order to modify
+                        it, set "forceStaticConfig" to false in the JSON
+                        configuration.
+                      </Infobox>
+                    </div>
+                  )}
+                  {!currentSpec && (
+                    <p>
+                      Choose one of the properties on the left to edit your
+                      configuration.
+                    </p>
+                  )}
+                  {currentSpec && (
                     <Autoform
-                      spec={FILE_PAGE_SPEC}
+                      key={this.state.topLevelProperty}
+                      spec={currentSpec}
                       initialValues={this.state.initialValues}
-                      onSubmit={async (v: Config) => {
+                      onSubmit={async (v: LogsuckConfig) => {
                         await this.props.updateConfig(v);
                         await this.reload();
                       }}
+                      readonly={this.state.initialValues.forceStaticConfig}
                     ></Autoform>
                   )}
                 </div>

@@ -22,5 +22,5 @@ export const InputGroup = (props: RenderableProps<any>) => (
 );
 
 export const Input = (props: JSX.IntrinsicElements["input"]) => (
-  <input {...props} className={`${lsInput} ${props.className}`} />
+  <input {...props} className={`${lsInput} ${props.className || ""}`} />
 );

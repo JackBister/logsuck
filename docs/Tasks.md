@@ -11,9 +11,12 @@ Tasks are configured using the `tasks` key in `logsuck.json`. An example task co
             "name": "@logsuck/DeleteOldEventsTask",
             "enabled": true,
             "interval": "1m",
-            "config": {
-                "minAge": "1d"
-            }
+            "config": [
+                {
+                    "key": "minAge",
+                    "value": "1d"
+                }
+            ]
         }
     ]
 },

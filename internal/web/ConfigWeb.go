@@ -26,18 +26,27 @@ func addConfigEndpoints(g *gin.RouterGroup, wi *webImpl) {
 	})
 
 	g.POST("", func(ctx *gin.Context) {
+		dynamicCfgResp, err := wi.configSource.Get()
+		if err != nil {
+			ctx.AbortWithError(500, fmt.Errorf("faild to read configuration: %w", err))
+			return
+		}
+		if dynamicCfgResp.Cfg.ForceStaticConfig {
+			ctx.AbortWithError(400, fmt.Errorf("cannot save configuration because forceStaticConfig is enabled"))
+			return
+		}
 		var jsonCfg config.JsonConfig
-		err := json.NewDecoder(ctx.Request.Body).Decode(&jsonCfg)
+		err = json.NewDecoder(ctx.Request.Body).Decode(&jsonCfg)
 		if err != nil {
 			ctx.AbortWithError(500, fmt.Errorf("failed to decode json config: %w", err))
 			return
 		}
-		cfg, err := config.FromJSON(jsonCfg)
+		cfgResp, err := config.FromJSON(jsonCfg)
 		if err != nil {
 			ctx.AbortWithError(500, fmt.Errorf("failed to convert config from json: %w", err))
 			return
 		}
-		err = wi.configRepo.Upsert(cfg)
+		err = wi.configRepo.Upsert(cfgResp)
 		if err != nil {
 			ctx.AbortWithError(500, fmt.Errorf("got error when upserting config: %w", err))
 			return

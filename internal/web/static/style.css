@@ -164,6 +164,10 @@ ul {
   justify-content: space-evenly;
 }
 
+.justify-start {
+  justify-content: flex-start;
+}
+
 .grow-all-1 > * {
   flex-grow: 1;
 }

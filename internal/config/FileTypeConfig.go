@@ -38,53 +38,53 @@ var defaultRegexParserConfig = parser.RegexParserConfig{
 
 const defaultTimeLayout = "2006/01/02 15:04:05"
 
-func FileTypeConfigFromJSON(jsonFileTypes map[string]jsonFileTypeConfig) (map[string]FileTypeConfig, error) {
+func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig) (map[string]FileTypeConfig, error) {
 	var err error
 	fileTypes := make(map[string]FileTypeConfig, len(jsonFileTypes))
-	for name, ft := range jsonFileTypes {
+	for _, ft := range jsonFileTypes {
 		var readInterval time.Duration
 		if ft.ReadInterval != "" {
 			readInterval, err = time.ParseDuration(ft.ReadInterval)
 			if err != nil {
 				// TODO:
-				log.Printf("failed to read config for filetype with name=%v: failed to parse ReadInterval=%v\n", name, ft.ReadInterval)
+				log.Printf("failed to read config for filetype with name=%v: failed to parse ReadInterval=%v\n", ft.Name, ft.ReadInterval)
 				continue
 			}
 		} else {
-			log.Printf("will use default readInterval for filetype with name=%v", name)
+			log.Printf("will use default readInterval for filetype with name=%v", ft.Name)
 			readInterval = defaultReadInterval
 		}
 
 		var parserType ParserType
 		var regexParserConfig *parser.RegexParserConfig
 		if ft.Parser == nil {
-			log.Printf("will use default paser config for filetype with name=%v", name)
+			log.Printf("will use default paser config for filetype with name=%v", ft.Name)
 			parserType = ParserTypeRegex
 			regexParserConfig = &defaultRegexParserConfig
 		} else {
 
 			if ft.Parser.Type != "" && ft.Parser.Type != "Regex" {
 				// TODO:
-				log.Printf("failed to read config for filetype with name=%v: parser.type was not 'Regex'\n", name)
+				log.Printf("failed to read config for filetype with name=%v: parser.type was not 'Regex'\n", ft.Name)
 				continue
 			}
 
 			if ft.Parser.RegexConfig == nil {
-				log.Printf("failed to read config for filetype with name=%v: parser.regexConfig was nil\n", name)
+				log.Printf("failed to read config for filetype with name=%v: parser.regexConfig was nil\n", ft.Name)
 				continue
 			}
 
 			parserType = ParserTypeRegex
 			eventDelimiter, err := regexp.Compile(ft.Parser.RegexConfig.EventDelimiter)
 			if err != nil {
-				log.Printf("failed to read config for filetype with name=%v: failed to compile eventDelimiter regexp: %v\n", name, err)
+				log.Printf("failed to read config for filetype with name=%v: failed to compile eventDelimiter regexp: %v\n", ft.Name, err)
 			}
 
 			fe := make([]*regexp.Regexp, 0, len(ft.Parser.RegexConfig.FieldExtractors))
 			for i, s := range ft.Parser.RegexConfig.FieldExtractors {
 				rex, err := regexp.Compile(s)
 				if err != nil {
-					log.Printf("failed to read config for filetype with name=%v: failed to compile fieldExtractor regexp at index=%v: %v\n", name, i, err)
+					log.Printf("failed to read config for filetype with name=%v: failed to compile fieldExtractor regexp at index=%v: %v\n", ft.Name, i, err)
 					continue
 				}
 				fe = append(fe, rex)
@@ -97,8 +97,8 @@ func FileTypeConfigFromJSON(jsonFileTypes map[string]jsonFileTypeConfig) (map[st
 			}
 		}
 
-		fileTypes[name] = FileTypeConfig{
-			Name:         name,
+		fileTypes[ft.Name] = FileTypeConfig{
+			Name:         ft.Name,
 			TimeLayout:   ft.TimeLayout,
 			ReadInterval: readInterval,
 			ParserType:   parserType,

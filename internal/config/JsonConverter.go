@@ -66,6 +66,7 @@ type jsonFileConfig struct {
 }
 
 type jsonFileTypeConfig struct {
+	Name         string                    `json:"name"`
 	TimeLayout   string                    `json:"timeLayout"`
 	ReadInterval string                    `json:"configPollInterval"`
 	Parser       *jsonFileTypeParserConfig `json:"parser"`
@@ -76,14 +77,20 @@ type jsonHostTypeFileConfig struct {
 }
 
 type jsonHostTypeConfig struct {
+	Name  string                   `json:"name"`
 	Files []jsonHostTypeFileConfig `json:"files"`
 }
 
+type jsonTaskConfigItem struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 type jsonTaskConfig struct {
-	Name     string         `json:"name"`
-	Enabled  bool           `json:"enabled"`
-	Interval string         `json:"interval"`
-	Config   map[string]any `json:"config"`
+	Name     string               `json:"name"`
+	Enabled  bool                 `json:"enabled"`
+	Interval string               `json:"interval"`
+	Config   []jsonTaskConfigItem `json:"config"`
 }
 
 type jsonTasksConfig struct {
@@ -92,20 +99,22 @@ type jsonTasksConfig struct {
 
 type JsonConfig struct {
 	ConfigPollInterval string               `json:"configPollInterval"`
+	ForceStaticConfig  bool                 `json:"forceStaticConfig"`
 	Host               *jsonHostConfig      `json:"host"`
 	Forwarder          *jsonForwarderConfig `json:"forwarder"`
 	Recipient          *jsonRecipientConfig `json:"recipient"`
 	Sqlite             *jsonSqliteConfig    `json:"sqlite"`
 	Web                *jsonWebConfig       `json:"web"`
 
-	Files     []jsonFileConfig              `json:"files"`
-	FileTypes map[string]jsonFileTypeConfig `json:"fileTypes"`
-	HostTypes map[string]jsonHostTypeConfig `json:"hostTypes"`
-	Tasks     jsonTasksConfig               `json:"tasks"`
+	Files     []jsonFileConfig     `json:"files"`
+	FileTypes []jsonFileTypeConfig `json:"fileTypes"`
+	HostTypes []jsonHostTypeConfig `json:"hostTypes"`
+	Tasks     jsonTasksConfig      `json:"tasks"`
 }
 
 var defaultConfig = Config{
 	ConfigPollInterval: 1 * time.Minute,
+	ForceStaticConfig:  false,
 	Forwarder: &ForwarderConfig{
 		Enabled:           false,
 		MaxBufferedEvents: 1000000,
@@ -288,14 +297,14 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 	}
 
 	hostTypes := map[string]HostTypeConfig{}
-	for k, v := range cfg.HostTypes {
+	for _, v := range cfg.HostTypes {
 		files := make([]HostFileConfig, 0, len(v.Files))
 		for _, f := range v.Files {
 			files = append(files, HostFileConfig{
 				Name: f.FileName,
 			})
 		}
-		hostTypes[k] = HostTypeConfig{
+		hostTypes[v.Name] = HostTypeConfig{
 			Files: files,
 		}
 	}
@@ -310,11 +319,15 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 			log.Printf("got invalid duration=%v when parsing interval for task with name=%v. This task will be disabled. error: %v\n", v.Interval, v.Name, err)
 			enabled = false
 		}
+		cfgMap := map[string]any{}
+		for _, kv := range v.Config {
+			cfgMap[kv.Key] = kv.Value
+		}
 		tasksConfig.Tasks[v.Name] = TaskConfig{
 			Name:     v.Name,
 			Enabled:  enabled,
 			Interval: intervalDuration,
-			Config:   v.Config,
+			Config:   cfgMap,
 		}
 	}
 
@@ -322,6 +335,7 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 		HostName:           hostName,
 		HostType:           hostType,
 		ConfigPollInterval: configPollInterval,
+		ForceStaticConfig:  cfg.ForceStaticConfig,
 
 		Forwarder: forwarder,
 		Recipient: recipient,
@@ -355,7 +369,7 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 			FileTypes: v.Filetypes,
 		})
 	}
-	fileTypes := map[string]jsonFileTypeConfig{}
+	fileTypes := make([]jsonFileTypeConfig, 0, len(c.FileTypes))
 	for _, v := range c.FileTypes {
 		parserType := ""
 		if v.ParserType == ParserTypeRegex {
@@ -367,7 +381,8 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 		for i, fe := range v.Regex.FieldExtractors {
 			fieldExtractors[i] = fe.String()
 		}
-		fileTypes[v.Name] = jsonFileTypeConfig{
+		fileTypes = append(fileTypes, jsonFileTypeConfig{
+			Name:         v.Name,
 			TimeLayout:   v.TimeLayout,
 			ReadInterval: v.ReadInterval.String(),
 			Parser: &jsonFileTypeParserConfig{
@@ -377,9 +392,9 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 					FieldExtractors: fieldExtractors,
 				},
 			},
-		}
+		})
 	}
-	hostTypes := map[string]jsonHostTypeConfig{}
+	hostTypes := make([]jsonHostTypeConfig, 0, len(c.HostTypes))
 	for k, v := range c.HostTypes {
 		hostTypeFileConfigs := make([]jsonHostTypeFileConfig, len(v.Files))
 		for i, f := range v.Files {
@@ -387,21 +402,30 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 				FileName: f.Name,
 			}
 		}
-		hostTypes[k] = jsonHostTypeConfig{
+		hostTypes = append(hostTypes, jsonHostTypeConfig{
+			Name:  k,
 			Files: hostTypeFileConfigs,
-		}
+		})
 	}
 	tasks := make([]jsonTaskConfig, 0, len(c.Tasks.Tasks))
-	for _, v := range c.Tasks.Tasks {
+	for _, t := range c.Tasks.Tasks {
+		cfgArray := make([]jsonTaskConfigItem, 0, len(t.Config))
+		for k, v := range t.Config {
+			cfgArray = append(cfgArray, jsonTaskConfigItem{
+				Key:   k,
+				Value: v.(string),
+			})
+		}
 		tasks = append(tasks, jsonTaskConfig{
-			Name:     v.Name,
-			Enabled:  v.Enabled,
-			Interval: v.Interval.String(),
-			Config:   v.Config,
+			Name:     t.Name,
+			Enabled:  t.Enabled,
+			Interval: t.Interval.String(),
+			Config:   cfgArray,
 		})
 	}
 	jsonCfg := JsonConfig{
 		ConfigPollInterval: c.ConfigPollInterval.String(),
+		ForceStaticConfig:  c.ForceStaticConfig,
 		Host: &jsonHostConfig{
 			Name: c.HostName,
 			Type: c.HostType,

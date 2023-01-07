@@ -85,6 +85,7 @@ var versionString string // This must be set using -ldflags "-X main.versionStri
 var cfgFileFlag string
 var databaseFileFlag string
 var eventDelimiterFlag string
+var forceStaticConfigFlag bool
 var forwarderFlag string
 var fieldExtractorFlags flagStringArray
 var printVersion bool
@@ -104,6 +105,7 @@ func main() {
 			"If a field with the name '_time' is extracted and matches the given timelayout, it will be used as the timestamp of the event. Otherwise the time the event was read will be used.\n"+
 			"Multiple extractors can be specified by using the fieldextractor flag multiple times. "+
 			"(defaults \"(\\w+)=(\\w+)\" and \"(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d\\.\\d\\d\\d\\d\\d\\d)\")")
+	flag.BoolVar(&forceStaticConfigFlag, "forceStaticConfig", false, "If enabled, the JSON configuration file will be used instead of the configuration saved in the database. This means that you cannot alter configuration at runtime and must instead update the JSON file and restart logsuck. Has no effect in forwarder mode. Default false.")
 	flag.StringVar(&forwarderFlag, "forwarder", "", "Enables forwarder mode and sets the address to forward events to. Forwarding is off by default.")
 	flag.StringVar(&timeLayoutFlag, "timelayout", "2006/01/02 15:04:05", "The layout of the timestamp which will be extracted in the _time field. For more information on how to write a timelayout and examples, see https://golang.org/pkg/time/#Parse and https://golang.org/pkg/time/#pkg-constants.")
 	flag.BoolVar(&printVersion, "version", false, "Print version info and quit.")
@@ -213,7 +215,7 @@ func main() {
 		if err != nil {
 			log.Fatalln(err.Error())
 		}
-		configRepo, err = config.NewSqliteConfigRepository(&staticConfig, db)
+		configRepo, err = config.NewSqliteConfigRepository(&staticConfig, db, !forceStaticConfigFlag && !staticConfig.ForceStaticConfig)
 		if err != nil {
 			log.Fatalln(err.Error())
 		}
@@ -226,7 +228,14 @@ func main() {
 			log.Fatalln(err.Error())
 		}
 		publisher = events.BatchedRepositoryPublisher(&staticConfig, repo)
-		configSource = configRepo
+		if forceStaticConfigFlag || staticConfig.ForceStaticConfig {
+			log.Println("Static configuration is forced. Configuration will not be saved to database and will only be read from the JSON configuration file.")
+			configSource = &config.StaticConfigSource{
+				Config: staticConfig,
+			}
+		} else {
+			configSource = configRepo
+		}
 	}
 	dynamicConfig, err := configSource.Get()
 	if err != nil {
