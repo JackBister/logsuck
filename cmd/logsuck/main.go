@@ -235,7 +235,7 @@ func main() {
 		}
 		publisher = events.BatchedRepositoryPublisher(&staticConfig, repo)
 		if forceStaticConfigFlag || staticConfig.ForceStaticConfig {
-			log.Println("Static configuration is forced. Configuration will not be saved to database and will only be read from the JSON configuration file.")
+			log.Println("Static configuration is forced. Configuration will not be saved to database and will only be read from the JSON configuration file. Remove the forceStaticConfig flag from the command line or configuration file in order to use dynamic configuration.")
 			configSource = &config.StaticConfigSource{
 				Config: staticConfig,
 			}

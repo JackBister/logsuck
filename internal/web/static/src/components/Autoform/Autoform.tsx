@@ -13,7 +13,7 @@ import { SimpleExpansionPanel } from "../lib/ExpansionPanel/ExpansionPanel";
 import { Input } from "../lib/Input/Input";
 import { autoform, formGroup, level, level1 } from "./Autoform.style.scss";
 
-export type FormFieldType = "ARRAY" | "OBJECT" | "STRING";
+export type FormFieldType = "ARRAY" | "ENUM" | "OBJECT" | "STRING";
 
 export interface FormFieldBase {
   type: FormFieldType;
@@ -27,6 +27,11 @@ export interface ArrayFormField extends FormFieldBase {
   itemTypes: FormField;
 }
 
+export interface EnumFormField extends FormFieldBase {
+  type: "ENUM";
+  symbols: string[];
+}
+
 export interface ObjectFormField extends FormFieldBase {
   type: "OBJECT";
   fields: FormField[];
@@ -36,7 +41,11 @@ export interface StringFormField extends FormFieldBase {
   type: "STRING";
 }
 
-export type FormField = ArrayFormField | ObjectFormField | StringFormField;
+export type FormField =
+  | ArrayFormField
+  | EnumFormField
+  | ObjectFormField
+  | StringFormField;
 
 export interface FormSpec {
   fields: FormField[];
@@ -62,6 +71,13 @@ export function jsonSchemaToFormSpec(
     );
   }
   if (jsonSchema.type === "string") {
+    if (jsonSchema.enum && jsonSchema.enum.length > 0) {
+      return {
+        type: "ENUM",
+        name,
+        symbols: jsonSchema.enum as string[],
+      } as EnumFormField;
+    }
     return {
       type: "STRING",
       name,
@@ -274,6 +290,25 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                 formikProps={this.props.formikProps}
               ></AutoformField>
             ))}
+          </div>
+        )}
+        {this.props.spec.type === "ENUM" && (
+          <div className={formGroup}>
+            <label htmlFor={this.props.path}>
+              {this.props.spec.displayName || this.props.spec.name}
+            </label>
+            <Field
+              as="select"
+              name={this.props.path}
+              disabled={this.props.readonly}
+              readonly={this.props.readonly}
+            >
+              {this.props.spec.symbols.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Field>
           </div>
         )}
         {this.props.spec.type === "STRING" && (
