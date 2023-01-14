@@ -45,16 +45,10 @@ wget https://github.com/JackBister/logsuck/releases/download/v0.4.0/logsuck-v0_4
 unzip logsuck-v0_4_0-x64-linux.zip
 ```
 
-Then, create a configuration file. In this case we will mostly use default settings to read Logsuck's own logs:
+Now you can run Logsuck and tell it to read its own logs:
 
 ```sh
-echo '{ "files": [ { "fileName": "logsuck.txt" } ] }' > logsuck.json
-```
-
-Finally, start Logsuck:
-
-```sh
-./logsuck 2> logsuck.txt
+./logsuck logsuck.txt 2> logsuck.txt
 ```
 
 Logsuck is now running. Navigate to http://localhost:8080 and you should see the GUI. Try pressing the search button while leaving the search field empty and you should find some events. Congratulations, you are now running Logsuck in single mode! Continue reading to learn more about configuring Logsuck.
@@ -70,36 +64,21 @@ unzip logsuck-v0_4_0-x64-linux.zip
 
 This time, we will create two different directories which will be the working directories for each of the two Logsuck instances we need to run.
 
-```sh
-mkdir forwarder
-mkdir recipient
-```
-
-Now, create the configuration for the recipient instance. This configuration will set Logsuck up to listen for events from Logsuck forwarders on port 9000.
-
-```sh
-echo '{ "recipient": { "enabled": true, "address": ":9000" } }' > ./recipient/logsuck.json
-```
-
-And create the configuration for the forwarder instance. This will configure the forwarder to read its own log and send its events to port 9000 on localhost, which is where the recipient will be running.
-
-```sh
-echo '{ "files": [ { "fileName": "logsuck-forwarder.txt" } ], "forwarder": { "enabled": true, "recipientAddress": "http://localhost:9000" } }' > ./forwarder/logsuck.json
-```
-
 Start the recipient:
 
 ```sh
-cd recipient && ../logsuck 2> logsuck-recipient.txt
+./logsuck -hostname "RECIPIENT" -recipient ":8081" logsuck-forwarder.txt 2> logsuck-recipient.txt
 ```
+
+Note that we tell the recipient to index the file `logsuck-forwarder.txt` because the recipient will tell the forwarder what files to index when it connects.
 
 Open a new shell and start the forwarder:
 
 ```sh
-cd forwarder && ../logsuck 2> logsuck-forwarder.txt
+./logsuck -forwarder "http://localhost:8081" -hostname "FORWARDER" 2> logsuck-forwarder.txt
 ```
 
-You should now be able to navigate to http://localhost:8080 in the browser and see the GUI served by the recipient instance. If you leave the search field empty and press the search button, you should see events show up. If you look at the "source" field underneath the events, you should see that it is always "logsuck-forwarder.txt", confirming that they were sent by the forwarder. You are now running Logsuck in forwarder/recipient mode! Continue reading to learn more about configuring Logsuck.
+You should now be able to navigate to http://localhost:8080 in the browser and see the GUI served by the recipient instance. If you leave the search field empty and press the search button, you should see events show up. If you look at the "host" field underneath the events, you should see that it is always "FORWARDER", confirming that they were sent by the forwarder. You are now running Logsuck in forwarder/recipient mode! Continue reading to learn more about configuring Logsuck.
 
 ## Configuration
 
@@ -126,8 +105,15 @@ If a field with the name '\_time' is extracted and matches the given timelayout,
 
 Multiple extractors can be specified by using the fieldextractor flag multiple times. (defaults "(\w+)=(\w+)" and "(?P<\_time>\d\d\d\d/\d\d/\d\d \d\d:\d\d:\d\d.\d\d\d\d\d\d)")
 
+`-forceStaticConfig <boolean>`
+Enables "static config" mode. In this mode, you cannot modify the configuration of Logsuck using the GUI. All configuration must be made through the command line or the JSON configuration file. By default, this is disabled.
+
+`-forwarder <address>` Sets Logsuck to run in forwarder mode, with the recipient expected to run at the given address. By default, this is disabled.
+
 `-help`
 Print information about command line options and quit.
+
+`-recipient <address>` Sets Logsuck to run in recipient mode and receives events on the given address. By default, this is disabled.
 
 `-timelayout <string>`
 The layout of the timestamp which will be extracted in the \_time field. For more information on how to write a timelayout and examples, see https://golang.org/pkg/time/#Parse and https://golang.org/pkg/time/#pkg-constants. (default "2006/01/02 15:04:05")
@@ -142,7 +128,9 @@ The address on which the search GUI will be exposed. (default ":8080")
 
 JSON is the recommended way of configuring Logsuck for more complex usage. By default, Logsuck will look in its working directory for a `logsuck.json` file which will contain the configuration. If the file is found, all command line options will be ignored. There is a JSON schema which documents the configuration file available [here](https://github.com/JackBister/logsuck/blob/master/logsuck-config.schema.json).
 
-Also read [docs/Tasks.md](docs/Tasks.md) to learn about configuring tasks in the JSON configuration.
+Read [docs/Configuration.md](docs/Configuration.md) for indepth information on configuring Logsuck.
+
+Also read [docs/Tasks.md](docs/Tasks.md) to learn about configuring tasks.
 
 ## Search syntax
 
@@ -219,15 +207,13 @@ For example you might use a search like `userId | rex "userId (?P<userId>\d+)" |
 
 If you have any questions about using Logsuck after reading the documentation, please [create an issue](https://github.com/JackBister/logsuck/issues/new) on this repository! There are no stupid questions here. You asking a question will help improve the documentation for everyone, so it is very much appreciated!
 
-## Contributing
+## Building
 
-Contributions in the form of pull requests and issues are welcome! Here are some tips on running Logsuck locally for developing.
-
-First of all, you will need a recent version of Go (1.18 is used when building in CI), as well as a fairly recent Node/npm installation (Node v12 and npm v6 are used in CI). If cross compiling for Windows, you need [gcc-mingw-w64](http://mingw-w64.org/doku.php/download).
+In order to build Logsuck, you will need a recent version of Go (1.18 is used when building in CI), as well as a fairly recent Node/npm installation (Node v12 and npm v6 are used in CI). If cross compiling for Windows, you need [gcc-mingw-w64](http://mingw-w64.org/doku.php/download).
 
 Logsuck consists of two parts: A Go application for the backend and a [preact](https://preactjs.com/) GUI for the frontend. When the Go application is built, the frontend is bundled into the executable using [the embed package](https://golang.org/pkg/embed). This bundling step allows Logsuck to be deployed as a single executable.
 
-Since the frontend is necessary to build the backend, lets start off by building the frontend. All frontend code is contained in the `./internal/web/static` directory.
+Since the frontend is necessary to build the backend, start off by building the frontend. All frontend code is contained in the `./internal/web/static` directory.
 
 ```sh
 cd internal/web/static
@@ -236,7 +222,7 @@ npm ci && npm run build
 
 This will build the frontend and put it in the `./internal/web/static/dist` directory. Time to build the backend.
 
-It is easier to build the backend on Linux than it is for Windows. If using Windows, I would recommend using Windows Subsystem for Linux and cross compiling to a Windows executable instead of trying to build directly on Windows. The official release builds for Windows are cross compiled from an Ubuntu installation.
+It is easier to build the backend on Linux than it is on Windows. If using Windows, I would recommend using Windows Subsystem for Linux and cross compiling to a Windows executable instead of trying to build directly on Windows. The official release builds for Windows are cross compiled from an Ubuntu installation.
 
 If compiling for Linux, all you need to do is:
 
