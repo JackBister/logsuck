@@ -88,6 +88,7 @@ var eventDelimiterFlag string
 var forceStaticConfigFlag bool
 var forwarderFlag string
 var fieldExtractorFlags flagStringArray
+var hostNameFlag string
 var printVersion bool
 var recipientFlag string
 var timeLayoutFlag string
@@ -107,6 +108,7 @@ func main() {
 			"(defaults \"(\\w+)=(\\w+)\" and \"(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d\\.\\d\\d\\d\\d\\d\\d)\")")
 	flag.BoolVar(&forceStaticConfigFlag, "forceStaticConfig", false, "If enabled, the JSON configuration file will be used instead of the configuration saved in the database. This means that you cannot alter configuration at runtime and must instead update the JSON file and restart logsuck. Has no effect in forwarder mode. Default false.")
 	flag.StringVar(&forwarderFlag, "forwarder", "", "Enables forwarder mode and sets the address to forward events to. Forwarding is off by default.")
+	flag.StringVar(&hostNameFlag, "hostname", "", "The name of the host running this instance of logsuck. By default, logsuck will attempt to retrieve the hostname from the operating system.")
 	flag.StringVar(&timeLayoutFlag, "timelayout", "2006/01/02 15:04:05", "The layout of the timestamp which will be extracted in the _time field. For more information on how to write a timelayout and examples, see https://golang.org/pkg/time/#Parse and https://golang.org/pkg/time/#pkg-constants.")
 	flag.BoolVar(&printVersion, "version", false, "Print version info and quit.")
 	flag.StringVar(&recipientFlag, "recipient", "", "Enables recipient mode and sets the port to expose the recipient on. Recipient mode is off by default.")
@@ -140,11 +142,15 @@ func main() {
 		log.Printf("Using configuration from file '%v': %v\n", cfgFileFlag, staticConfig)
 	} else {
 		log.Printf("Could not open config file '%v', will use command line configuration\n", cfgFileFlag)
-		hostName, err := os.Hostname()
-		if err != nil {
-			log.Fatalf("error getting hostname: %v\n", err)
+		if hostNameFlag != "" {
+			staticConfig.HostName = hostNameFlag
+		} else {
+			hostName, err := os.Hostname()
+			if err != nil {
+				log.Fatalf("error getting hostname: %v\n", err)
+			}
+			staticConfig.HostName = hostName
 		}
-		staticConfig.HostName = hostName
 
 		if databaseFileFlag != "" {
 			staticConfig.SQLite.DatabaseFile = databaseFileFlag
