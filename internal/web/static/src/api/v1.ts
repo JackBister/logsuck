@@ -17,6 +17,7 @@
 import { LogEvent } from "../models/Event";
 import { TimeSelection } from "../models/TimeSelection";
 import { validateIsoTimestamp } from "../validateIsoTimestamp";
+import { LogsuckConfig } from "./config";
 
 interface RestEvent {
   Id: number;
@@ -120,4 +121,18 @@ export function getFieldValueCounts(
   return fetch("/api/v1/jobFieldStats" + queryParams)
     .then((r) => r.json())
     .then((f: FieldValueCounts) => f);
+}
+
+export function getConfig(): Promise<LogsuckConfig> {
+  return fetch(`/api/v1/config`).then((r) => r.json());
+}
+
+export function updateConfig(value: LogsuckConfig): Promise<any> {
+  return fetch(`/api/v1/config`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(value),
+  });
 }

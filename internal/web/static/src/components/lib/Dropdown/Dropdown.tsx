@@ -112,6 +112,7 @@ export const DropdownItem = (
   props: JSX.IntrinsicElements["button"] & DropdownItemProps
 ) => (
   <button
+    type="button"
     {...props}
     className={`${lsDropdownItem} ${props.isCurrent ? lsCurrent : ""}`}
   >

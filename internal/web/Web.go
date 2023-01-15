@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
@@ -29,6 +30,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/jobs"
 	"github.com/jackbister/logsuck/internal/parser"
 )
@@ -38,10 +40,11 @@ type Web interface {
 }
 
 type webImpl struct {
-	cfg       *config.Config
-	eventRepo events.Repository
-	jobRepo   jobs.Repository
-	jobEngine *jobs.Engine
+	configSource config.ConfigSource
+	configRepo   config.ConfigRepository
+	eventRepo    events.Repository
+	jobRepo      jobs.Repository
+	jobEngine    *jobs.Engine
 }
 
 type webError struct {
@@ -53,12 +56,13 @@ func (w webError) Error() string {
 	return w.err
 }
 
-func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Repository, jobEngine *jobs.Engine) Web {
+func NewWeb(configSource config.ConfigSource, configRepo config.ConfigRepository, eventRepo events.Repository, jobRepo jobs.Repository, jobEngine *jobs.Engine) Web {
 	return webImpl{
-		cfg:       cfg,
-		eventRepo: eventRepo,
-		jobRepo:   jobRepo,
-		jobEngine: jobEngine,
+		configSource: configSource,
+		configRepo:   configRepo,
+		eventRepo:    eventRepo,
+		jobRepo:      jobRepo,
+		jobEngine:    jobEngine,
 	}
 }
 
@@ -66,7 +70,12 @@ func NewWeb(cfg *config.Config, eventRepo events.Repository, jobRepo jobs.Reposi
 var Assets embed.FS
 
 func (wi webImpl) Serve() error {
-	if wi.cfg.Web.DebugMode {
+	cfgResp, err := wi.configSource.Get()
+	if err != nil {
+		return fmt.Errorf("failed to start web server: failed to get config: %w", err)
+	}
+	staticCfg := cfgResp.Cfg
+	if staticCfg.Web.DebugMode {
 		log.Println("web.debugMode enabled. Will enable Gin debug mode. To disable, remove the debugMode key in the web object in your JSON config or set it to false.")
 		gin.SetMode(gin.DebugMode)
 	} else {
@@ -76,7 +85,7 @@ func (wi webImpl) Serve() error {
 	r.SetTrustedProxies(nil)
 
 	var filesys http.FileSystem
-	if wi.cfg.Web.UsePackagedFiles {
+	if staticCfg.Web.UsePackagedFiles {
 		assets, err := fs.Sub(Assets, "static/dist")
 		if err != nil {
 			return fmt.Errorf("failed to Sub into static/dist directory: %w", err)
@@ -95,6 +104,14 @@ func (wi webImpl) Serve() error {
 		tpl.Execute(c.Writer, gin.H{
 			"scriptSrc": "home.js",
 			"styleSrc":  "home.css",
+		})
+		c.Status(200)
+	})
+
+	r.GET("/config", func(c *gin.Context) {
+		tpl.Execute(c.Writer, gin.H{
+			"scriptSrc": "config.js",
+			"styleSrc":  "config.css",
 		})
 		c.Status(200)
 	})
@@ -196,9 +213,24 @@ func (wi webImpl) Serve() error {
 			c.AbortWithError(500, err)
 			return
 		}
+		cfg, err := wi.configSource.Get()
+		if err != nil {
+			c.AbortWithError(500, err)
+			return
+		}
+		indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg)
+		if err != nil {
+			c.AbortWithError(500, err)
+			return
+		}
+		sourceToIfc := getSourceToIndexedFileConfig(results, indexedFileConfigs)
 		retResults := make([]events.EventWithExtractedFields, 0, len(results))
 		for _, r := range results {
-			fields := parser.ExtractFields(r.Raw, wi.cfg.FieldExtractors)
+			ifc, ok := sourceToIfc[r.Source]
+			if !ok {
+				// TODO: default
+			}
+			fields := parser.ExtractFields(r.Raw, ifc.FileParser)
 			retResults = append(retResults, events.EventWithExtractedFields{
 				Id:        r.Id,
 				Raw:       r.Raw,
@@ -231,13 +263,15 @@ func (wi webImpl) Serve() error {
 		c.JSON(200, values)
 	})
 
+	addConfigEndpoints(g, &wi)
+
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
 		c.FileFromFS(path, filesys)
 	})
 
-	log.Printf("Starting Web GUI on address='%v'\n", wi.cfg.Web.Address)
-	return r.Run(wi.cfg.Web.Address)
+	log.Printf("Starting Web GUI on address='%v'\n", staticCfg.Web.Address)
+	return r.Run(staticCfg.Web.Address)
 }
 
 func parseTemplate(fs http.FileSystem) (*template.Template, error) {
@@ -296,4 +330,26 @@ func parseTimeParametersGin(c *gin.Context) (*time.Time, *time.Time, *webError) 
 	}
 
 	return startTime, endTime, nil
+}
+
+func getSourceToIndexedFileConfig(evts []events.EventWithId, indexedFileConfigs []indexedfiles.IndexedFileConfig) map[string]*indexedfiles.IndexedFileConfig {
+	sourceToConfig := map[string]*indexedfiles.IndexedFileConfig{}
+	for _, evt := range evts {
+		if _, ok := sourceToConfig[evt.Source]; ok {
+			continue
+		}
+		for i, ifc := range indexedFileConfigs {
+			absGlob, err := filepath.Abs(ifc.Filename)
+			if err != nil {
+				// TODO:
+				continue
+			}
+			if m, err := filepath.Match(absGlob, evt.Source); err == nil && m {
+				sourceToConfig[evt.Source] = &indexedFileConfigs[i]
+				goto nextfile
+			}
+		}
+	nextfile:
+	}
+	return sourceToConfig
 }

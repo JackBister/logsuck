@@ -30,8 +30,8 @@ func TestWherePipelineStep(t *testing.T) {
 	}
 	repo := newInMemRepo(t)
 	params := PipelineParameters{
-		Cfg:        &config.Config{},
-		EventsRepo: repo,
+		ConfigSource: &config.NullConfigSource{},
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 

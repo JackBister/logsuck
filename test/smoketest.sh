@@ -26,9 +26,14 @@ npm run build
 cd ../../../..
 outdir=`mktemp -d`
 go build -o "$outdir/logsuck" ./cmd/logsuck/main.go
+
 cd $outdir
 timeout 60s ./logsuck -dbfile ":memory:" -webaddr ":8080" log-logsuck.txt > log-logsuck.txt 2>&1 &
+timeoutpid=$!
+sleep 2
+lspid=$(ps -o pid= --ppid "$timeoutpid")
 sleep 5
+
 curl -XPOST -G 'localhost:8080/api/v1/startJob' --data-urlencode 'searchString=Starting Web GUI'
 sleep 1
 result=`curl -G 'localhost:8080/api/v1/jobStats' --data-urlencode 'jobId=1'`
@@ -37,5 +42,22 @@ if ! grep -q '"NumMatchedEvents":1' <<< "$result"; then
     echo "Expected \$result to contain '\"NumMatchedEvents\":1' but was '$result'"
     exit 1
 else
-    echo "OK"
+    echo "Single mode OK"
+fi
+kill $lspid
+
+timeout 60s ./logsuck -dbfile ":memory:" -hostname "RECIPIENT" -recipient ":8081" -webaddr ":8080" log-forwarder.txt > log-recipient.txt 2>&1 &
+sleep 1
+timeout 60s ./logsuck -forwarder "http://localhost:8081" -hostname "FORWARDER" > log-forwarder.txt 2>&1 &
+sleep 5
+
+curl -XPOST -G 'localhost:8080/api/v1/startJob' --data-urlencode 'searchString=forwarded numevents host=FORWARDER'
+sleep 1
+result=`curl -G 'localhost:8080/api/v1/jobStats' --data-urlencode 'jobId=1'`
+
+if ! grep -q '"host":1' <<< "$result"; then
+    echo "Expected \$result to contain '\"host\":1' but was '$result'"
+    exit 1
+else
+    echo "Forwarder/recipient mode OK"
 fi

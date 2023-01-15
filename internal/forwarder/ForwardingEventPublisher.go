@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package events
+package forwarder
 
 import (
 	"bytes"
@@ -24,6 +24,9 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
+	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/internal/rpc"
 )
 
 const forwardChunkSize = 1000
@@ -31,16 +34,16 @@ const forwardChunkSize = 1000
 type forwardingEventPublisher struct {
 	cfg *config.Config
 
-	accumulated []RawEvent
-	adder       chan<- RawEvent
+	accumulated []events.RawEvent
+	adder       chan<- events.RawEvent
 }
 
-func ForwardingEventPublisher(cfg *config.Config) EventPublisher {
-	adder := make(chan RawEvent)
+func ForwardingEventPublisher(cfg *config.Config) events.EventPublisher {
+	adder := make(chan events.RawEvent)
 	ep := forwardingEventPublisher{
 		cfg: cfg,
 
-		accumulated: make([]RawEvent, 0, forwardChunkSize),
+		accumulated: make([]events.RawEvent, 0, forwardChunkSize),
 		adder:       adder,
 	}
 
@@ -78,7 +81,7 @@ func ForwardingEventPublisher(cfg *config.Config) EventPublisher {
 	return &ep
 }
 
-func (ep *forwardingEventPublisher) PublishEvent(evt RawEvent, timeLayout string) {
+func (ep *forwardingEventPublisher) PublishEvent(evt events.RawEvent, timeLayout string, fileParser parser.FileParser) {
 	ep.adder <- evt
 }
 
@@ -90,8 +93,9 @@ func (ep *forwardingEventPublisher) forward() error {
 			chunkSize = len(ep.accumulated)
 		}
 		evts := ep.accumulated[:chunkSize]
-		req := receiveEventsRequest{
-			Events: evts,
+		req := rpc.ReceiveEventsRequest{
+			HostType: ep.cfg.HostType,
+			Events:   toRpcEvents(evts),
 		}
 		serialized, err := json.Marshal(req)
 		if err != nil {
@@ -127,4 +131,18 @@ func (ep *forwardingEventPublisher) dropExcessEvents() {
 			"This may indicate a connection problem or the recipient instance is not running.\n",
 			quota*100, len(ep.accumulated), ep.cfg.Forwarder.MaxBufferedEvents)
 	}
+}
+
+func toRpcEvents(evts []events.RawEvent) []rpc.RawEvent {
+	ret := make([]rpc.RawEvent, len(evts))
+	for i, e := range evts {
+		ret[i] = rpc.RawEvent{
+			Raw:      e.Raw,
+			Host:     e.Host,
+			Source:   e.Source,
+			SourceId: e.SourceId,
+			Offset:   e.Offset,
+		}
+	}
+	return ret
 }

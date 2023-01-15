@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 )
 
@@ -30,8 +29,8 @@ func TestSearchPipelineStep(t *testing.T) {
 	}
 	repo := newInMemRepo(t)
 	params := PipelineParameters{
-		Cfg:        &config.Config{},
-		EventsRepo: repo,
+		ConfigSource: newConfigSource(),
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 	close(input)

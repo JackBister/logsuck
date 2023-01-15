@@ -25,8 +25,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/indexedfiles"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -37,6 +37,8 @@ type FileWatcherCommand int
 const (
 	// CommandReopen closes the file and opens it again
 	CommandReopen FileWatcherCommand = 1
+	// CommandReload updates the file watcher's configuration to the new configuration stored in the "newFileConfig" property
+	CommandReloadConfig FileWatcherCommand = 2
 )
 
 // There is probably a cleaner solution to this.
@@ -46,14 +48,30 @@ var fsWatchersLock = sync.Mutex{}
 
 // GlobWatcher watches a glob pattern to find log files. When a log file is found it will create a FileWatcher to read the file.
 type GlobWatcher struct {
-	m   map[string]*FileWatcher
-	ctx context.Context
+	fileConfig indexedfiles.IndexedFileConfig
+	m          map[string]*FileWatcher
+	ctx        context.Context
+
+	Cancel func()
+}
+
+func (gw *GlobWatcher) UpdateConfig(cfg indexedfiles.IndexedFileConfig) {
+	log.Printf("updating fileConfig for GlobWatcher with filename=%s...\n", gw.fileConfig.Filename)
+	if cfg == gw.fileConfig {
+		log.Printf("new config for GlobWatcher with filename=%s is the same as before. will not do anything\n", gw.fileConfig.Filename)
+		return
+	}
+	for _, v := range gw.m {
+		v.newFileConfig = &cfg
+		v.commands <- CommandReloadConfig
+	}
 }
 
 // FileWatcher watches files and publishes events as they are written to the file.
 type FileWatcher struct {
-	fileConfig config.IndexedFileConfig
-	ctx        context.Context
+	fileConfig    indexedfiles.IndexedFileConfig
+	newFileConfig *indexedfiles.IndexedFileConfig
+	ctx           context.Context
 
 	filename string
 	hostName string
@@ -71,7 +89,7 @@ type FileWatcher struct {
 // NewGlobWatcher creates a new watcher. The watcher will find any log files matching the glob pattern and create new FileWatchers for them.
 // The FileWatchers will publish events to the given eventPublisher.
 func NewGlobWatcher(
-	fileConfig config.IndexedFileConfig,
+	fileConfig indexedfiles.IndexedFileConfig,
 	glob string,
 	hostName string,
 	eventPublisher events.EventPublisher,
@@ -101,9 +119,13 @@ func NewGlobWatcher(
 		}
 	}
 
+	gwCtx, cancel := context.WithCancel(ctx)
+
 	gw := &GlobWatcher{
-		m:   map[string]*FileWatcher{},
-		ctx: ctx,
+		fileConfig: fileConfig,
+		m:          map[string]*FileWatcher{},
+		ctx:        gwCtx,
+		Cancel:     cancel,
 	}
 
 	initial, err := filepath.Glob(glob)
@@ -116,7 +138,7 @@ func NewGlobWatcher(
 			log.Printf("got error when performing filepath.Abs(file) with dir=%s, file=%s: %v\n", dir, file, err)
 			continue
 		}
-		fw, err := NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, ctx)
+		fw, err := NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, gwCtx)
 		if err != nil {
 			log.Printf("got error when creating new FileWatcher for filename=%s matching glob=%s: %v\n", absPath, glob, err)
 			continue
@@ -155,7 +177,7 @@ func NewGlobWatcher(
 				if fw, ok := gw.m[absPath]; ok {
 					fw.commands <- CommandReopen
 				} else {
-					fw, err = NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, ctx)
+					fw, err = NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, gwCtx)
 					if err != nil {
 						log.Printf("got error when creating new FileWatcher for filename=%s matching glob=%s: %v\n", absPath, glob, err)
 						continue
@@ -172,7 +194,7 @@ func NewGlobWatcher(
 
 // NewFileWatcher returns a FileWatcher which will watch a file and publish events according to the IndexedFileConfig
 func NewFileWatcher(
-	fileConfig config.IndexedFileConfig,
+	fileConfig indexedfiles.IndexedFileConfig,
 	filename string,
 	hostName string,
 	eventPublisher events.EventPublisher,
@@ -197,6 +219,10 @@ func NewFileWatcher(
 
 // Start begins watching the file according to its IndexedFileConfig
 func (fw *FileWatcher) Start() {
+	if fw.fileConfig.FileParser == nil {
+		log.Printf("FileParser is nil for file=%v. will not watch this file. review your configuration to make sure that this file has an associated file type with a parser configured.\n", fw.filename)
+		return
+	}
 	ticker := time.NewTicker(fw.fileConfig.ReadInterval)
 	defer ticker.Stop()
 	for {
@@ -236,7 +262,7 @@ func (fw *FileWatcher) readToEnd() {
 			break
 		}
 		fw.workingBuf = append(fw.workingBuf, fw.readBuf[:read]...)
-		if fw.fileConfig.EventDelimiter.Match(fw.workingBuf) {
+		if fw.fileConfig.FileParser.CanSplit(fw.workingBuf) {
 			fw.handleEvents()
 		}
 	}
@@ -247,19 +273,18 @@ func (fw *FileWatcher) handleEvents() {
 	// TODO: Maybe EventDelimiter should just be a string so we don't have to do this
 	// Currently the delimiter between each event could in theory have a different length every time
 	// so we need to look them up to get the offset right
-	delimiters := fw.fileConfig.EventDelimiter.FindAllString(s, -1)
-	split := fw.fileConfig.EventDelimiter.Split(s, -1)
-	for i, raw := range split[:len(split)-1] {
+	splitResult := fw.fileConfig.FileParser.Split(s)
+	for _, res := range splitResult.Events {
 		evt := events.RawEvent{
-			Raw:      raw,
+			Raw:      res.Raw,
 			Host:     fw.hostName,
 			Source:   fw.filename,
 			SourceId: fw.currentSourceId,
 			Offset:   fw.currentOffset,
 		}
-		fw.eventPublisher.PublishEvent(evt, fw.fileConfig.TimeLayout)
-		fw.currentOffset += int64(len(raw)) + int64(len(delimiters[i]))
+		fw.eventPublisher.PublishEvent(evt, fw.fileConfig.TimeLayout, fw.fileConfig.FileParser)
+		fw.currentOffset += res.Offset
 	}
 	fw.workingBuf = fw.workingBuf[:0]
-	fw.workingBuf = append(fw.workingBuf, []byte(split[len(split)-1])...)
+	fw.workingBuf = append(fw.workingBuf, []byte(splitResult.Remainder)...)
 }

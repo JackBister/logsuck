@@ -30,8 +30,8 @@ func TestRexPipelineStep(t *testing.T) {
 	}
 	repo := newInMemRepo(t)
 	params := PipelineParameters{
-		Cfg:        &config.Config{},
-		EventsRepo: repo,
+		ConfigSource: &config.NullConfigSource{},
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 
@@ -63,8 +63,8 @@ func TestRexPipelineStep_MultipleExtractions(t *testing.T) {
 	}
 	repo := newInMemRepo(t)
 	params := PipelineParameters{
-		Cfg:        &config.Config{},
-		EventsRepo: repo,
+		ConfigSource: &config.NullConfigSource{},
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 
@@ -99,8 +99,8 @@ func TestRexPipelineStep_ExtractedField(t *testing.T) {
 	}
 	repo := newInMemRepo(t)
 	params := PipelineParameters{
-		Cfg:        &config.Config{},
-		EventsRepo: repo,
+		ConfigSource: &config.NullConfigSource{},
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 
@@ -136,8 +136,8 @@ func TestRexPipelineStep_Source(t *testing.T) {
 	}
 	repo := newInMemRepo(t)
 	params := PipelineParameters{
-		Cfg:        &config.Config{},
-		EventsRepo: repo,
+		ConfigSource: &config.NullConfigSource{},
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 
@@ -171,8 +171,8 @@ func TestRexPipelineStep_Host(t *testing.T) {
 	}
 	repo := newInMemRepo(t)
 	params := PipelineParameters{
-		Cfg:        &config.Config{},
-		EventsRepo: repo,
+		ConfigSource: &config.NullConfigSource{},
+		EventsRepo:   repo,
 	}
 	pipe, input, output := newPipe()
 

@@ -24,6 +24,7 @@ import {
   getFieldValueCounts,
 } from "../api/v1";
 import { addRecentSearch } from "../services/RecentSearches";
+import { getQueryParams, setQueryParams } from "../queryParams";
 
 function main() {
   const appRoot = document.getElementById("app");
@@ -38,12 +39,8 @@ function main() {
       abortJob={abortJob}
       getFieldValueCounts={getFieldValueCounts}
       addRecentSearch={addRecentSearch}
-      getQueryParams={() => new URLSearchParams(window.location.search)}
-      setQueryParams={(params) => {
-        const url = new URL(window.location.href);
-        url.search = params.toString();
-        window.history.replaceState(null, document.title, url.toString());
-      }}
+      getQueryParams={getQueryParams}
+      setQueryParams={setQueryParams}
     />,
     document.body,
     appRoot

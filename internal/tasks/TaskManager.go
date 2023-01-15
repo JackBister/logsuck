@@ -26,7 +26,7 @@ import (
 
 type Task interface {
 	Name() string
-	Run(cfg config.DynamicConfig, ctx context.Context)
+	Run(cfg map[string]any, ctx context.Context)
 }
 
 type TaskState int
@@ -39,7 +39,7 @@ const (
 type TaskData struct {
 	enabled    bool
 	interval   time.Duration
-	cfg        config.DynamicConfig
+	cfg        map[string]any
 	state      TaskState
 	ctx        context.Context
 	cancelFunc context.CancelFunc
@@ -83,7 +83,7 @@ func (tm *TaskManager) AddTask(t Task) error {
 		td = TaskData{
 			enabled:    false,
 			interval:   1 * time.Hour,
-			cfg:        config.NewDynamicConfig([]config.ConfigSource{}),
+			cfg:        map[string]any{},
 			state:      TaskStateNotRunning,
 			ctx:        ctx,
 			cancelFunc: cancelFunc,

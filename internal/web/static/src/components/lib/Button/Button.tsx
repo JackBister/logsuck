@@ -37,8 +37,11 @@ export const Button = (
   } else if (props.buttonType === "text") {
     className += " " + lsButtonText;
   }
+  if (props.className) {
+    className += " " + props.className;
+  }
   return (
-    <button className={className} {...props}>
+    <button type={props.type || "button"} {...props} className={className}>
       {props.children}
     </button>
   );

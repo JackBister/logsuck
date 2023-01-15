@@ -24,7 +24,7 @@ import (
 )
 
 type EventPublisher interface {
-	PublishEvent(evt RawEvent, timeLayout string)
+	PublishEvent(evt RawEvent, timeLayout string, fileParser parser.FileParser)
 }
 
 type batchedRepositoryPublisher struct {
@@ -71,7 +71,7 @@ func BatchedRepositoryPublisher(cfg *config.Config, repo Repository) EventPublis
 	}
 }
 
-func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout string) {
+func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout string, fileParser parser.FileParser) {
 	processed := Event{
 		Raw:      evt.Raw,
 		Host:     ep.cfg.HostName,
@@ -80,7 +80,7 @@ func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout stri
 		Offset:   evt.Offset,
 	}
 
-	fields := parser.ExtractFields(strings.ToLower(evt.Raw), ep.cfg.FieldExtractors)
+	fields := parser.ExtractFields(strings.ToLower(evt.Raw), fileParser)
 	if t, ok := fields["_time"]; ok {
 		parsed, err := time.Parse(timeLayout, t)
 		if err != nil {
@@ -111,10 +111,10 @@ func DebugEventPublisher(wrapped EventPublisher) EventPublisher {
 	}
 }
 
-func (ep *debugEventPublisher) PublishEvent(evt RawEvent, timeLayout string) {
+func (ep *debugEventPublisher) PublishEvent(evt RawEvent, timeLayout string, fileParser parser.FileParser) {
 	log.Println("Received event:", evt)
 	if ep.wrapped != nil {
-		ep.wrapped.PublishEvent(evt, timeLayout)
+		ep.wrapped.PublishEvent(evt, timeLayout, fileParser)
 	}
 }
 
@@ -125,4 +125,4 @@ func NopEventPublisher() EventPublisher {
 	return &nopEventPublisher{}
 }
 
-func (ep *nopEventPublisher) PublishEvent(_ RawEvent, _ string) {}
+func (ep *nopEventPublisher) PublishEvent(_ RawEvent, _ string, _ parser.FileParser) {}
