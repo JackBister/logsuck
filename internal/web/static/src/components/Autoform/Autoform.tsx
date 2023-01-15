@@ -13,7 +13,13 @@ import { SimpleExpansionPanel } from "../lib/ExpansionPanel/ExpansionPanel";
 import { Input } from "../lib/Input/Input";
 import { autoform, formGroup, level, level1 } from "./Autoform.style.scss";
 
-export type FormFieldType = "ARRAY" | "ENUM" | "OBJECT" | "STRING";
+export type FormFieldType =
+  | "ARRAY"
+  | "BOOLEAN"
+  | "ENUM"
+  | "NUMBER"
+  | "OBJECT"
+  | "STRING";
 
 export interface FormFieldBase {
   type: FormFieldType;
@@ -27,9 +33,17 @@ export interface ArrayFormField extends FormFieldBase {
   itemTypes: FormField;
 }
 
+export interface BooleanFormField extends FormFieldBase {
+  type: "BOOLEAN";
+}
+
 export interface EnumFormField extends FormFieldBase {
   type: "ENUM";
   symbols: string[];
+}
+
+export interface NumberFormField extends FormFieldBase {
+  type: "NUMBER";
 }
 
 export interface ObjectFormField extends FormFieldBase {
@@ -43,7 +57,9 @@ export interface StringFormField extends FormFieldBase {
 
 export type FormField =
   | ArrayFormField
+  | BooleanFormField
   | EnumFormField
+  | NumberFormField
   | ObjectFormField
   | StringFormField;
 
@@ -82,6 +98,16 @@ export function jsonSchemaToFormSpec(
       type: "STRING",
       name,
     } as StringFormField;
+  } else if (jsonSchema.type === "boolean") {
+    return {
+      type: "BOOLEAN",
+      name,
+    } as BooleanFormField;
+  } else if (jsonSchema.type === "number") {
+    return {
+      type: "NUMBER",
+      name,
+    } as NumberFormField;
   } else if (jsonSchema.type === "array") {
     const itemType = jsonSchemaToFormSpec(name, jsonSchema.items);
     if (itemType === null) {
@@ -292,6 +318,32 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
             ))}
           </div>
         )}
+        {this.props.spec.type === "BOOLEAN" && (
+          <div className={formGroup}>
+            <label htmlFor={this.props.path}>
+              {this.props.spec.displayName || this.props.spec.name}
+            </label>
+            <Field
+              as="select"
+              name={this.props.path}
+              disabled={this.props.readonly}
+              readonly={this.props.readonly}
+              onChange={(evt: InputEvent) => {
+                if (!evt.target || !(evt.target as any).value) {
+                  return;
+                }
+                this.props.formikProps.setFieldValue(
+                  this.props.path,
+                  !!(evt.target as any).value
+                );
+              }}
+              value={!!getPath(this.props.formikProps.values, this.props.path)}
+            >
+              <option value={"false"}>false</option>
+              <option value={"true"}>true</option>
+            </Field>
+          </div>
+        )}
         {this.props.spec.type === "ENUM" && (
           <div className={formGroup}>
             <label htmlFor={this.props.path}>
@@ -309,6 +361,20 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                 </option>
               ))}
             </Field>
+          </div>
+        )}
+        {this.props.spec.type === "NUMBER" && (
+          <div className={formGroup}>
+            <label htmlFor={this.props.path}>
+              {this.props.spec.displayName || this.props.spec.name}
+            </label>
+            <Field
+              as={Input}
+              name={this.props.path}
+              type="number"
+              disabled={this.props.readonly}
+              readonly={this.props.readonly}
+            ></Field>
           </div>
         )}
         {this.props.spec.type === "STRING" && (
