@@ -8,10 +8,12 @@ There are two types of configuration in Logsuck: static configuration and dynami
 
 All configuration properties can be modified from the GUI, but there are some configuration properties which are _only_ read from the static configuration, meaning that the value displayed in the GUI may not reflect the actual configuration. In most cases this limitation is applied because using dynamic configuration would not work well in forwarder/recipient setups. The following properties can only be set through static configuration:
 
+- `forceStaticConfig`
 - `forwarder`
 - `host`
 - `recipient`
 - `sqlite`
+- `web.enabled`
 
 ## Initial configuration
 
