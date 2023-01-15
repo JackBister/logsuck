@@ -19,7 +19,7 @@ Logsuck is currently pre-1.0. This means that there may be changes made to the d
    - [JSON configuration](#json-configuration)
 3. [Search syntax](#search-syntax)
 4. [Need help?](#need-help)
-5. [Contributing](#contributing)
+5. [Building](#building)
 6. [Upcoming features](#upcoming-features)
    - [Before version 1.0](#before-version-10)
    - [After version 1.0](#after-version-10)
