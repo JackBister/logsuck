@@ -10,10 +10,6 @@
       "description": "A string containing the URL to this schema. Most likely \"https://github.com/jackbister/logsuck/logsuck-config.schema.json\", or \"./logsuck-config.schema.json\" if developing logsuck.",
       "type": "string"
     },
-    "configPollInterval": {
-      "description": "How often the host should poll for configuration updates. Must be a string like '1m', '15s', etc. Default '1m'.",
-      "type": "string"
-    },
     "forceStaticConfig": {
       "description": "If enabled, the JSON configuration file will be used instead of the configuration saved in the database. This means that you cannot alter configuration at runtime and must instead update the JSON file and restart logsuck. Has no effect in forwarder mode. Default false.",
       "type": "boolean"
@@ -144,6 +140,10 @@
         },
         "recipientAddress": {
           "description": "The URL where the recipient instance is running. Default 'localhost:8081'.",
+          "type": "string"
+        },
+        "configPollInterval": {
+          "description": "How often the forwarder should poll for configuration updates from the recipient. Must be a string like '1m', '15s', etc. Default '1m'.",
           "type": "string"
         }
       }

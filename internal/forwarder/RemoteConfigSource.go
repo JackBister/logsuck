@@ -14,9 +14,8 @@ type RemoteConfigSource struct {
 	cfg    *config.Config
 	client http.Client
 
-	changes            chan struct{}
-	configPollInterval time.Duration
-	cached             *config.ConfigResponse
+	changes chan struct{}
+	cached  *config.ConfigResponse
 
 	ticker *time.Ticker
 }
@@ -25,27 +24,26 @@ func NewRemoteConfigSource(cfg *config.Config) config.ConfigSource {
 	ret := RemoteConfigSource{
 		cfg: cfg,
 		client: http.Client{
-			Timeout: cfg.ConfigPollInterval,
+			Timeout: cfg.Forwarder.ConfigPollInterval,
 		},
 
-		changes:            make(chan struct{}, 1), // We need to buffer to avoid hanging on startup
-		configPollInterval: cfg.ConfigPollInterval,
+		changes: make(chan struct{}, 1), // We need to buffer to avoid hanging on startup
 		cached: &config.ConfigResponse{
 			Modified: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
 			Cfg:      *cfg,
 		},
 
-		ticker: time.NewTicker(cfg.ConfigPollInterval),
+		ticker: time.NewTicker(cfg.Forwarder.ConfigPollInterval),
 	}
 	ret.refresh()
 	go func(r *RemoteConfigSource) {
 		for {
 			<-r.ticker.C
 			oldModified := r.cached.Modified
-			oldPollInterval := r.cached.Cfg.ConfigPollInterval
+			oldPollInterval := r.cached.Cfg.Forwarder.ConfigPollInterval
 			r.refresh()
 			newModified := r.cached.Modified
-			newPollInterval := r.cached.Cfg.ConfigPollInterval
+			newPollInterval := r.cached.Cfg.Forwarder.ConfigPollInterval
 			if newModified != oldModified {
 				r.changes <- struct{}{}
 			}

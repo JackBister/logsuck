@@ -7,11 +7,7 @@ export interface LogsuckConfig {
    */
   $schema?: string;
   /**
-   * How often the host should poll for configuration updates. Must be a string like '1m', '15s', etc. Default '1m'.
-   */
-  configPollInterval?: string;
-  /**
-   * If enabled, the JSON configuration file will be used instead of the configuration saved in the database. This means that you cannot alter configuration at runtime and must instead update the JSON file and restart logsuck. Default false.
+   * If enabled, the JSON configuration file will be used instead of the configuration saved in the database. This means that you cannot alter configuration at runtime and must instead update the JSON file and restart logsuck. Has no effect in forwarder mode. Default false.
    */
   forceStaticConfig?: boolean;
   /**
@@ -112,6 +108,10 @@ export interface LogsuckConfig {
      * The URL where the recipient instance is running. Default 'localhost:8081'.
      */
     recipientAddress?: string;
+    /**
+     * How often the forwarder should poll for configuration updates from the recipient. Must be a string like '1m', '15s', etc. Default '1m'.
+     */
+    configPollInterval?: string;
   };
   /**
    * Configuration for running in recipient mode, where events will be rececived from other logsuck instances in forwarder mode instead of reading directly from the log files.

@@ -40,12 +40,12 @@ import (
 )
 
 var staticConfig = config.Config{
-	HostType:           "DEFAULT",
-	ConfigPollInterval: 1 * time.Minute,
+	HostType: "DEFAULT",
 
 	Forwarder: &config.ForwarderConfig{
-		Enabled:           false,
-		MaxBufferedEvents: 5000,
+		Enabled:            false,
+		MaxBufferedEvents:  5000,
+		ConfigPollInterval: 1 * time.Minute,
 	},
 
 	Recipient: &config.RecipientConfig{

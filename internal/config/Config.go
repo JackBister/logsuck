@@ -14,13 +14,10 @@
 
 package config
 
-import "time"
-
 type Config struct {
-	HostName           string
-	HostType           string
-	ConfigPollInterval time.Duration
-	ForceStaticConfig  bool
+	HostName          string
+	HostType          string
+	ForceStaticConfig bool
 
 	Forwarder *ForwarderConfig
 	Recipient *RecipientConfig

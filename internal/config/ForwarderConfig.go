@@ -14,8 +14,11 @@
 
 package config
 
+import "time"
+
 type ForwarderConfig struct {
-	Enabled           bool
-	MaxBufferedEvents int
-	RecipientAddress  string
+	Enabled            bool
+	MaxBufferedEvents  int
+	RecipientAddress   string
+	ConfigPollInterval time.Duration
 }

@@ -27,9 +27,10 @@ type jsonHostConfig struct {
 }
 
 type jsonForwarderConfig struct {
-	Enabled           *bool  `json:"enabled"`
-	MaxBufferedEvents *int   `json:"maxBufferedEvents"`
-	RecipientAddress  string `json:"recipientAddress"`
+	Enabled            *bool  `json:"enabled"`
+	MaxBufferedEvents  *int   `json:"maxBufferedEvents"`
+	RecipientAddress   string `json:"recipientAddress"`
+	ConfigPollInterval string `json:"configPollInterval"`
 }
 
 type jsonRecipientConfig struct {
@@ -68,7 +69,7 @@ type jsonFileConfig struct {
 type jsonFileTypeConfig struct {
 	Name         string                    `json:"name"`
 	TimeLayout   string                    `json:"timeLayout"`
-	ReadInterval string                    `json:"configPollInterval"`
+	ReadInterval string                    `json:"readInterval"`
 	Parser       *jsonFileTypeParserConfig `json:"parser"`
 }
 
@@ -98,13 +99,12 @@ type jsonTasksConfig struct {
 }
 
 type JsonConfig struct {
-	ConfigPollInterval string               `json:"configPollInterval"`
-	ForceStaticConfig  bool                 `json:"forceStaticConfig"`
-	Host               *jsonHostConfig      `json:"host"`
-	Forwarder          *jsonForwarderConfig `json:"forwarder"`
-	Recipient          *jsonRecipientConfig `json:"recipient"`
-	Sqlite             *jsonSqliteConfig    `json:"sqlite"`
-	Web                *jsonWebConfig       `json:"web"`
+	ForceStaticConfig bool                 `json:"forceStaticConfig"`
+	Host              *jsonHostConfig      `json:"host"`
+	Forwarder         *jsonForwarderConfig `json:"forwarder"`
+	Recipient         *jsonRecipientConfig `json:"recipient"`
+	Sqlite            *jsonSqliteConfig    `json:"sqlite"`
+	Web               *jsonWebConfig       `json:"web"`
 
 	Files     []jsonFileConfig     `json:"files"`
 	FileTypes []jsonFileTypeConfig `json:"fileTypes"`
@@ -113,12 +113,12 @@ type JsonConfig struct {
 }
 
 var defaultConfig = Config{
-	ConfigPollInterval: 1 * time.Minute,
-	ForceStaticConfig:  false,
+	ForceStaticConfig: false,
 	Forwarder: &ForwarderConfig{
-		Enabled:           false,
-		MaxBufferedEvents: 1000000,
-		RecipientAddress:  "http://localhost:8081",
+		Enabled:            false,
+		MaxBufferedEvents:  1000000,
+		RecipientAddress:   "http://localhost:8081",
+		ConfigPollInterval: 1 * time.Minute,
 	},
 
 	Recipient: &RecipientConfig{
@@ -162,20 +162,6 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 		hostType = "DEFAULT"
 	}
 
-	var configPollInterval time.Duration
-	if cfg.ConfigPollInterval != "" {
-		d, err := time.ParseDuration(cfg.ConfigPollInterval)
-		if err != nil {
-			log.Printf("failed to parse configPollInterval=%v, will use defaultConfigPollInterval=%v: %v\n", cfg.ConfigPollInterval, defaultConfig.ConfigPollInterval, err)
-			configPollInterval = defaultConfig.ConfigPollInterval
-		} else {
-			configPollInterval = d
-		}
-	} else {
-		log.Printf("using defaultConfigPollInterval=%v\n", defaultConfig.ConfigPollInterval)
-		configPollInterval = defaultConfig.ConfigPollInterval
-	}
-
 	files := make(map[string]FileConfig, len(cfg.Files))
 	for _, f := range cfg.Files {
 		files[f.Filename] = FileConfig{
@@ -212,6 +198,18 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 			forwarder.RecipientAddress = defaultConfig.Forwarder.RecipientAddress
 		} else {
 			forwarder.RecipientAddress = cfg.Forwarder.RecipientAddress
+		}
+		if cfg.Forwarder.ConfigPollInterval == "" {
+			log.Printf("using defaultConfigPollInterval=%v\n", defaultConfig.Forwarder.ConfigPollInterval)
+			forwarder.ConfigPollInterval = defaultConfig.Forwarder.ConfigPollInterval
+		} else {
+			d, err := time.ParseDuration(cfg.Forwarder.ConfigPollInterval)
+			if err != nil {
+				log.Printf("failed to parse configPollInterval=%v, will use defaultConfigPollInterval=%v: %v\n", cfg.Forwarder.ConfigPollInterval, defaultConfig.Forwarder.ConfigPollInterval, err)
+				forwarder.ConfigPollInterval = defaultConfig.Forwarder.ConfigPollInterval
+			} else {
+				forwarder.ConfigPollInterval = d
+			}
 		}
 	}
 
@@ -332,10 +330,9 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 	}
 
 	return &Config{
-		HostName:           hostName,
-		HostType:           hostType,
-		ConfigPollInterval: configPollInterval,
-		ForceStaticConfig:  cfg.ForceStaticConfig,
+		HostName:          hostName,
+		HostType:          hostType,
+		ForceStaticConfig: cfg.ForceStaticConfig,
 
 		Forwarder: forwarder,
 		Recipient: recipient,
@@ -424,16 +421,16 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 		})
 	}
 	jsonCfg := JsonConfig{
-		ConfigPollInterval: c.ConfigPollInterval.String(),
-		ForceStaticConfig:  c.ForceStaticConfig,
+		ForceStaticConfig: c.ForceStaticConfig,
 		Host: &jsonHostConfig{
 			Name: c.HostName,
 			Type: c.HostType,
 		},
 		Forwarder: &jsonForwarderConfig{
-			Enabled:           &c.Forwarder.Enabled,
-			MaxBufferedEvents: &c.Forwarder.MaxBufferedEvents,
-			RecipientAddress:  c.Forwarder.RecipientAddress,
+			Enabled:            &c.Forwarder.Enabled,
+			MaxBufferedEvents:  &c.Forwarder.MaxBufferedEvents,
+			RecipientAddress:   c.Forwarder.RecipientAddress,
+			ConfigPollInterval: c.Forwarder.ConfigPollInterval.String(),
 		},
 		Recipient: &jsonRecipientConfig{
 			Enabled: &c.Recipient.Enabled,
