@@ -25,6 +25,7 @@ export interface FormFieldBase {
   type: FormFieldType;
   displayName?: string;
   name: string;
+  readonly?: boolean;
 }
 
 export interface ArrayFormField extends FormFieldBase {
@@ -86,27 +87,32 @@ export function jsonSchemaToFormSpec(
       "only the root object of a JSON schema can have an empty name"
     );
   }
+  const metadata = jsonSchema.autoform || {};
   if (jsonSchema.type === "string") {
     if (jsonSchema.enum && jsonSchema.enum.length > 0) {
       return {
         type: "ENUM",
         name,
         symbols: jsonSchema.enum as string[],
+        readonly: metadata.readonly,
       } as EnumFormField;
     }
     return {
       type: "STRING",
       name,
+      readonly: metadata.readonly,
     } as StringFormField;
   } else if (jsonSchema.type === "boolean") {
     return {
       type: "BOOLEAN",
       name,
+      readonly: metadata.readonly,
     } as BooleanFormField;
   } else if (jsonSchema.type === "number") {
     return {
       type: "NUMBER",
       name,
+      readonly: metadata.readonly,
     } as NumberFormField;
   } else if (jsonSchema.type === "array") {
     const itemType = jsonSchemaToFormSpec(name, jsonSchema.items);
@@ -127,6 +133,7 @@ export function jsonSchemaToFormSpec(
       name,
       headerFieldName,
       itemTypes: itemType,
+      readonly: metadata.readonly,
     } as ArrayFormField;
   } else if (jsonSchema.type === "object") {
     const properties = jsonSchema.properties;
@@ -135,6 +142,7 @@ export function jsonSchemaToFormSpec(
         type: "OBJECT",
         name,
         fields: [],
+        readonly: metadata.readonly,
       } as ObjectFormField;
     }
     const fields = Object.keys(properties)
@@ -148,6 +156,7 @@ export function jsonSchemaToFormSpec(
       type: "OBJECT",
       name,
       fields,
+      readonly: metadata.readonly,
     } as ObjectFormField;
   } else {
     return null;
@@ -244,7 +253,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                   <Heading level={this.props.level}>
                     {this.props.spec.displayName || this.props.spec.name}
                   </Heading>
-                  {!this.props.readonly && (
+                  {!this.props.readonly && !this.props.spec.readonly && (
                     <Button
                       buttonType="text"
                       onClick={() => this.pushArrayItem(fa)}
@@ -271,7 +280,9 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                             key={i}
                             level={(this.props.level || 0) + 1}
                             path={`${this.props.path}[${i}]`}
-                            readonly={this.props.readonly}
+                            readonly={
+                              this.props.readonly || this.props.spec.readonly
+                            }
                             spec={this.props.spec.itemTypes}
                             formikProps={this.props.formikProps}
                           ></AutoformField>
@@ -284,11 +295,13 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                           key={i}
                           level={(this.props.level || 0) + 1}
                           path={`${this.props.path}[${i}]`}
-                          readonly={this.props.readonly}
+                          readonly={
+                            this.props.readonly || this.props.spec.readonly
+                          }
                           spec={this.props.spec.itemTypes}
                           formikProps={this.props.formikProps}
                         ></AutoformField>
-                        {!this.props.readonly && (
+                        {!this.props.readonly && !this.props.spec.readonly && (
                           <Button
                             buttonType="text"
                             onClick={() => fa.remove(i)}
@@ -311,7 +324,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                 key={i}
                 level={(this.props.level || 0) + 1}
                 path={`${this.props.path}.${f.name}`}
-                readonly={this.props.readonly}
+                readonly={this.props.readonly || this.props.spec.readonly}
                 spec={f}
                 formikProps={this.props.formikProps}
               ></AutoformField>
@@ -326,8 +339,8 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
             <Field
               as="select"
               name={this.props.path}
-              disabled={this.props.readonly}
-              readonly={this.props.readonly}
+              disabled={this.props.readonly || this.props.spec.readonly}
+              readonly={this.props.readonly || this.props.spec.readonly}
               onChange={(evt: InputEvent) => {
                 if (!evt.target || !(evt.target as any).value) {
                   return;
@@ -352,8 +365,8 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
             <Field
               as="select"
               name={this.props.path}
-              disabled={this.props.readonly}
-              readonly={this.props.readonly}
+              disabled={this.props.readonly || this.props.spec.readonly}
+              readonly={this.props.readonly || this.props.spec.readonly}
             >
               {this.props.spec.symbols.map((s) => (
                 <option key={s} value={s}>
@@ -372,8 +385,8 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
               as={Input}
               name={this.props.path}
               type="number"
-              disabled={this.props.readonly}
-              readonly={this.props.readonly}
+              disabled={this.props.readonly || this.props.spec.readonly}
+              readonly={this.props.readonly || this.props.spec.readonly}
             ></Field>
           </div>
         )}
@@ -395,8 +408,8 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                   unescapeStringValue((evt.target as any).value)
                 );
               }}
-              disabled={this.props.readonly}
-              readonly={this.props.readonly}
+              disabled={this.props.readonly || this.props.spec.readonly}
+              readonly={this.props.readonly || this.props.spec.readonly}
               value={escapedStringValue}
             ></Field>
           </div>
@@ -443,20 +456,22 @@ export class Autoform<Values extends FormikValues> extends Component<
                   formikProps={p}
                 ></AutoformField>
               ))}
-              {!this.props.readonly && (
-                <div>
-                  <Button type="submit" buttonType="primary">
-                    Save
-                  </Button>
-                  <Button
-                    type="button"
-                    buttonType="secondary"
-                    onClick={() => p.resetForm()}
-                  >
-                    Reset
-                  </Button>
-                </div>
-              )}
+              {!this.props.readonly &&
+                this.props.spec.fields.filter((f) => !f.readonly).length !==
+                  0 && (
+                  <div>
+                    <Button type="submit" buttonType="primary">
+                      Save
+                    </Button>
+                    <Button
+                      type="button"
+                      buttonType="secondary"
+                      onClick={() => p.resetForm()}
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                )}
             </form>
           )}
         </Formik>

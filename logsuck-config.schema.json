@@ -12,7 +12,10 @@
     },
     "forceStaticConfig": {
       "description": "If enabled, the JSON configuration file will be used instead of the configuration saved in the database. This means that you cannot alter configuration at runtime and must instead update the JSON file and restart logsuck. Has no effect in forwarder mode. Default false.",
-      "type": "boolean"
+      "type": "boolean",
+      "autoform": {
+        "readonly": true
+      }
     },
     "fileTypes": {
       "description": "A fileType combines configuration related to a type of file. For example you may have certain config that is only applicable to access logs, in which case you might name a fileType \"access_log\" and put access log specific config there. The special fileType \"DEFAULT\" is applied to all files. In a forwarder/recipient setup this only needs to be configured on the recipient host.",
@@ -129,6 +132,9 @@
       "description": "Configuration for running in forwarder mode, where events will be pushed to a recipient instance of logsuck instead of being saved locally.",
       "type": "object",
       "additionalProperties": false,
+      "autoform": {
+        "readonly": true
+      },
       "properties": {
         "enabled": {
           "description": "Whether forwarding mode should be enabled or not. Default false.",
@@ -152,6 +158,9 @@
       "description": "Configuration for running in recipient mode, where events will be rececived from other logsuck instances in forwarder mode instead of reading directly from the log files.",
       "type": "object",
       "additionalProperties": false,
+      "autoform": {
+        "readonly": true
+      },
       "properties": {
         "enabled": {
           "description": "Whether recipient mode should be enabled or not. Default false.",
@@ -167,6 +176,9 @@
       "description": "Configuration for the SQLite database where logsuck will store its data. In a forwarder/recipient setup this only needs to be configured on the recipient host.",
       "type": "object",
       "additionalProperties": false,
+      "autoform": {
+        "readonly": true
+      },
       "properties": {
         "fileName": {
           "description": "The file name which will be used for the SQLite database. Default 'logsuck.db'.",
@@ -229,7 +241,10 @@
       "properties": {
         "enabled": {
           "description": "Whether the web server should run. Defaults to true unless the configuration specifies that this logsuck instance should run in forwarder mode.",
-          "type": "boolean"
+          "type": "boolean",
+          "autoform": {
+            "readonly": true
+          }
         },
         "address": {
           "description": "The address where the web server will be exposed. Default ':8080'.",
