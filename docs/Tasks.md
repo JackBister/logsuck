@@ -22,6 +22,8 @@ Tasks are configured using the `tasks` key in `logsuck.json`. An example task co
 },
 ```
 
+Tasks can also be configured using the GUI.
+
 Every task must have a `name`, `enabled` and `interval` property. The available task names are listed below. `interval` can only be specified in seconds, minutes or hours.
 
 **If there is no configuration for a task, the task will never run.** Make sure you read through the available tasks below and configure the ones that are relevant to you.
