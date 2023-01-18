@@ -217,7 +217,7 @@ func main() {
 		publisher = forwarder.ForwardingEventPublisher(&staticConfig)
 		configSource = forwarder.NewRemoteConfigSource(&staticConfig)
 	} else {
-		db, err := sql.Open("sqlite3", "file:"+staticConfig.SQLite.DatabaseFile+"?cache=shared&_journal_mode=WAL")
+		db, err := sql.Open("sqlite3", "file:"+staticConfig.SQLite.DatabaseFile+"?_journal_mode=WAL")
 		if err != nil {
 			log.Fatalln(err.Error())
 		}
