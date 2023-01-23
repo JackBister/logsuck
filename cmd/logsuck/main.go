@@ -217,7 +217,13 @@ func main() {
 		publisher = forwarder.ForwardingEventPublisher(&staticConfig)
 		configSource = forwarder.NewRemoteConfigSource(&staticConfig)
 	} else {
-		db, err := sql.Open("sqlite3", "file:"+staticConfig.SQLite.DatabaseFile+"?_journal_mode=WAL")
+		additionalSqliteParameters := "?_journal_mode=WAL"
+		if staticConfig.SQLite.DatabaseFile == ":memory:" {
+			// cache=shared breaks DeleteOldEventsTask. But not having it breaks everything in :memory: mode.
+			// So we set cache=shared for :memory: mode and assume people will not need to delete old tasks in that mode.
+			additionalSqliteParameters += "&cache=shared"
+		}
+		db, err := sql.Open("sqlite3", "file:"+staticConfig.SQLite.DatabaseFile+additionalSqliteParameters)
 		if err != nil {
 			log.Fatalln(err.Error())
 		}
@@ -255,28 +261,11 @@ func main() {
 		log.Fatalln("got error when reading dynamic file config", err)
 	}
 
+	watchers := map[string]*files.GlobWatcher{}
 	if staticConfig.Recipient.Enabled {
 		log.Println("recipient is enabled, will not read any files on this host.")
 	} else {
-		watchers := map[string]*files.GlobWatcher{}
 		reloadFileWatchers(&watchers, indexedFiles, &dynamicConfig.Cfg, publisher, ctx)
-
-		go func() {
-			for {
-				<-configSource.Changes()
-				newCfg, err := configSource.Get()
-				if err != nil {
-					log.Printf("got error when reading updated dynamic file config. file config will not be updated: %v\n", err)
-					continue
-				}
-				newIndexedFiles, err := indexedfiles.ReadFileConfig(&newCfg.Cfg)
-				if err != nil {
-					log.Printf("got error when reading updated dynamic file config. file config will not be updated: %v\n", err)
-					continue
-				}
-				reloadFileWatchers(&watchers, newIndexedFiles, &newCfg.Cfg, publisher, ctx)
-			}
-		}()
 	}
 
 	if staticConfig.Recipient.Enabled {
@@ -291,12 +280,32 @@ func main() {
 		}()
 	}
 
-	// TODO: This should be updated on <-dynamicConfig.Changes() just like the file watchers
-	tm := tasks.NewTaskManager(&dynamicConfig.Cfg.Tasks, ctx)
-	err = tm.AddTask(&tasks.DeleteOldEventsTask{Repo: repo})
-	if err != nil {
-		log.Printf("got error when adding task: %v", err)
-	}
+	tm := tasks.NewTaskManager(
+		&dynamicConfig.Cfg.Tasks, tasks.TaskContext{
+			EventsRepo: repo,
+		},
+		ctx)
+	tm.UpdateConfig(dynamicConfig.Cfg)
+
+	go func() {
+		for {
+			<-configSource.Changes()
+			newCfg, err := configSource.Get()
+			if err != nil {
+				log.Printf("got error when reading updated dynamic file config. file config will not be updated: %v\n", err)
+				continue
+			}
+			if !staticConfig.Recipient.Enabled {
+				newIndexedFiles, err := indexedfiles.ReadFileConfig(&newCfg.Cfg)
+				if err != nil {
+					log.Printf("got error when reading updated dynamic file config. file config will not be updated: %v\n", err)
+				} else {
+					reloadFileWatchers(&watchers, newIndexedFiles, &newCfg.Cfg, publisher, ctx)
+				}
+			}
+			tm.UpdateConfig(newCfg.Cfg)
+		}
+	}()
 
 	select {}
 }

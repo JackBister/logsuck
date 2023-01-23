@@ -363,10 +363,10 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                 }
                 this.props.formikProps.setFieldValue(
                   this.props.path,
-                  !!(evt.target as any).value
+                  (evt.target as any).value === "true"
                 );
               }}
-              value={!!getPath(this.props.formikProps.values, this.props.path)}
+              value={getPath(this.props.formikProps.values, this.props.path)}
             >
               <option value={"false"}>false</option>
               <option value={"true"}>true</option>

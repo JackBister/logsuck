@@ -41,7 +41,7 @@ func NewRemoteConfigSource(cfg *config.Config) config.ConfigSource {
 			Timeout: cfg.Forwarder.ConfigPollInterval,
 		},
 
-		changes: make(chan struct{}, 1), // We need to buffer to avoid hanging on startup
+		changes: make(chan struct{}), // We need to buffer to avoid hanging on startup
 		cached: &config.ConfigResponse{
 			Modified: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
 			Cfg:      *cfg,

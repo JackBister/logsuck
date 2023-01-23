@@ -46,10 +46,10 @@ func NewSqliteConfigRepository(staticConfig *Config, db *sql.DB, writeInitialCon
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: failed to close COUNT result: %w", err)
 	}
-	changes := make(chan struct{}, 1) // We need to buffer to avoid hanging on startup
+	changes := make(chan struct{})
 	ret := &SqliteConfigRepository{db: db, changes: changes}
 	if c == 0 && writeInitialConfig {
-		err = ret.Upsert(staticConfig)
+		err = ret.upsertInternal(staticConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: failed to upsert initial config: %w", err)
 		}
@@ -88,6 +88,15 @@ func (s *SqliteConfigRepository) Get() (*ConfigResponse, error) {
 }
 
 func (s *SqliteConfigRepository) Upsert(c *Config) error {
+	err := s.upsertInternal(c)
+	if err != nil {
+		return err
+	}
+	s.changes <- struct{}{}
+	return nil
+}
+
+func (s *SqliteConfigRepository) upsertInternal(c *Config) error {
 	jsonString, err := ToJSON(c)
 	if err != nil {
 		return fmt.Errorf("failed to serialize config: %w", err)
@@ -100,6 +109,5 @@ func (s *SqliteConfigRepository) Upsert(c *Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to insert new config into Config table: %w", err)
 	}
-	s.changes <- struct{}{}
 	return nil
 }
