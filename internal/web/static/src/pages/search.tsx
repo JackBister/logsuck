@@ -14,24 +14,20 @@
  * limitations under the License.
  */
 
-import { h, render } from "preact";
-import { SearchPageComponent } from "./SearchPage";
+import { h, hydrate } from "preact";
 import {
-  startJob,
-  pollJob,
-  getResults,
   abortJob,
   getFieldValueCounts,
+  getResults,
+  pollJob,
+  startJob,
 } from "../api/v1";
-import { addRecentSearch } from "../services/RecentSearches";
 import { getQueryParams, setQueryParams } from "../queryParams";
+import { addRecentSearch } from "../services/RecentSearches";
+import { SearchPageComponent } from "./SearchPage";
 
 function main() {
-  const appRoot = document.getElementById("app");
-  if (!appRoot) {
-    throw new Error("No element with id 'app' found!");
-  }
-  render(
+  hydrate(
     <SearchPageComponent
       startJob={startJob}
       pollJob={pollJob}
@@ -42,8 +38,7 @@ function main() {
       getQueryParams={getQueryParams}
       setQueryParams={setQueryParams}
     />,
-    document.body,
-    appRoot
+    document.body
   );
 }
 

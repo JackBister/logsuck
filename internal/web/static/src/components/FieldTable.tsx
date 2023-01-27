@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
+import { Table } from "@mantine/core";
 import { h } from "preact";
-import { Table, TableRow } from "./lib/Table/Table";
+import { TableRow } from "./TableRow";
 
 export interface FieldTableProps {
   fields: { [key: string]: number };
@@ -28,7 +29,7 @@ export const FieldTable = ({ fields, onFieldClicked }: FieldTableProps) => {
     <div>
       {keys.length === 0 && <div>No fields extracted</div>}
       {keys.length > 0 && (
-        <Table hoverable={true}>
+        <Table highlightOnHover>
           <thead>
             <tr>
               <th>Value</th>

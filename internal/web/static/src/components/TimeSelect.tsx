@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
+import { Button, Flex, Menu, Space, Text, TextInput } from "@mantine/core";
 import { h, Component } from "preact";
 import { TimeSelection } from "../models/TimeSelection";
 import { validateIsoTimestamp } from "../validateIsoTimestamp";
-import { Button } from "./lib/Button/Button";
-import { Dropdown, DropdownItem } from "./lib/Dropdown/Dropdown";
-import { Input, InputGroup } from "./lib/Input/Input";
 
 enum Selection {
   LAST_15_MINUTES,
@@ -159,113 +157,139 @@ export class TimeSelect extends Component<TimeSelectProps, TimeSelectState> {
       }
     }
     return (
-      <Dropdown
-        isOpen={this.state.isOpen}
-        onOpenStateChanged={(isOpen) => this.setState({ isOpen })}
-        triggerText={displayName}
-      >
-        <div>
+      <Menu width={300}>
+        <Menu.Target>
+          <Button variant="outline">{displayName}</Button>
+        </Menu.Target>
+        <Menu.Dropdown>
           {options.map((o) => (
-            <DropdownItem
+            <Menu.Item
               type="button"
               isCurrent={selection === o.value}
               onClick={() => this.onSelection(o)}
             >
               {o.name}
-            </DropdownItem>
+            </Menu.Item>
           ))}
-          <hr />
-          <div className="px-4">
-            <h6 className="t-h6">Date and time range</h6>
-            <div className="mb-3">
-              <div className="d-flex justify-between">
-                <label>From</label>
-                <Button
-                  type="button"
-                  buttonType="text"
-                  onClick={(evt) => {
-                    this.props.onTimeSelected({
-                      ...this.props.selection,
-                      startTime: undefined,
-                    });
-                    evt.stopPropagation();
-                  }}
-                >
-                  Clear
-                </Button>
-              </div>
-              <InputGroup>
-                <Input
-                  id="timeSelectAbsoluteFromDate"
-                  name="timeSelectAbsoluteFromDate"
-                  type="date"
-                  placeholder="yyyy-MM-dd"
-                  onInput={(evt) => {
-                    evt.preventDefault();
-                    this.onDateUpdated("startTime", (evt.target as any).value);
-                  }}
-                  value={startDate}
-                />
-                <Input
-                  id="timeSelectAbsoluteFromTime"
-                  name="timeSelectAbsoluteFromTime"
-                  type="time"
-                  step="1"
-                  placeholder="HH:mm:ss"
-                  onInput={(evt) => {
-                    evt.preventDefault();
-                    this.onTimeUpdated("startTime", (evt.target as any).value);
-                  }}
-                  value={startTime}
-                />
-              </InputGroup>
-            </div>
-            <div className="mb-3">
-              <div className="d-flex justify-between">
-                <label>To</label>
-                <Button
-                  type="button"
-                  buttonType="text"
-                  onClick={(evt) => {
-                    this.props.onTimeSelected({
-                      ...this.props.selection,
-                      endTime: undefined,
-                    });
-                    evt.stopPropagation();
-                  }}
-                >
-                  Clear
-                </Button>
-              </div>
-              <InputGroup>
-                <Input
-                  id="timeSelectAbsoluteToDate"
-                  name="timeSelectAbsoluteToDate"
-                  type="date"
-                  placeholder="yyyy-MM-dd"
-                  onInput={(evt) => {
-                    evt.preventDefault();
-                    this.onDateUpdated("endTime", (evt.target as any).value);
-                  }}
-                  value={endDate}
-                />
-                <Input
-                  id="timeSelectAbsoluteToTime"
-                  name="timeSelectAbsoluteToTime"
-                  type="time"
-                  step="1"
-                  placeholder="HH:mm:ss"
-                  onInput={(evt) => {
-                    evt.preventDefault();
-                    this.onTimeUpdated("endTime", (evt.target as any).value);
-                  }}
-                  value={endTime}
-                />
-              </InputGroup>
-            </div>
+          <Menu.Divider />
+          <Menu.Label>Date and time range</Menu.Label>
+          <div style="padding: 0 12px 10px">
+            <Flex direction="row" justify="space-between">
+              <Text fz="sm">From</Text>
+              <Button
+                type="button"
+                variant="subtle"
+                onClick={(evt: any) => {
+                  this.props.onTimeSelected({
+                    ...this.props.selection,
+                    startTime: undefined,
+                  });
+                  evt.stopPropagation();
+                }}
+              >
+                Clear
+              </Button>
+            </Flex>
+            <Flex direction="row" gap="sm">
+              <TextInput
+                id="timeSelectAbsoluteFromDate"
+                name="timeSelectAbsoluteFromDate"
+                aria-label="From date"
+                type="date"
+                placeholder="yyyy-MM-dd"
+                onChange={(evt: any) => {
+                  evt.preventDefault();
+                  this.onDateUpdated(
+                    "startTime",
+                    (evt.currentTarget as any).value
+                  );
+                }}
+                onKeyDown={(evt: any) => {
+                  evt.stopPropagation();
+                }}
+                value={startDate}
+              />
+              <TextInput
+                id="timeSelectAbsoluteFromTime"
+                name="timeSelectAbsoluteFromTime"
+                aria-label="From time"
+                type="time"
+                step="1"
+                placeholder="HH:mm:ss"
+                style="flex-grow: 1"
+                onChange={(evt: any) => {
+                  evt.preventDefault();
+                  this.onTimeUpdated(
+                    "startTime",
+                    (evt.currentTarget as any).value
+                  );
+                }}
+                onKeyDown={(evt: any) => {
+                  evt.stopPropagation();
+                }}
+                value={startTime}
+              />
+            </Flex>
+            <Space h="sm"></Space>
+            <Flex direction="row" justify="space-between">
+              <Text fz="sm">To</Text>
+              <Button
+                type="button"
+                variant="subtle"
+                onClick={(evt: any) => {
+                  this.props.onTimeSelected({
+                    ...this.props.selection,
+                    endTime: undefined,
+                  });
+                  evt.stopPropagation();
+                }}
+              >
+                Clear
+              </Button>
+            </Flex>
+            <Flex direction="row" gap="sm">
+              <TextInput
+                id="timeSelectAbsoluteToDate"
+                name="timeSelectAbsoluteToDate"
+                aria-label="To date"
+                type="date"
+                placeholder="yyyy-MM-dd"
+                onChange={(evt: any) => {
+                  evt.preventDefault();
+                  this.onDateUpdated(
+                    "endTime",
+                    (evt.currentTarget as any).value
+                  );
+                }}
+                onKeyDown={(evt: any) => {
+                  evt.stopPropagation();
+                }}
+                value={endDate}
+              />
+              <TextInput
+                id="timeSelectAbsoluteToTime"
+                name="timeSelectAbsoluteToTime"
+                aria-label="To time"
+                type="time"
+                step="1"
+                placeholder="HH:mm:ss"
+                style="flex-grow: 1"
+                onChange={(evt: any) => {
+                  evt.preventDefault();
+                  this.onTimeUpdated(
+                    "endTime",
+                    (evt.currentTarget as any).value
+                  );
+                }}
+                onKeyDown={(evt: any) => {
+                  evt.stopPropagation();
+                }}
+                value={endTime}
+              />
+            </Flex>
           </div>
-        </div>
-      </Dropdown>
+        </Menu.Dropdown>
+      </Menu>
     );
   }
 
@@ -283,7 +307,10 @@ export class TimeSelect extends Component<TimeSelectProps, TimeSelectState> {
       const split = previous.split("T");
       next = value + "T" + split[1];
     }
-    const nextSelection = { ...this.props.selection };
+    const nextSelection: TimeSelection = {
+      ...this.props.selection,
+      relativeTime: undefined,
+    };
     nextSelection[part] = next;
     this.props.onTimeSelected(nextSelection);
   }
@@ -297,7 +324,10 @@ export class TimeSelect extends Component<TimeSelectProps, TimeSelectState> {
       const split = previous.split("T");
       next = split[0] + "T" + value;
     }
-    const nextSelection = { ...this.props.selection };
+    const nextSelection: TimeSelection = {
+      ...this.props.selection,
+      relativeTime: undefined,
+    };
     nextSelection[part] = next;
     this.props.onTimeSelected(nextSelection);
   }

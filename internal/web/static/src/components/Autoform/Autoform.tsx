@@ -15,7 +15,16 @@
  */
 
 import {
-  ArrayHelpers,
+  Accordion,
+  Button,
+  Flex,
+  NumberInput,
+  Select,
+  Space,
+  Text,
+  TextInput,
+} from "@mantine/core";
+import {
   Field,
   FieldArray,
   FieldArrayRenderProps,
@@ -23,11 +32,7 @@ import {
   FormikProps,
   FormikValues,
 } from "formik";
-import { Component, createRef, h, Ref, RenderableProps } from "preact";
-import { Button } from "../lib/Button/Button";
-import { SimpleExpansionPanel } from "../lib/ExpansionPanel/ExpansionPanel";
-import { Input } from "../lib/Input/Input";
-import { autoform, formGroup, level, level1 } from "./Autoform.style.scss";
+import { Component, h, RenderableProps } from "preact";
 
 export type FormFieldType =
   | "ARRAY"
@@ -262,36 +267,53 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
           <FieldArray
             name={this.props.path}
             render={(fa: FieldArrayRenderProps) => (
-              <div
-                className={level + " " + (this.props.level === 1 ? level1 : "")}
-              >
+              <div>
                 <div className="d-flex flex-row align-end justify-between mb-3">
                   <Heading level={this.props.level}>
                     {this.props.spec.displayName || this.props.spec.name}
                   </Heading>
                   {!this.props.readonly && !this.props.spec.readonly && (
                     <Button
-                      buttonType="text"
+                      variant="subtle"
                       onClick={() => this.pushArrayItem(fa)}
                     >
                       Add
                     </Button>
                   )}
                 </div>
-                {(getPath(fa.form.values, this.props.path) as any[])?.map(
-                  (a, i) => {
-                    if (this.props.spec.type !== "ARRAY") {
-                      return null;
-                    }
-                    if (this.props.spec.itemTypes.type === "OBJECT") {
+                <Accordion variant="contained" multiple={true}>
+                  {(getPath(fa.form.values, this.props.path) as any[])?.map(
+                    (a, i) => {
+                      if (this.props.spec.type !== "ARRAY") {
+                        return null;
+                      }
+                      if (this.props.spec.itemTypes.type === "OBJECT") {
+                        return (
+                          <Accordion.Item value={i.toString()}>
+                            <Accordion.Control>
+                              <Text>
+                                {this.props.spec.headerFieldName &&
+                                  getPath(a, this.props.spec.headerFieldName)}
+                              </Text>
+                            </Accordion.Control>
+                            <Accordion.Panel>
+                              <AutoformField
+                                key={i}
+                                level={(this.props.level || 0) + 1}
+                                path={`${this.props.path}[${i}]`}
+                                readonly={
+                                  this.props.readonly ||
+                                  this.props.spec.readonly
+                                }
+                                spec={this.props.spec.itemTypes}
+                                formikProps={this.props.formikProps}
+                              ></AutoformField>
+                            </Accordion.Panel>
+                          </Accordion.Item>
+                        );
+                      }
                       return (
-                        <SimpleExpansionPanel
-                          title={
-                            (this.props.spec.headerFieldName &&
-                              getPath(a, this.props.spec.headerFieldName)) ||
-                            i
-                          }
-                        >
+                        <Flex direction="row" align="center">
                           <AutoformField
                             key={i}
                             level={(this.props.level || 0) + 1}
@@ -302,39 +324,27 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                             spec={this.props.spec.itemTypes}
                             formikProps={this.props.formikProps}
                           ></AutoformField>
-                        </SimpleExpansionPanel>
+                          {!this.props.readonly &&
+                            !this.props.spec.readonly && (
+                              <Button
+                                variant="subtle"
+                                style={{ marginTop: "25px" }}
+                                onClick={() => fa.remove(i)}
+                              >
+                                X
+                              </Button>
+                            )}
+                        </Flex>
                       );
                     }
-                    return (
-                      <div className="d-flex flex-row justify-start align-center">
-                        <AutoformField
-                          key={i}
-                          level={(this.props.level || 0) + 1}
-                          path={`${this.props.path}[${i}]`}
-                          readonly={
-                            this.props.readonly || this.props.spec.readonly
-                          }
-                          spec={this.props.spec.itemTypes}
-                          formikProps={this.props.formikProps}
-                        ></AutoformField>
-                        {!this.props.readonly && !this.props.spec.readonly && (
-                          <Button
-                            buttonType="text"
-                            onClick={() => fa.remove(i)}
-                          >
-                            X
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  }
-                )}
+                  )}
+                </Accordion>
               </div>
             )}
           ></FieldArray>
         )}
         {this.props.spec.type === "OBJECT" && (
-          <div className={level + " " + (this.props.level === 1 ? level1 : "")}>
+          <div>
             {this.props.spec.fields.map((f, i) => (
               <AutoformField
                 key={i}
@@ -348,73 +358,64 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
           </div>
         )}
         {this.props.spec.type === "BOOLEAN" && (
-          <div className={formGroup}>
+          <div>
             <label htmlFor={this.props.path}>
               {this.props.spec.displayName || this.props.spec.name}
             </label>
             <Field
-              as="select"
+              as={Select}
               name={this.props.path}
               disabled={this.props.readonly || this.props.spec.readonly}
               readonly={this.props.readonly || this.props.spec.readonly}
-              onChange={(evt: InputEvent) => {
-                if (!evt.target || !(evt.target as any).value) {
-                  return;
-                }
-                this.props.formikProps.setFieldValue(
-                  this.props.path,
-                  (evt.target as any).value === "true"
-                );
+              onChange={(v: boolean) => {
+                this.props.formikProps.setFieldValue(this.props.path, v);
               }}
               value={getPath(this.props.formikProps.values, this.props.path)}
-            >
-              <option value={"false"}>false</option>
-              <option value={"true"}>true</option>
-            </Field>
+              data={[
+                { value: false, label: "false" },
+                { value: true, label: "true" },
+              ]}
+            ></Field>
           </div>
         )}
         {this.props.spec.type === "ENUM" && (
-          <div className={formGroup}>
+          <div>
             <label htmlFor={this.props.path}>
               {this.props.spec.displayName || this.props.spec.name}
             </label>
             <Field
-              as="select"
+              as={Select}
               name={this.props.path}
               disabled={this.props.readonly || this.props.spec.readonly}
               readonly={this.props.readonly || this.props.spec.readonly}
-            >
-              {this.props.spec.symbols.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </Field>
+              data={this.props.spec.symbols.map((s) => ({
+                value: s,
+                label: s,
+              }))}
+            ></Field>
           </div>
         )}
         {this.props.spec.type === "NUMBER" && (
-          <div className={formGroup}>
+          <div>
             <label htmlFor={this.props.path}>
               {this.props.spec.displayName || this.props.spec.name}
             </label>
             <Field
-              as={Input}
+              as={NumberInput}
               name={this.props.path}
-              type="number"
               disabled={this.props.readonly || this.props.spec.readonly}
               readonly={this.props.readonly || this.props.spec.readonly}
             ></Field>
           </div>
         )}
         {this.props.spec.type === "STRING" && (
-          <div className={formGroup}>
+          <div>
             <label htmlFor={this.props.path}>
               {this.props.spec.displayName || this.props.spec.name}
             </label>
             <Field
-              as={Input}
+              as={TextInput}
               name={this.props.path}
-              type="text"
               onChange={(evt: InputEvent) => {
                 if (!evt.target || !(evt.target as any).value) {
                   return;
@@ -456,7 +457,7 @@ export class Autoform<Values extends FormikValues> extends Component<
 
   render() {
     return (
-      <div className={autoform}>
+      <div>
         <Formik
           initialValues={this.props.initialValues}
           onSubmit={(values: Values) => this.props.onSubmit(values)}
@@ -472,21 +473,20 @@ export class Autoform<Values extends FormikValues> extends Component<
                   formikProps={p}
                 ></AutoformField>
               ))}
+              <Space h="md" />
               {!this.props.readonly &&
                 this.props.spec.fields.filter((f) => !f.readonly).length !==
                   0 && (
-                  <div>
-                    <Button type="submit" buttonType="primary">
-                      Save
-                    </Button>
+                  <Flex gap="md">
+                    <Button type="submit">Save</Button>
                     <Button
                       type="button"
-                      buttonType="secondary"
+                      variant="outline"
                       onClick={() => p.resetForm()}
                     >
                       Reset
                     </Button>
-                  </div>
+                  </Flex>
                 )}
             </form>
           )}

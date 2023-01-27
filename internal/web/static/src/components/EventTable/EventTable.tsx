@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
+import { Button, Flex, Table } from "@mantine/core";
 import { h } from "preact";
 import { LogEvent } from "../../models/Event";
-import { Button } from "../lib/Button/Button";
-import { Table } from "../lib/Table/Table";
 import {
-  eventTable,
   eventTableRow,
   eventTimestamp,
   eventRaw,
-  eventAdditional,
 } from "./EventTable.style.scss";
 
 export interface EventTableProps {
@@ -35,7 +32,7 @@ export const EventTable = ({
   events,
   onViewContextClicked,
 }: EventTableProps) => (
-  <Table hoverable={true} className={eventTable}>
+  <Table highlightOnHover>
     <thead>
       <tr>
         <th scope="col" style={{ width: "10%" }}>
@@ -67,7 +64,7 @@ export const EventTable = ({
                   marginBottom: "0",
                 }}
               />
-              <div className={eventAdditional}>
+              <Flex direction="row" align="center" gap="lg" px="md">
                 <dl>
                   <dt>source</dt>
                   <dd>{e.source}</dd>
@@ -75,14 +72,14 @@ export const EventTable = ({
                 <div>
                   <Button
                     type="button"
-                    buttonType="text"
+                    variant="subtle"
                     onClick={() => onViewContextClicked(e.id)}
                     style={{ marginTop: "-2px" }}
                   >
                     View context
                   </Button>
                 </div>
-              </div>
+              </Flex>
             </div>
           </td>
         </tr>

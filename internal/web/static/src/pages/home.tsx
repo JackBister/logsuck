@@ -14,22 +14,17 @@
  * limitations under the License.
  */
 
-import { h, render } from "preact";
-import { HomeComponent } from "./HomePage";
+import { h, hydrate } from "preact";
 import { getRecentSearches } from "../services/RecentSearches";
+import { HomeComponent } from "./HomePage";
 
 function main() {
-  const appRoot = document.getElementById("app");
-  if (!appRoot) {
-    throw new Error("No element with id 'app' found!");
-  }
-  render(
+  hydrate(
     <HomeComponent
       getRecentSearches={getRecentSearches}
       navigateTo={(url) => (window.location.href = url)}
     />,
-    document.body,
-    appRoot
+    document.body
   );
 }
 

@@ -17,8 +17,9 @@
     "webpack-cli": "5.0.1"
   },
   "dependencies": {
+    "@emotion/react": "11.10.5",
+    "@mantine/core": "5.10.1",
     "formik": "2.2.9",
-    "normalize.css": "8.0.1",
     "preact": "10.11.3"
   }
 }

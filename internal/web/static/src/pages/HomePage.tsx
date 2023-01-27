@@ -16,11 +16,11 @@
 
 import { h, Component } from "preact";
 import { RecentSearch } from "../services/RecentSearches";
-import { Navbar } from "../components/lib/Navbar/Navbar";
 import { RedirectSearchInput } from "../components/SearchInput";
 import { createSearchUrl } from "../createSearchUrl";
-import { Card, CardHeader } from "../components/lib/Card/Card";
-import { Table, TableRow } from "../components/lib/Table/Table";
+import { Card, Table, Title, useMantineTheme } from "@mantine/core";
+import { LogsuckAppShell } from "../components/LogsuckAppShell";
+import { TableRow } from "../components/TableRow";
 
 interface HomeProps {
   getRecentSearches: () => Promise<RecentSearch[]>;
@@ -45,45 +45,41 @@ export class HomeComponent extends Component<HomeProps, HomeState> {
   }
 
   render() {
+    const theme = useMantineTheme();
     return (
-      <div>
-        <Navbar />
-        <main role="main" className="ls-container">
-          <RedirectSearchInput navigateTo={this.props.navigateTo} />
-          <div>
-            <Card>
-              <CardHeader>
-                <h1 className="t-h1">Recent searches</h1>
-              </CardHeader>
-              {typeof this.state.recentSearches === "undefined" ? (
-                <div className="card-body">
-                  <p>Loading...</p>
-                </div>
-              ) : this.state.recentSearches.length === 0 ? (
-                <div className="card-body">
-                  <p>No recent searches</p>
-                </div>
-              ) : (
-                <Table hoverable={true}>
-                  <tbody>
-                    {this.state.recentSearches.map((rs) => (
-                      <TableRow
-                        key={rs.searchTime.valueOf()}
-                        onClick={() => this.onRecentSearchClicked(rs)}
-                      >
-                        <td>{rs.searchString}</td>
-                        <td style={{ textAlign: "right" }}>
-                          {rs.timeSelection.relativeTime || "All time"}
-                        </td>
-                      </TableRow>
-                    ))}
-                  </tbody>
-                </Table>
-              )}
-            </Card>
-          </div>
-        </main>
-      </div>
+      <LogsuckAppShell>
+        <RedirectSearchInput navigateTo={this.props.navigateTo} />
+        <div>
+          <Card>
+            <Title order={2}>Recent searches</Title>
+            {typeof this.state.recentSearches === "undefined" ? (
+              <div className="card-body">
+                <p>Loading...</p>
+              </div>
+            ) : this.state.recentSearches.length === 0 ? (
+              <div className="card-body">
+                <p>No recent searches</p>
+              </div>
+            ) : (
+              <Table highlightOnHover>
+                <tbody>
+                  {this.state.recentSearches.map((rs) => (
+                    <TableRow
+                      key={rs.searchTime.valueOf()}
+                      onClick={() => this.onRecentSearchClicked(rs)}
+                    >
+                      <td>{rs.searchString}</td>
+                      <td style={{ textAlign: "right" }}>
+                        {rs.timeSelection.relativeTime || "All time"}
+                      </td>
+                    </TableRow>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </Card>
+        </div>
+      </LogsuckAppShell>
     );
   }
 

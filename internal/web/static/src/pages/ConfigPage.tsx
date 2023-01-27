@@ -21,13 +21,12 @@ import {
   jsonSchemaToFormSpec,
   ObjectFormField,
 } from "../components/Autoform/Autoform";
-import { Card } from "../components/lib/Card/Card";
-import { Navbar } from "../components/lib/Navbar/Navbar";
-import { Table, TableRow } from "../components/lib/Table/Table";
 
 import * as configSchema from "../../../../../logsuck-config.schema.json";
 import { LogsuckConfig } from "../api/config";
-import { Infobox } from "../components/lib/Infobox/Infobox";
+import { LogsuckAppShell } from "../components/LogsuckAppShell";
+import { Alert, Card, Table } from "@mantine/core";
+import { TableRow } from "../components/TableRow";
 
 interface ConfigPageProps {
   getConfig: () => Promise<LogsuckConfig>;
@@ -105,60 +104,57 @@ export class ConfigPageComponent extends Component<
       } as FormSpec;
     }
     return (
-      <div>
-        <Navbar />
-        <main role="main" className="ls-container">
-          <div className="d-flex flex-row gap-6">
-            <div className="shrink-1">
-              <Card>
-                <Table hoverable={true}>
-                  <tbody>
-                    {CONFIG_SCHEMA_SPEC.fields.map((f) => (
-                      <TableRow onClick={() => this.navigate(f.name)}>
-                        <td>{f.name}</td>
-                      </TableRow>
-                    ))}
-                  </tbody>
-                </Table>
-              </Card>
-            </div>
-            <div className="grow-1 shrink-0" style={{ flexBasis: "80%" }}>
-              {this.state.type === "loaded" && (
-                <div>
-                  {this.state.initialValues.forceStaticConfig && (
-                    <div className="mb-3">
-                      <Infobox type="info">
-                        "forceStaticConfig" is set in the configuration. The
-                        configuration is in read only mode. In order to modify
-                        it, set "forceStaticConfig" to false in the JSON
-                        configuration.
-                      </Infobox>
-                    </div>
-                  )}
-                  {!currentSpec && (
-                    <p>
-                      Choose one of the properties on the left to edit your
-                      configuration.
-                    </p>
-                  )}
-                  {currentSpec && (
-                    <Autoform
-                      key={this.state.topLevelProperty}
-                      spec={currentSpec}
-                      initialValues={this.state.initialValues}
-                      onSubmit={async (v: LogsuckConfig) => {
-                        await this.props.updateConfig(v);
-                        await this.reload();
-                      }}
-                      readonly={this.state.initialValues.forceStaticConfig}
-                    ></Autoform>
-                  )}
-                </div>
-              )}
-            </div>
+      <LogsuckAppShell>
+        <div className="d-flex flex-row gap-6">
+          <div className="shrink-1">
+            <Card>
+              <Table highlightOnHover>
+                <tbody>
+                  {CONFIG_SCHEMA_SPEC.fields.map((f) => (
+                    <TableRow onClick={() => this.navigate(f.name)}>
+                      <td>{f.name}</td>
+                    </TableRow>
+                  ))}
+                </tbody>
+              </Table>
+            </Card>
           </div>
-        </main>
-      </div>
+          <div className="grow-1 shrink-0" style={{ flexBasis: "80%" }}>
+            {this.state.type === "loaded" && (
+              <Card>
+                {this.state.initialValues.forceStaticConfig && (
+                  <div className="mb-3">
+                    <Alert>
+                      "forceStaticConfig" is set in the configuration. The
+                      configuration is in read only mode. In order to modify it,
+                      set "forceStaticConfig" to false in the JSON
+                      configuration.
+                    </Alert>
+                  </div>
+                )}
+                {!currentSpec && (
+                  <p>
+                    Choose one of the properties on the left to edit your
+                    configuration.
+                  </p>
+                )}
+                {currentSpec && (
+                  <Autoform
+                    key={this.state.topLevelProperty}
+                    spec={currentSpec}
+                    initialValues={this.state.initialValues}
+                    onSubmit={async (v: LogsuckConfig) => {
+                      await this.props.updateConfig(v);
+                      await this.reload();
+                    }}
+                    readonly={this.state.initialValues.forceStaticConfig}
+                  ></Autoform>
+                )}
+              </Card>
+            )}
+          </div>
+        </div>
+      </LogsuckAppShell>
     );
   }
 

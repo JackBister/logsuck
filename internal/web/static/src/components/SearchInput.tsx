@@ -18,8 +18,7 @@ import { h, Component } from "preact";
 import { TimeSelect } from "./TimeSelect";
 import { TimeSelection } from "../models/TimeSelection";
 import { createSearchUrl } from "../createSearchUrl";
-import { Input, InputGroup } from "./lib/Input/Input";
-import { Button } from "./lib/Button/Button";
+import { Button, Flex, TextInput } from "@mantine/core";
 
 export interface SearchInputProps {
   isButtonDisabled: boolean;
@@ -39,13 +38,13 @@ export const SearchInput = (props: SearchInputProps) => (
       props.onSearch();
     }}
   >
-    <label htmlFor="searchinput">Search</label>
-    <InputGroup>
-      <Input
+    <Flex direction="row" style="width: 100%" align="flex-end" gap="xs">
+      <TextInput
         id="searchinput"
         name="searchinput"
-        type="text"
-        onInput={(evt) => props.setSearchString((evt.target as any).value)}
+        label="Search"
+        style="flex-grow: 1"
+        onInput={(evt: any) => props.setSearchString((evt.target as any).value)}
         value={props.searchString}
       />
       <TimeSelect
@@ -59,7 +58,7 @@ export const SearchInput = (props: SearchInputProps) => (
       >
         Search
       </Button>
-    </InputGroup>
+    </Flex>
   </form>
 );
 

@@ -19,7 +19,6 @@
   <head>
     <meta charset="UTF-8" />
 
-    <link rel="stylesheet" href="normalize.css" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="{{.styleSrc}}" />
 
@@ -31,8 +30,10 @@
       <header>
         <nav class="ls-navbar">
           <a href="/" class="ls-brand"> logsuck </a>
-          <a href="/search" class="ls-nav-button">Search</a>
-          <a href="/config" class="ls-nav-button">Config</a>
+          <div class="d-flex flex-row gap-6">
+            <a href="/search" class="ls-nav-button">Search</a>
+            <a href="/config" class="ls-nav-button">Config</a>
+          </div>
         </nav>
       </header>
       <noscript>
@@ -40,5 +41,6 @@
       </noscript>
     </div>
   </body>
-  <script src="{{.scriptSrc}}" async></script>
+  <script src="vendors.js" defer></script>
+  <script src="{{.scriptSrc}}" defer></script>
 </html>

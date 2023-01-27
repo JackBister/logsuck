@@ -14,25 +14,20 @@
  * limitations under the License.
  */
 
-import { h, render } from "preact";
+import { h, hydrate } from "preact";
 import { getConfig, updateConfig } from "../api/v1";
 import { getQueryParams, setQueryParams } from "../queryParams";
 import { ConfigPageComponent } from "./ConfigPage";
 
 function main() {
-  const appRoot = document.getElementById("app");
-  if (!appRoot) {
-    throw new Error("No element with id 'app' found!");
-  }
-  render(
+  hydrate(
     <ConfigPageComponent
       getConfig={getConfig}
       updateConfig={updateConfig}
       getQueryParams={getQueryParams}
       setQueryParams={setQueryParams}
     />,
-    document.body,
-    appRoot
+    document.body
   );
 }
 

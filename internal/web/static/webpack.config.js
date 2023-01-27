@@ -24,10 +24,6 @@ module.exports = {
       patterns: [
         { from: "./template.html", to: "./dist/template.html" },
         { from: "./style.css", to: "./dist/style.css" },
-        {
-          from: "./node_modules/normalize.css/normalize.css",
-          to: "./dist/normalize.css",
-        },
       ],
     }),
     new MiniCssExtractPlugin({
@@ -55,6 +51,17 @@ module.exports = {
         ],
       },
     ],
+  },
+  optimization: {
+    splitChunks: {
+      cacheGroups: {
+        commons: {
+          test: /[\\/]node_modules[\\/]/,
+          name: "vendors",
+          chunks: "all",
+        },
+      },
+    },
   },
   output: {
     path: __dirname,

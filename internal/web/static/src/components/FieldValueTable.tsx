@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+import { Table } from "@mantine/core";
 import { h } from "preact";
 import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
-import { Table, TableRow } from "./lib/Table/Table";
+import { TableRow } from "./TableRow";
 
 export interface FieldValueTableProps {
   values: TopFieldValueInfo[];
@@ -27,7 +28,7 @@ export const FieldValueTable = ({
   values,
   onFieldValueClicked,
 }: FieldValueTableProps) => (
-  <Table hoverable={true}>
+  <Table highlightOnHover>
     <thead>
       <tr>
         <th>Value</th>

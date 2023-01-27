@@ -14,22 +14,12 @@
  * limitations under the License.
  */
 
-@import "../lib/style/shared.scss";
-
-.event-table {
-  th:first-child,
-  td:first-child {
-    padding-left: 8px;
-  }
-}
 
 .event-table-row > td:not(:first-child) {
   padding: 0 !important;
 }
 
 td.event-timestamp {
-  border-right: 1px solid #dee2e6;
-  font-size: 9pt;
   white-space: pre;
 }
 
@@ -38,19 +28,7 @@ td.event-timestamp {
 
   color: #000;
   font-family: "Courier New", Courier, monospace;
-  font-size: 9pt;
+  font-size: 11pt;
 
   padding: 1rem 0.5rem;
-}
-
-.event-additional {
-  font-size: 9pt;
-  padding: 0.5rem;
-  display: flex;
-  flex-direction: row;
-  gap: 2rem;
-}
-
-.event-additional dd:last-child {
-  margin-bottom: 0;
 }
