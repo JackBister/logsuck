@@ -1,62 +1,89 @@
-import { h } from "preact";
+import { h, JSX } from "preact";
 import {
   Anchor,
   AppShell,
   Flex,
+  Group,
   Header,
+  Navbar,
   MantineProvider,
+  Text,
+  ThemeIcon,
   Title,
+  UnstyledButton,
   useMantineTheme,
 } from "@mantine/core";
+import { IconSearch, IconSettings } from "@tabler/icons";
+
+interface MainLinkProps {
+  iconSvg: string;
+  href: string;
+  label: string;
+}
+
+const MainLink = ({ iconSvg, href, label }: MainLinkProps) => {
+  return (
+    <UnstyledButton
+      component="a"
+      href={href}
+      sx={(theme) => ({
+        display: "block",
+        width: "100%",
+        padding: theme.spacing.xs,
+        borderRadius: theme.radius.sm,
+        color:
+          theme.colorScheme === "dark" ? theme.colors.dark[0] : theme.black,
+
+        "&:hover": {
+          backgroundColor:
+            theme.colorScheme === "dark"
+              ? theme.colors.dark[6]
+              : theme.colors.gray[0],
+        },
+      })}
+    >
+      <Group>
+        <ThemeIcon
+          variant="light"
+          dangerouslySetInnerHTML={{ __html: iconSvg }}
+        ></ThemeIcon>
+
+        <Text size="sm">{label}</Text>
+      </Group>
+    </UnstyledButton>
+  );
+};
 
 export const LogsuckAppShell = (props: any) => {
   const theme = useMantineTheme();
   return (
-    <MantineProvider
-      withNormalizeCSS
-      withGlobalStyles
-      theme={{
-        focusRingStyles: {
-          // reset styles are applied to <button /> and <a /> elements
-          // in &:focus:not(:focus-visible) selector to mimic
-          // default browser behavior for native <button /> and <a /> elements
-          resetStyles: () => ({ outline: "none" }),
-
-          // styles applied to all elements expect inputs based on Input component
-          // styled are added with &:focus selector
-          styles: (theme) => ({
-            outline: `2px solid ${theme.colors.orange[5]}`,
-          }),
-
-          // focus styles applied to components that are based on Input
-          // styled are added with &:focus selector
-          inputStyles: (theme) => ({
-            outline: `2px solid ${theme.colors.orange[5]}`,
-          }),
-        },
-      }}
-    >
+    <MantineProvider withGlobalStyles>
       <div id="app">
         <AppShell
           padding="md"
-          header={
+          navbar={
             <MantineProvider theme={{ colorScheme: "dark" }}>
-              <Header
-                height={60}
-                withBorder
-                px="md"
-                style={{ background: theme.colors.dark[8] }}
-              >
-                <Flex direction="row" justify="space-between" align="center">
+              <Navbar width={{ base: 160 }} top={0}>
+                <Navbar.Section>
                   <Title>
-                    <Anchor href="/">logsuck</Anchor>
+                    <Anchor href="/" px="xs">
+                      Logsuck
+                    </Anchor>
                   </Title>
-                  <Flex direction="row" gap="md">
-                    <Anchor href="/search">Search</Anchor>
-                    <Anchor href="/config">Config</Anchor>
-                  </Flex>
-                </Flex>
-              </Header>
+                </Navbar.Section>
+                <Navbar.Section>
+                  <MainLink
+                    label="Search"
+                    iconSvg={(IconSearch as any)()}
+                    href="/search"
+                  ></MainLink>
+                  <MainLink
+                    label="Config"
+                    iconSvg={(IconSettings as any)()}
+                    href="/config"
+                  ></MainLink>
+                </Navbar.Section>
+              </Navbar>
             </MantineProvider>
           }
           styles={(theme: any) => ({

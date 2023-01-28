@@ -27,6 +27,7 @@ import { addRecentSearch } from "../services/RecentSearches";
 import { SearchPageComponent } from "./SearchPage";
 
 function main() {
+  document.getElementById("static-content")?.remove();
   hydrate(
     <SearchPageComponent
       startJob={startJob}

@@ -21,6 +21,7 @@ import {
   NumberInput,
   Select,
   Space,
+  Stack,
   Text,
   TextInput,
 } from "@mantine/core";
@@ -268,7 +269,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
             name={this.props.path}
             render={(fa: FieldArrayRenderProps) => (
               <div>
-                <div className="d-flex flex-row align-end justify-between mb-3">
+                <Flex direction="row" align="center">
                   <Heading level={this.props.level}>
                     {this.props.spec.displayName || this.props.spec.name}
                   </Heading>
@@ -280,7 +281,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                       Add
                     </Button>
                   )}
-                </div>
+                </Flex>
                 <Accordion variant="contained" multiple={true}>
                   {(getPath(fa.form.values, this.props.path) as any[])?.map(
                     (a, i) => {
@@ -291,10 +292,22 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                         return (
                           <Accordion.Item value={i.toString()}>
                             <Accordion.Control>
-                              <Text>
-                                {this.props.spec.headerFieldName &&
-                                  getPath(a, this.props.spec.headerFieldName)}
-                              </Text>
+                              <Flex direction="row" gap="md">
+                                <Text>
+                                  {this.props.spec.headerFieldName &&
+                                    getPath(a, this.props.spec.headerFieldName)}
+                                </Text>
+                                {!this.props.readonly &&
+                                  !this.props.spec.readonly && (
+                                    <Button
+                                      variant="subtle"
+                                      compact
+                                      onClick={() => fa.remove(i)}
+                                    >
+                                      Remove
+                                    </Button>
+                                  )}
+                              </Flex>
                             </Accordion.Control>
                             <Accordion.Panel>
                               <AutoformField
@@ -328,10 +341,11 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                             !this.props.spec.readonly && (
                               <Button
                                 variant="subtle"
+                                compact
                                 style={{ marginTop: "25px" }}
                                 onClick={() => fa.remove(i)}
                               >
-                                X
+                                Remove
                               </Button>
                             )}
                         </Flex>
@@ -344,7 +358,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
           ></FieldArray>
         )}
         {this.props.spec.type === "OBJECT" && (
-          <div>
+          <Stack>
             {this.props.spec.fields.map((f, i) => (
               <AutoformField
                 key={i}
@@ -355,7 +369,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                 formikProps={this.props.formikProps}
               ></AutoformField>
             ))}
-          </div>
+          </Stack>
         )}
         {this.props.spec.type === "BOOLEAN" && (
           <div>

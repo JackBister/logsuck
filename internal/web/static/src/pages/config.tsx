@@ -20,6 +20,7 @@ import { getQueryParams, setQueryParams } from "../queryParams";
 import { ConfigPageComponent } from "./ConfigPage";
 
 function main() {
+  document.getElementById("static-content")?.remove();
   hydrate(
     <ConfigPageComponent
       getConfig={getConfig}

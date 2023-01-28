@@ -19,6 +19,7 @@ import { getRecentSearches } from "../services/RecentSearches";
 import { HomeComponent } from "./HomePage";
 
 function main() {
+  document.getElementById("static-content")?.remove();
   hydrate(
     <HomeComponent
       getRecentSearches={getRecentSearches}

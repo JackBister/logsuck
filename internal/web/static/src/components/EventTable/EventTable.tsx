@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { Button, Flex, Table } from "@mantine/core";
 import { h } from "preact";
+import { Button, Flex, Table } from "@mantine/core";
 import { LogEvent } from "../../models/Event";
 import {
   eventTableRow,

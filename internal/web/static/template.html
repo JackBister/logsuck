@@ -22,25 +22,31 @@
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="{{.styleSrc}}" />
 
-    <title>logsuck</title>
+    <title>Logsuck</title>
   </head>
 
   <body>
-    <div id="app">
-      <header>
-        <nav class="ls-navbar">
-          <a href="/" class="ls-brand"> logsuck </a>
-          <div class="d-flex flex-row gap-6">
-            <a href="/search" class="ls-nav-button">Search</a>
-            <a href="/config" class="ls-nav-button">Config</a>
+    <div id="app"></div>
+    <div id="static-content" class="d-flex flex-row align-start">
+      <nav class="ls-navbar"></nav>
+      <main class="main-wrapper">
+        <div id="ls-critical-error" class="ls-error-message d-none">
+          Failed to load the JavaScript files required to run Logsuck. Try
+          reloading the page.
+        </div>
+        <noscript>
+          <div class="ls-error-message d-none">
+            Logsuck requires JavaScript to be enabled in order to function.
           </div>
-        </nav>
-      </header>
-      <noscript>
-        Logsuck requires JavaScript to be enabled in order to function.
-      </noscript>
+        </noscript>
+      </main>
     </div>
   </body>
-  <script src="vendors.js" defer></script>
-  <script src="{{.scriptSrc}}" defer></script>
+  <script>
+    function onScriptLoadError() {
+      document.getElementById("ls-critical-error").classList.remove("d-none");
+    }
+  </script>
+  <script src="vendors.js" onerror="onScriptLoadError()" defer></script>
+  <script src="{{.scriptSrc}}" onerror="onScriptLoadError()" defer></script>
 </html>

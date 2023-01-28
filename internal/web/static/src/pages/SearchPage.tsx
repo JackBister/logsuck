@@ -32,7 +32,7 @@ import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
 import { RecentSearch } from "../services/RecentSearches";
 import { validateIsoTimestamp } from "../validateIsoTimestamp";
 import { LogsuckAppShell } from "../components/LogsuckAppShell";
-import { Alert, Button, Card, Pagination, Popover, Title } from "@mantine/core";
+import { Alert, Button, Card, Pagination, Popover } from "@mantine/core";
 
 const EVENTS_PER_PAGE = 25;
 const TOP_FIELDS_COUNT = 15;
@@ -261,7 +261,6 @@ export class SearchPageComponent extends Component<
                   >
                     <Popover.Target>
                       <Card className="shrink-1">
-                        <Title order={2}>Fields</Title>
                         <FieldTable
                           fields={this.state.topFields}
                           onFieldClicked={(str) => this.onFieldClicked(str)}
