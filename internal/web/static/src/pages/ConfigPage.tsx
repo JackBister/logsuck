@@ -79,9 +79,14 @@ export class ConfigPageComponent extends Component<
 
   async componentDidMount() {
     const cfg = await this.props.getConfig();
+    const queryParams = this.props.getQueryParams();
+    let topLevelProperty = null;
+    if (queryParams.has("topLevelProperty")) {
+      topLevelProperty = queryParams.get("topLevelProperty");
+    }
     this.setState({
       type: "loaded",
-      topLevelProperty: null,
+      topLevelProperty,
       initialValues: cfg,
     });
   }
@@ -162,6 +167,11 @@ export class ConfigPageComponent extends Component<
     if (this.state.type !== "loaded") {
       return;
     }
+    this.props.setQueryParams(
+      new URLSearchParams({
+        topLevelProperty,
+      })
+    );
     this.setState({ type: "loaded", topLevelProperty });
   }
 
