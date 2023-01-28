@@ -9,7 +9,7 @@ Logsuck does not currently aim to be able to ingest millions of events per secon
 
 Logsuck is currently pre-1.0. This means that there may be changes made to the database schemas used internally by Logsuck which could cause incompatibilities between versions. If that occurs, you will need to delete your `logsuck.db` file before you can use the new version, which will result in your existing search index being deleted. You can work around this by running the new version in parallel with the old version for a while, until you feel like the data that is only in the old database is old enough to be irrelevant. After 1.0, if a schema change is made, a migration will be provided to handle the upgrade gracefully to the extent that it is possible.
 
-![a screenshot of the Logsuck GUI](https://jackbister.com/content/logsuck_v0_gui.png)
+![a screenshot of the Logsuck GUI](https://jackbister.com/content/logsuck_v0_gui_mantine.png)
 
 1. [Getting started](#getting-started)
    - [Single mode](#single-mode)
