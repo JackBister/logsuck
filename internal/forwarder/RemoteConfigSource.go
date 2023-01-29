@@ -16,12 +16,12 @@ package forwarder
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/rpc"
+	"go.uber.org/zap"
 )
 
 type RemoteConfigSource struct {
@@ -32,9 +32,11 @@ type RemoteConfigSource struct {
 	cached  *config.ConfigResponse
 
 	ticker *time.Ticker
+
+	logger *zap.Logger
 }
 
-func NewRemoteConfigSource(cfg *config.Config) config.ConfigSource {
+func NewRemoteConfigSource(cfg *config.Config, logger *zap.Logger) config.ConfigSource {
 	ret := RemoteConfigSource{
 		cfg: cfg,
 		client: http.Client{
@@ -48,6 +50,8 @@ func NewRemoteConfigSource(cfg *config.Config) config.ConfigSource {
 		},
 
 		ticker: time.NewTicker(cfg.Forwarder.ConfigPollInterval),
+
+		logger: logger,
 	}
 	ret.refresh()
 	go func(r *RemoteConfigSource) {
@@ -83,20 +87,23 @@ func (r *RemoteConfigSource) refresh() {
 	if r.cached == nil || now.Sub(r.cached.Modified) > 1*time.Minute {
 		resp, err := r.client.Get(r.cfg.Forwarder.RecipientAddress + "/v1/config")
 		if err != nil {
-			log.Printf("got error when getting remote config: %v\n", err)
+			r.logger.Error("got error when getting remote config",
+				zap.Error(err))
 			return
 		}
 		defer resp.Body.Close()
 		var cfgResp rpc.ConfigResponse
 		err = json.NewDecoder(resp.Body).Decode(&cfgResp)
 		if err != nil {
-			log.Printf("got error when getting remote config: error when decoding JSON: %v\n", err)
+			r.logger.Error("got error when getting remote config: error when decoding JSON",
+				zap.Error(err))
 			return
 		}
 
-		cfg, err := config.FromJSON(cfgResp.Config)
+		cfg, err := config.FromJSON(cfgResp.Config, r.logger)
 		if err != nil {
-			log.Printf("got error when getting remote config: error when converting config from JSON: %v\n", err)
+			r.logger.Error("got error when getting remote config: error when converting config from JSON",
+				zap.Error(err))
 			return
 		}
 		r.cached = &config.ConfigResponse{

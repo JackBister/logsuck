@@ -17,12 +17,12 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/parser"
+	"go.uber.org/zap"
 )
 
 type Pipeline struct {
@@ -34,6 +34,8 @@ type Pipeline struct {
 type PipelineParameters struct {
 	ConfigSource config.ConfigSource
 	EventsRepo   events.Repository
+
+	Logger *zap.Logger
 }
 
 type PipelineStepResult struct {
@@ -128,7 +130,6 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 
 func (p *Pipeline) Execute(ctx context.Context, params PipelineParameters) <-chan PipelineStepResult {
 	for i, step := range p.steps {
-		log.Printf("pipe %v %v", i, p.pipes[i])
 		go step.Execute(ctx, p.pipes[i], params)
 	}
 	return p.outChan

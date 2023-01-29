@@ -15,12 +15,12 @@
 package events
 
 import (
-	"log"
 	"strings"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/parser"
+	"go.uber.org/zap"
 )
 
 type EventPublisher interface {
@@ -32,9 +32,11 @@ type batchedRepositoryPublisher struct {
 	repo Repository
 
 	adder chan<- Event
+
+	logger *zap.Logger
 }
 
-func BatchedRepositoryPublisher(cfg *config.Config, repo Repository) EventPublisher {
+func BatchedRepositoryPublisher(cfg *config.Config, repo Repository, logger *zap.Logger) EventPublisher {
 	adder := make(chan Event, 5000)
 
 	go func() {
@@ -54,7 +56,8 @@ func BatchedRepositoryPublisher(cfg *config.Config, repo Repository) EventPublis
 					err := repo.AddBatch(accumulated)
 					if err != nil {
 						// TODO: Error handling
-						log.Println("error when adding events:", err)
+						logger.Error("error when adding events",
+							zap.Error(err))
 					}
 					accumulated = accumulated[:0]
 					timeout = time.After(1 * time.Second)
@@ -68,6 +71,8 @@ func BatchedRepositoryPublisher(cfg *config.Config, repo Repository) EventPublis
 		repo: repo,
 
 		adder: adder,
+
+		logger: logger,
 	}
 }
 
@@ -84,7 +89,8 @@ func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout stri
 	if t, ok := fields["_time"]; ok {
 		parsed, err := time.Parse(timeLayout, t)
 		if err != nil {
-			log.Printf("failed to parse _time field, will use current time as timestamp: %v\n", err)
+			ep.logger.Warn("failed to parse _time field, will use current time as timestamp",
+				zap.Error(err))
 			processed.Timestamp = time.Now()
 		} else {
 			processed.Timestamp = parsed
@@ -99,23 +105,6 @@ func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout stri
 type repositoryPublisher struct {
 	cfg        *config.Config
 	repository Repository
-}
-
-type debugEventPublisher struct {
-	wrapped EventPublisher
-}
-
-func DebugEventPublisher(wrapped EventPublisher) EventPublisher {
-	return &debugEventPublisher{
-		wrapped: wrapped,
-	}
-}
-
-func (ep *debugEventPublisher) PublishEvent(evt RawEvent, timeLayout string, fileParser parser.FileParser) {
-	log.Println("Received event:", evt)
-	if ep.wrapped != nil {
-		ep.wrapped.PublishEvent(evt, timeLayout, fileParser)
-	}
 }
 
 type nopEventPublisher struct {

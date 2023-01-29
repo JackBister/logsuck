@@ -22,6 +22,7 @@ import (
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
+	"go.uber.org/zap"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -109,7 +110,8 @@ func createRepo(t *testing.T) events.Repository {
 	repo, err := events.SqliteRepository(db, &config.SqliteConfig{
 		DatabaseFile: ":memory:",
 		TrueBatch:    true,
-	})
+	},
+		zap.NewNop())
 	if err != nil {
 		t.Fatalf("got error when creating events repo: %v", err)
 	}

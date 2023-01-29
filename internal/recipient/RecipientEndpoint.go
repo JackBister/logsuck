@@ -17,7 +17,6 @@ package recipient
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"path/filepath"
 	"strings"
 	"time"
@@ -28,15 +27,18 @@ import (
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/parser"
 	"github.com/jackbister/logsuck/internal/rpc"
+	"go.uber.org/zap"
 )
 
 type RecipientEndpoint struct {
 	configSource config.ConfigSource
 	repo         events.Repository
+
+	logger *zap.Logger
 }
 
-func NewRecipientEndpoint(configSource config.ConfigSource, repo events.Repository) *RecipientEndpoint {
-	return &RecipientEndpoint{configSource: configSource, repo: repo}
+func NewRecipientEndpoint(configSource config.ConfigSource, repo events.Repository, logger *zap.Logger) *RecipientEndpoint {
+	return &RecipientEndpoint{configSource: configSource, repo: repo, logger: logger}
 }
 
 func (er *RecipientEndpoint) Serve() error {
@@ -78,7 +80,7 @@ func (er *RecipientEndpoint) Serve() error {
 			c.AbortWithError(500, err)
 			return
 		}
-		indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg)
+		indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg, er.logger)
 		if err != nil {
 			// TODO:
 		}
@@ -125,13 +127,16 @@ func (er *RecipientEndpoint) Serve() error {
 			if t, ok := fields["_time"]; ok {
 				parsed, err := time.Parse(ifc.TimeLayout, t)
 				if err != nil {
-					log.Printf("failed to parse _time field, will use current time as timestamp: %v\n", err)
+					er.logger.Warn("failed to parse _time field, will use current time as timestamp",
+						zap.Error(err))
 					processed[i].Timestamp = time.Now()
 				} else {
 					processed[i].Timestamp = parsed
 				}
 			} else {
-				log.Printf("no _time field extracted for event='%v', got fields=%v, will use current time as timestamp\n", evt.Raw, fields)
+				er.logger.Warn("no _time field extracted for event, got fields, will use current time as timestamp",
+					zap.String("eventRaw", evt.Raw),
+					zap.Any("fields", fields))
 				processed[i].Timestamp = time.Now()
 			}
 		}
@@ -143,6 +148,7 @@ func (er *RecipientEndpoint) Serve() error {
 		c.Status(200)
 	})
 
-	log.Printf("Starting Recipient on address='%v'\n", staticCfg.Recipient.Address)
+	er.logger.Info("Starting recipient",
+		zap.String("address", staticCfg.Recipient.Address))
 	return r.Run(staticCfg.Recipient.Address)
 }

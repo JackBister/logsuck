@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
+	"go.uber.org/zap"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -144,7 +145,7 @@ func createRepoWithCfg(t *testing.T, cfg *config.SqliteConfig) Repository {
 	if err != nil {
 		t.Fatalf("got error when creating in-memory SQLite database: %v", err)
 	}
-	repo, err := SqliteRepository(db, cfg)
+	repo, err := SqliteRepository(db, cfg, zap.NewNop())
 	if err != nil {
 		t.Fatalf("got error when creating events repo: %v", err)
 	}

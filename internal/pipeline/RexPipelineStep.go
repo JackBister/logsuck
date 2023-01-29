@@ -17,7 +17,6 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"log"
 	"regexp"
 
 	"github.com/jackbister/logsuck/internal/parser"
@@ -48,7 +47,6 @@ func (r *rexPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, params
 				} else if r.field == "host" {
 					fieldValue = evt.Host
 				} else if !ok {
-					log.Println("skip")
 					continue // Maybe this should be logged or put in some kind of metrics
 				}
 				p := parser.RegexFileParser{
@@ -86,7 +84,6 @@ func compileRexStep(input string, options map[string]string) (pipelineStep, erro
 		field = "_raw"
 	}
 
-	log.Printf("Compiling rex with extractor='%v'", input)
 	regex, err := regexp.Compile(input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile rex: %w", err)

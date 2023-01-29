@@ -15,11 +15,11 @@
 package indexedfiles
 
 import (
-	"log"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/parser"
+	"go.uber.org/zap"
 )
 
 // IndexedFileConfig contains configuration for a specific file which will be indexed
@@ -39,7 +39,7 @@ type IndexedFileConfig struct {
 var defaultReadInterval = 1 * time.Second
 var defaultTimeLayout = "2006/01/02 15:04:05"
 
-func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedFileConfig, error) {
+func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *zap.Logger) (*IndexedFileConfig, error) {
 	var regexParserConfig *parser.RegexParserConfig
 	timeLayout := ""
 	var readInterval *time.Duration
@@ -48,7 +48,10 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedF
 			timeLayout = t.TimeLayout
 		} else {
 			if t.Name != "DEFAULT" && timeLayout != t.TimeLayout {
-				log.Printf("encountered multiple timeLayouts for filename=%v. will use timeLayout=%v. to avoid this error all fileTypes used by this filename must have the same timeLayout.\n", filename, timeLayout)
+				logger.Warn("encountered multiple timeLayouts for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same timeLayout.",
+					zap.String("fileName", filename),
+					zap.String("chosenTimeLayout", timeLayout),
+					zap.String("discardedTimeLayout", t.TimeLayout))
 			}
 		}
 
@@ -56,7 +59,10 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedF
 			readInterval = &t.ReadInterval
 		} else {
 			if t.Name != "DEFAULT" && readInterval != &t.ReadInterval {
-				log.Printf("encountered multiple readIntervals for filename=%v. will use readInterval=%v. to avoid this error all fileTypes used by this filename must have the same readInterval.\n", filename, readInterval)
+				logger.Warn("encountered multiple readIntervals for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same readInterval.",
+					zap.String("fileName", filename),
+					zap.Stringer("chosenReadInterval", readInterval),
+					zap.Stringer("discardedReadInterval", t.ReadInterval))
 			}
 		}
 
@@ -69,12 +75,17 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedF
 				regexParserConfig.EventDelimiter = eventDelimiter
 			} else {
 				if t.Name != "DEFAULT" && regexParserConfig.EventDelimiter.String() != eventDelimiter.String() {
-					log.Printf("encountered multiple eventDelimiters for filename=%v. will use eventDelimiter=%v. to avoid this error all fileTypes used by this filename must have the same eventDelimiter in their regex config.\n", filename, eventDelimiter)
+					logger.Warn("encountered multiple eventDelimiters for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same eventDelimiter.",
+						zap.String("fileName", filename),
+						zap.Stringer("chosenEventDelimiter", eventDelimiter),
+						zap.Stringer("discardedEventDelimiter", regexParserConfig.EventDelimiter))
 				}
 			}
 			regexParserConfig.FieldExtractors = append(regexParserConfig.FieldExtractors, t.Regex.FieldExtractors...)
 		} else {
-			log.Printf("unhandled parser type=%v for filename=%v\n", t.ParserType, filename)
+			logger.Error("unhandled parserType for file",
+				zap.String("fileName", filename),
+				zap.Int("parserType", t.ParserType))
 		}
 	}
 
@@ -90,6 +101,8 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedF
 	if regexParserConfig != nil {
 		fp = &parser.RegexFileParser{
 			Cfg: *regexParserConfig,
+
+			Logger: logger.Named("RegexFileParser"),
 		}
 	}
 
@@ -101,7 +114,7 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig) (*IndexedF
 	}, nil
 }
 
-func ReadFileConfig(cfg *config.Config) ([]IndexedFileConfig, error) {
+func ReadFileConfig(cfg *config.Config, logger *zap.Logger) ([]IndexedFileConfig, error) {
 	fileTypes := cfg.FileTypes
 	files := cfg.Files
 	indexedFiles := make([]IndexedFileConfig, 0, len(fileTypes))
@@ -111,21 +124,26 @@ func ReadFileConfig(cfg *config.Config) ([]IndexedFileConfig, error) {
 	for _, v := range hostTypeFiles {
 		fileCfg, ok := files[v.Name]
 		if !ok {
-			log.Printf("Failed to find config for file with filename=%v. This filename will be ignored.\n", v.Name)
+			logger.Error("Failed to find config for file. This file will be ignored.",
+				zap.String("fileName", v.Name))
 			continue
 		}
 		fileTypeCfgs := make([]config.FileTypeConfig, 0, len(fileCfg.Filetypes))
 		for _, ftn := range append(fileCfg.Filetypes, "DEFAULT") {
 			ftc, ok := fileTypes[ftn]
 			if !ok {
-				log.Printf("Failed to find fileType with name=%v when configuring filename=%v. This file will be indexed but may be incorrectly configured.\n", ftn, v.Name)
+				logger.Error("Failed to find fileType when configuring filen. This file will be indexed but may be incorrectly configured.",
+					zap.String("fileType", ftn),
+					zap.String("fileName", v.Name))
 				continue
 			}
 			fileTypeCfgs = append(fileTypeCfgs, ftc)
 		}
-		ifc, err := mergeConfigs(v.Name, fileTypeCfgs)
+		ifc, err := mergeConfigs(v.Name, fileTypeCfgs, logger)
 		if err != nil {
-			log.Printf("Failed to merge configuration for file with filename=%v. This filename will be ignored. error: %v\n", v.Name, err)
+			logger.Error("Failed to merge configuration for file. This file will be ignored",
+				zap.String("fileName", v.Name),
+				zap.Error(err))
 		}
 		indexedFiles = append(indexedFiles, *ifc)
 	}

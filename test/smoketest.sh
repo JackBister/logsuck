@@ -51,7 +51,7 @@ sleep 1
 timeout 60s ./logsuck -forwarder "http://localhost:8081" -hostname "FORWARDER" > log-forwarder.txt 2>&1 &
 sleep 5
 
-curl -XPOST -G 'localhost:8080/api/v1/startJob' --data-urlencode 'searchString=forwarded numevents host=FORWARDER'
+curl -XPOST -G 'localhost:8080/api/v1/startJob' --data-urlencode 'searchString=finished forwarding host=FORWARDER'
 sleep 1
 result=`curl -G 'localhost:8080/api/v1/jobStats' --data-urlencode 'jobId=1'`
 

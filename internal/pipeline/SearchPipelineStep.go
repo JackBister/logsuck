@@ -17,13 +17,13 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/araddon/dateparse"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/search"
+	"go.uber.org/zap"
 )
 
 type searchPipelineStep struct {
@@ -36,15 +36,16 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 
 	cfg, err := params.ConfigSource.Get()
 	if err != nil {
-		log.Printf("got error when executing search pipeline step: failed to get config: %v\n", err)
+		params.Logger.Error("got error when executing search pipeline step: failed to get config",
+			zap.Error(err))
 		return
 	}
 
 	inputEvents := params.EventsRepo.FilterStream(s.srch, s.startTime, s.endTime)
-	compiledFrags := compileKeys(s.srch.Fragments)
-	compiledNotFrags := compileKeys(s.srch.NotFragments)
-	compiledFields := compileFieldValues(s.srch.Fields)
-	compiledNotFields := compileFieldValues(s.srch.NotFields)
+	compiledFrags := compileKeys(s.srch.Fragments, params.Logger)
+	compiledNotFrags := compileKeys(s.srch.NotFragments, params.Logger)
+	compiledFields := compileFieldValues(s.srch.Fields, params.Logger)
+	compiledNotFields := compileFieldValues(s.srch.NotFields, params.Logger)
 
 	for {
 		select {
@@ -54,7 +55,7 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 			if !ok {
 				return
 			}
-			indexedFiles, err := indexedfiles.ReadFileConfig(&cfg.Cfg)
+			indexedFiles, err := indexedfiles.ReadFileConfig(&cfg.Cfg, params.Logger)
 			if err != nil {
 				// TODO: signal error to rest of pipe??
 				return
@@ -65,7 +66,8 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 				ifc, ok := sourceToIfc[evt.Source]
 				if !ok {
 					// TODO: How does the user get feedback about this?
-					log.Printf("failed to find file configuration for event with source=%v. this event will be ignored.\n", evt.Source)
+					params.Logger.Warn("failed to find file configuration for event, this event will be ignored",
+						zap.String("source", evt.Source))
 					continue
 				}
 				evtFields, include := shouldIncludeEvent(evt, ifc.FileParser, compiledFrags, compiledNotFrags, compiledFields, compiledNotFields)

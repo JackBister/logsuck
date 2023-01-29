@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,6 +25,7 @@ import (
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/search"
+	"go.uber.org/zap"
 )
 
 // It might be more correct to use source_id + offset for deduplication, but this works poorly in single mode / while developing since
@@ -38,9 +38,11 @@ type sqliteRepository struct {
 	db *sql.DB
 
 	cfg *config.SqliteConfig
+
+	logger *zap.Logger
 }
 
-func SqliteRepository(db *sql.DB, cfg *config.SqliteConfig) (Repository, error) {
+func SqliteRepository(db *sql.DB, cfg *config.SqliteConfig, logger *zap.Logger) (Repository, error) {
 	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, host TEXT NOT NULL, source TEXT NOT NULL, source_id TEXT NOT NULL, timestamp DATETIME NOT NULL, offset BIGINT NOT NULL, UNIQUE(host, source, timestamp, offset));")
 	if err != nil {
 		return nil, fmt.Errorf("error creating events table: %w", err)
@@ -55,8 +57,9 @@ func SqliteRepository(db *sql.DB, cfg *config.SqliteConfig) (Repository, error) 
 		return nil, fmt.Errorf("error creating eventraws table: %w", err)
 	}
 	return &sqliteRepository{
-		db:  db,
-		cfg: cfg,
+		db:     db,
+		cfg:    cfg,
+		logger: logger,
 	}, nil
 }
 
@@ -126,20 +129,23 @@ func (repo *sqliteRepository) addBatchTrueBatch(events []Event) error {
 	}
 	newMaxID, err := res.LastInsertId()
 	if err != nil {
-		log.Printf("got error when getting new max ID to clean up EventRaws: %v", err)
+		repo.logger.Error("got error when getting new max ID to clean up EventRaws", zap.Error(err))
 	} else {
 		res, err = tx.Exec("DELETE FROM EventRaws AS er WHERE NOT EXISTS (SELECT 1 FROM Events e WHERE e.ID = er.rowid) AND er.rowid > ? AND er.rowid <= ? AND er.rowid != (SELECT MAX(ID) FROM Events)", prevMaxID, newMaxID)
 		if err != nil {
-			log.Printf("got error when cleaning up EventRaws: %v", err)
+			repo.logger.Error("got error when cleaning up EventRaws", zap.Error(err))
 		} else if deleted, err := res.RowsAffected(); err == nil && deleted > 0 {
-			log.Printf("Skipped adding numEvents=%v as they appear to be duplicates (same source, offset and timestamp as an existing event)", deleted)
+			repo.logger.Info("Skipped adding events as they appear to be duplicates (same source, offset and timestamp as an existing event)",
+				zap.Int64("numEvents", deleted))
 		}
 	}
 	err = tx.Commit()
 	if err != nil {
 		// TODO: Hmm?
 	}
-	log.Printf("added numEvents=%v in timeInMs=%v\n", len(events), time.Now().Sub(startTime).Milliseconds())
+	repo.logger.Info("added events",
+		zap.Int("numEvents", len(events)),
+		zap.Stringer("duration", time.Now().Sub(startTime)))
 	return nil
 }
 
@@ -179,9 +185,12 @@ func (repo *sqliteRepository) addBatchOneByOne(events []Event) error {
 		// TODO: Hmm?
 	}
 	for k, v := range numberOfDuplicates {
-		log.Printf("Skipped adding numEvents=%v from source=%v because they appear to be duplicates (same source, offset and timestamp as an existing event)\n", v, k)
+		repo.logger.Info("Skipped adding events because they appear to be duplicates (same source, offset and timestamp as an existing event)",
+			zap.Int64("numEvents", v), zap.String("source", k))
 	}
-	log.Printf("added numEvents=%v in timeInMs=%v\n", len(events), time.Now().Sub(startTime).Milliseconds())
+	repo.logger.Info("added events",
+		zap.Int("numEvents", len(events)),
+		zap.Stringer("duration", time.Now().Sub(startTime)))
 	return nil
 }
 
@@ -253,12 +262,12 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 		defer close(ret)
 		res, err := repo.db.Query("SELECT MAX(id) FROM Events;")
 		if err != nil {
-			log.Println("error when getting max(id) from Events table in FilterStream:", err)
+			repo.logger.Error("error when getting max(id) from Events table in FilterStream", zap.Error(err))
 			return
 		}
 		if !res.Next() {
 			res.Close()
-			log.Println("weird state in FilterStream, expected one result when getting max(id) from Events but got 0")
+			repo.logger.Error("weird state in FilterStream, expected one result when getting max(id) from Events but got 0")
 			return
 		}
 		var maxID int
@@ -268,7 +277,7 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 			if err.Error() == expectedErrorWhenDatabaseIsEmpty {
 				return
 			}
-			log.Println("error when scanning max(id) in FilterStream:", err)
+			repo.logger.Error("error when scanning max(id) in FilterStream", zap.Error(err))
 			return
 		}
 		var lastTimestamp string
@@ -332,10 +341,10 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 				stmt += " AND EventRaws MATCH '" + matchString + "'"
 			}
 			stmt += " ORDER BY e.timestamp DESC LIMIT " + strconv.Itoa(filterStreamPageSize)
-			log.Println("executing stmt", stmt)
+			repo.logger.Info("executing SQL statement", zap.String("stmt", stmt))
 			res, err = repo.db.Query(stmt)
 			if err != nil {
-				log.Println("error when getting filtered events in FilterStream:", err)
+				repo.logger.Error("error when getting filtered events in FilterStream", zap.Error(err))
 				return
 			}
 			evts := make([]EventWithId, 0, filterStreamPageSize)
@@ -344,7 +353,7 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 				var evt EventWithId
 				err := res.Scan(&evt.Id, &evt.Host, &evt.Source, &evt.SourceId, &evt.Timestamp, &evt.Raw)
 				if err != nil {
-					log.Printf("error when scanning result in FilterStream: %v\n", err)
+					repo.logger.Warn("error when scanning result in FilterStream", zap.Error(err))
 				} else {
 					evts = append(evts, evt)
 				}
@@ -355,7 +364,8 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 			ret <- evts
 			if eventsInPage < filterStreamPageSize {
 				endTime := time.Now()
-				log.Printf("SQL search completed in timeInMs=%v", endTime.Sub(startTime))
+				repo.logger.Info("SQL search completed",
+					zap.Stringer("duration", endTime.Sub(startTime)))
 				return
 			}
 		}

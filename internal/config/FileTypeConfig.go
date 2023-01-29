@@ -15,11 +15,11 @@
 package config
 
 import (
-	"log"
 	"regexp"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/parser"
+	"go.uber.org/zap"
 )
 
 type ParserType = int
@@ -52,7 +52,7 @@ var defaultRegexParserConfig = parser.RegexParserConfig{
 
 const defaultTimeLayout = "2006/01/02 15:04:05"
 
-func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig) (map[string]FileTypeConfig, error) {
+func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *zap.Logger) (map[string]FileTypeConfig, error) {
 	var err error
 	fileTypes := make(map[string]FileTypeConfig, len(jsonFileTypes))
 	for _, ft := range jsonFileTypes {
@@ -61,44 +61,55 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig) (map[string]File
 			readInterval, err = time.ParseDuration(ft.ReadInterval)
 			if err != nil {
 				// TODO:
-				log.Printf("failed to read config for filetype with name=%v: failed to parse ReadInterval=%v\n", ft.Name, ft.ReadInterval)
+				logger.Error("failed to read config for fileType: failed to parse readInterval",
+					zap.String("fileType", ft.Name),
+					zap.String("readInterval", ft.ReadInterval))
 				continue
 			}
 		} else {
-			log.Printf("will use default readInterval for filetype with name=%v", ft.Name)
+			logger.Info("will use default readInterval for fileType",
+				zap.String("fileType", ft.Name))
 			readInterval = defaultReadInterval
 		}
 
 		var parserType ParserType
 		var regexParserConfig *parser.RegexParserConfig
 		if ft.Parser == nil {
-			log.Printf("will use default paser config for filetype with name=%v", ft.Name)
+			logger.Info("will use default parser config for fileType",
+				zap.String("fileType", ft.Name))
 			parserType = ParserTypeRegex
 			regexParserConfig = &defaultRegexParserConfig
 		} else {
 
 			if ft.Parser.Type != "" && ft.Parser.Type != "Regex" {
 				// TODO:
-				log.Printf("failed to read config for filetype with name=%v: parser.type was not 'Regex'\n", ft.Name)
+				logger.Error("failed to read config for fileType: parser.type was not 'Regex'",
+					zap.String("fileType", ft.Name))
 				continue
 			}
 
 			if ft.Parser.RegexConfig == nil {
-				log.Printf("failed to read config for filetype with name=%v: parser.regexConfig was nil\n", ft.Name)
+				logger.Error("failed to read config for fileType: parser.regexConfig was nil",
+					zap.String("fileType", ft.Name))
 				continue
 			}
 
 			parserType = ParserTypeRegex
 			eventDelimiter, err := regexp.Compile(ft.Parser.RegexConfig.EventDelimiter)
 			if err != nil {
-				log.Printf("failed to read config for filetype with name=%v: failed to compile eventDelimiter regexp: %v\n", ft.Name, err)
+				logger.Error("failed to read config for fileType: failed to compile eventDelimiter regexp",
+					zap.String("fileType", ft.Name),
+					zap.Error(err))
 			}
 
 			fe := make([]*regexp.Regexp, 0, len(ft.Parser.RegexConfig.FieldExtractors))
 			for i, s := range ft.Parser.RegexConfig.FieldExtractors {
 				rex, err := regexp.Compile(s)
 				if err != nil {
-					log.Printf("failed to read config for filetype with name=%v: failed to compile fieldExtractor regexp at index=%v: %v\n", ft.Name, i, err)
+					logger.Error("failed to read config for fileType: failed to compile fieldExtractor regexp",
+						zap.String("fileType", ft.Name),
+						zap.Int("index", i),
+						zap.Error(err))
 					continue
 				}
 				fe = append(fe, rex)
