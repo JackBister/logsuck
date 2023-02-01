@@ -85,9 +85,13 @@ func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout stri
 		Offset:   evt.Offset,
 	}
 
-	fields := parser.ExtractFields(strings.ToLower(evt.Raw), fileParser)
-	if t, ok := fields["_time"]; ok {
-		parsed, err := time.Parse(timeLayout, t)
+	fields, err := parser.ExtractFields(strings.ToLower(evt.Raw), fileParser)
+	if err != nil {
+		ep.logger.Warn("failed to extract fields when getting timestamp, will use current time as timestamp",
+			zap.Error(err))
+		processed.Timestamp = time.Now()
+	} else if t, ok := fields["_time"]; ok {
+		parsed, err := parser.ParseTime(timeLayout, t)
 		if err != nil {
 			ep.logger.Warn("failed to parse _time field, will use current time as timestamp",
 				zap.Error(err))

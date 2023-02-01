@@ -234,7 +234,7 @@ func (wi webImpl) Serve() error {
 			if !ok {
 				// TODO: default
 			}
-			fields := parser.ExtractFields(r.Raw, ifc.FileParser)
+			fields, _ := parser.ExtractFields(r.Raw, ifc.FileParser)
 			retResults = append(retResults, events.EventWithExtractedFields{
 				Id:        r.Id,
 				Raw:       r.Raw,

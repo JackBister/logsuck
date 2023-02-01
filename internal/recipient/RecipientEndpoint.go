@@ -123,9 +123,13 @@ func (er *RecipientEndpoint) Serve() error {
 				// TODO:
 			}
 
-			fields := parser.ExtractFields(strings.ToLower(evt.Raw), ifc.FileParser)
-			if t, ok := fields["_time"]; ok {
-				parsed, err := time.Parse(ifc.TimeLayout, t)
+			fields, err := parser.ExtractFields(strings.ToLower(evt.Raw), ifc.FileParser)
+			if err != nil {
+				er.logger.Warn("failed to extract fields when getting timestamp, will use current time as timestamp",
+					zap.Error(err))
+				processed[i].Timestamp = time.Now()
+			} else if t, ok := fields["_time"]; ok {
+				parsed, err := parser.ParseTime(ifc.TimeLayout, t)
 				if err != nil {
 					er.logger.Warn("failed to parse _time field, will use current time as timestamp",
 						zap.Error(err))

@@ -57,7 +57,7 @@ func (r *rexPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, params
 						},
 					},
 				}
-				newFields := parser.ExtractFields(fieldValue, &p)
+				newFields, _ := parser.ExtractFields(fieldValue, &p)
 				for k, v := range newFields {
 					// Is mutating the event in place like this dangerous?
 					// I don't think so since the events are paid forward through channels so only one step should touch them at a time,

@@ -15,6 +15,7 @@
 package indexedfiles
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
@@ -40,6 +41,7 @@ var defaultReadInterval = 1 * time.Second
 var defaultTimeLayout = "2006/01/02 15:04:05"
 
 func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *zap.Logger) (*IndexedFileConfig, error) {
+	var jsonParserConfig *parser.JsonParserConfig
 	var regexParserConfig *parser.RegexParserConfig
 	timeLayout := ""
 	var readInterval *time.Duration
@@ -66,21 +68,64 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *za
 			}
 		}
 
-		if t.Regex != nil {
+		if t.JSON != nil {
+			if jsonParserConfig == nil {
+				jsonParserConfig = &parser.JsonParserConfig{}
+			}
+			if regexParserConfig != nil {
+				if t.Name == "DEFAULT" {
+					continue
+				}
+				return nil, fmt.Errorf("Failed to merge fileType configs for file=%v: found conflicting parser types where one parser is JSON and another is Regex. Check your fileTypes for this file. fileTypes=%v",
+					filename,
+					fileTypes,
+				)
+			}
+			eventDelimiter := t.JSON.EventDelimiter
+			if jsonParserConfig.EventDelimiter == nil {
+				jsonParserConfig.EventDelimiter = eventDelimiter
+			} else if t.Name != "DEFAULT" && jsonParserConfig.EventDelimiter.String() != eventDelimiter.String() {
+				logger.Warn("encountered multiple eventDelimiters for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same eventDelimiter.",
+					zap.String("fileName", filename),
+					zap.Stringer("chosenEventDelimiter", eventDelimiter),
+					zap.Stringer("discardedEventDelimiter", jsonParserConfig.EventDelimiter))
+				jsonParserConfig.EventDelimiter = eventDelimiter
+			}
+
+			timeField := t.JSON.TimeField
+			if jsonParserConfig.TimeField == "" {
+				jsonParserConfig.TimeField = timeField
+			} else if t.Name != "DEFAULT" && jsonParserConfig.TimeField != timeField {
+				logger.Warn("encountered multiple timeFields for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same timeField.",
+					zap.String("fileName", filename),
+					zap.String("chosenTimeField", timeField),
+					zap.String("discardedTimeField", jsonParserConfig.TimeField))
+				jsonParserConfig.TimeField = timeField
+			}
+		} else if t.Regex != nil {
 			if regexParserConfig == nil {
 				regexParserConfig = &parser.RegexParserConfig{}
+			}
+			if jsonParserConfig != nil {
+				if t.Name == "DEFAULT" {
+					continue
+				}
+				return nil, fmt.Errorf("Failed to merge fileType configs for file=%v: found conflicting parser types where one parser is JSON and another is Regex. Check your fileTypes for this file. fileTypes=%v",
+					filename,
+					fileTypes,
+				)
 			}
 			eventDelimiter := t.Regex.EventDelimiter
 			if regexParserConfig.EventDelimiter == nil {
 				regexParserConfig.EventDelimiter = eventDelimiter
-			} else {
-				if t.Name != "DEFAULT" && regexParserConfig.EventDelimiter.String() != eventDelimiter.String() {
-					logger.Warn("encountered multiple eventDelimiters for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same eventDelimiter.",
-						zap.String("fileName", filename),
-						zap.Stringer("chosenEventDelimiter", eventDelimiter),
-						zap.Stringer("discardedEventDelimiter", regexParserConfig.EventDelimiter))
-				}
+			} else if t.Name != "DEFAULT" && regexParserConfig.EventDelimiter.String() != eventDelimiter.String() {
+				logger.Warn("encountered multiple eventDelimiters for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same eventDelimiter.",
+					zap.String("fileName", filename),
+					zap.Stringer("chosenEventDelimiter", eventDelimiter),
+					zap.Stringer("discardedEventDelimiter", regexParserConfig.EventDelimiter))
+				regexParserConfig.EventDelimiter = eventDelimiter
 			}
+
 			regexParserConfig.FieldExtractors = append(regexParserConfig.FieldExtractors, t.Regex.FieldExtractors...)
 		} else {
 			logger.Error("unhandled parserType for file",
@@ -98,7 +143,13 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *za
 	}
 
 	var fp parser.FileParser
-	if regexParserConfig != nil {
+	if jsonParserConfig != nil {
+		fp = &parser.JsonFileParser{
+			Cfg: *jsonParserConfig,
+
+			Logger: logger.Named("JsonFileParser"),
+		}
+	} else if regexParserConfig != nil {
 		fp = &parser.RegexFileParser{
 			Cfg: *regexParserConfig,
 

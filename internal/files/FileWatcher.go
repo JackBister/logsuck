@@ -134,6 +134,8 @@ func NewGlobWatcher(
 		m:          map[string]*FileWatcher{},
 		ctx:        gwCtx,
 		Cancel:     cancel,
+
+		logger: logger,
 	}
 
 	initial, err := filepath.Glob(glob)

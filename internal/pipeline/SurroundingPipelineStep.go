@@ -62,7 +62,7 @@ func (s *surroundingPipelineStep) Execute(ctx context.Context, pipe pipelinePipe
 				zap.String("source", evt.Source))
 			continue
 		}
-		evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), ifc.FileParser)
+		evtFields, _ := parser.ExtractFields(strings.ToLower(evt.Raw), ifc.FileParser)
 		retEvts[i] = events.EventWithExtractedFields{
 			Id:        evt.Id,
 			Raw:       evt.Raw,

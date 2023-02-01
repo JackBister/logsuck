@@ -51,6 +51,11 @@ type jsonWebConfig struct {
 	DebugMode        *bool  `json:"debugMode"`
 }
 
+type jsonJsonFileTypeParserConfig struct {
+	EventDelimiter string `json:"eventDelimiter"`
+	TimeField      string `json:"timeField"`
+}
+
 type jsonRegexFileTypeParserConfig struct {
 	EventDelimiter  string   `json:"eventDelimiter"`
 	FieldExtractors []string `json:"fieldExtractors"`
@@ -59,6 +64,7 @@ type jsonRegexFileTypeParserConfig struct {
 type jsonFileTypeParserConfig struct {
 	Type string `json:"type"`
 
+	JsonConfig  *jsonJsonFileTypeParserConfig  `json:"jsonConfig"`
 	RegexConfig *jsonRegexFileTypeParserConfig `json:"regexConfig"`
 }
 
@@ -382,27 +388,35 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 	}
 	fileTypes := make([]jsonFileTypeConfig, 0, len(c.FileTypes))
 	for _, v := range c.FileTypes {
-		parserType := ""
+		var parser jsonFileTypeParserConfig
 		if v.ParserType == ParserTypeRegex {
-			parserType = "Regex"
+			fieldExtractors := make([]string, len(v.Regex.FieldExtractors))
+			for i, fe := range v.Regex.FieldExtractors {
+				fieldExtractors[i] = fe.String()
+			}
+			parser = jsonFileTypeParserConfig{
+				Type: "Regex",
+				RegexConfig: &jsonRegexFileTypeParserConfig{
+					EventDelimiter:  v.Regex.EventDelimiter.String(),
+					FieldExtractors: fieldExtractors,
+				},
+			}
+		} else if v.ParserType == ParserTypeJSON {
+			parser = jsonFileTypeParserConfig{
+				Type: "JSON",
+				JsonConfig: &jsonJsonFileTypeParserConfig{
+					EventDelimiter: v.JSON.EventDelimiter.String(),
+					TimeField:      v.JSON.TimeField,
+				},
+			}
 		} else {
 			return nil, fmt.Errorf("failed to convert config to json: unknown parserType=%v", v.ParserType)
-		}
-		fieldExtractors := make([]string, len(v.Regex.FieldExtractors))
-		for i, fe := range v.Regex.FieldExtractors {
-			fieldExtractors[i] = fe.String()
 		}
 		fileTypes = append(fileTypes, jsonFileTypeConfig{
 			Name:         v.Name,
 			TimeLayout:   v.TimeLayout,
 			ReadInterval: v.ReadInterval.String(),
-			Parser: &jsonFileTypeParserConfig{
-				Type: parserType,
-				RegexConfig: &jsonRegexFileTypeParserConfig{
-					EventDelimiter:  v.Regex.EventDelimiter.String(),
-					FieldExtractors: fieldExtractors,
-				},
-			},
+			Parser:       &parser,
 		})
 	}
 	hostTypes := make([]jsonHostTypeConfig, 0, len(c.HostTypes))

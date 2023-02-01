@@ -42,11 +42,37 @@
               "type": {
                 "description": "The name of the parser to use for this file. Default 'Regex'. Regex uses regular expressions to delimit events and extract values from them.",
                 "type": "string",
-                "enum": ["Regex"]
+                "enum": ["JSON", "Regex"]
+              },
+              "jsonConfig": {
+                "description": "Configuration specific to the JSON parser",
+                "type": "object",
+                "autoform": {
+                  "conditional": {
+                    "key": "type",
+                    "value": "JSON"
+                  }
+                },
+                "properties": {
+                  "eventDelimiter": {
+                    "description": "A regex specifying the delimiter between events. For example, if the file contains one event per row this should be '\\n'. Default '\\n'.",
+                    "type": "string"
+                  },
+                  "timeField": {
+                    "description": "Which field in the JSON object representing an event should be considered the timestamp of the event and placed in the _time field. Default 'ts'.",
+                    "type": "string"
+                  }
+                }
               },
               "regexConfig": {
                 "description": "Configuration specific to the Regex parser",
                 "type": "object",
+                "autoform": {
+                  "conditional": {
+                    "key": "type",
+                    "value": "Regex"
+                  }
+                },
                 "properties": {
                   "eventDelimiter": {
                     "description": "A regex specifying the delimiter between events. For example, if the file contains one event per row this should be '\\n'. Default '\\n'.",

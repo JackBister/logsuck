@@ -91,7 +91,7 @@ func shouldIncludeEvent(evt events.EventWithId,
 	internalParser parser.FileParser,
 	compiledFrags []*regexp.Regexp, compiledNotFrags []*regexp.Regexp,
 	compiledFields map[string][]*regexp.Regexp, compiledNotFields map[string][]*regexp.Regexp) (map[string]string, bool) {
-	evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), internalParser)
+	evtFields, _ := parser.ExtractFields(strings.ToLower(evt.Raw), internalParser)
 	// TODO: This could produce unexpected results
 	evtFields["host"] = evt.Host
 	evtFields["source"] = evt.Source
