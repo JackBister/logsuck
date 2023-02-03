@@ -31,4 +31,9 @@ td.event-timestamp {
   font-size: 11pt;
 
   padding: 1rem 0.5rem;
+
+  pre {
+    margin: 0;
+    white-space: pre-wrap;
+  }
 }

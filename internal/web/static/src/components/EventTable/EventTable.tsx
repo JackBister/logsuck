@@ -22,6 +22,7 @@ import {
   eventTimestamp,
   eventRaw,
 } from "./EventTable.style.scss";
+import { JsonView } from "../JsonView/JsonView";
 
 export interface EventTableProps {
   events: LogEvent[];
@@ -42,48 +43,60 @@ export const EventTable = ({
       </tr>
     </thead>
     <tbody>
-      {events.map((e) => (
-        <tr key={e.raw} className={eventTableRow}>
-          <td className={eventTimestamp}>
-            <time dateTime={e.timestamp.toISOString()}>
-              {e.timestamp.toLocaleString()}
-            </time>
-          </td>
-          <td>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              <div className={eventRaw}>{e.raw}</div>
-              <hr
+      {events.map((e) => {
+        let parsedJsonObject;
+        try {
+          parsedJsonObject = JSON.parse(e.raw);
+        } catch (e) {}
+        return (
+          <tr key={e.raw} className={eventTableRow}>
+            <td className={eventTimestamp}>
+              <time dateTime={e.timestamp.toISOString()}>
+                {e.timestamp.toLocaleString()}
+              </time>
+            </td>
+            <td>
+              <div
                 style={{
-                  width: "100%",
-                  marginTop: "0",
-                  marginBottom: "0",
+                  display: "flex",
+                  flexDirection: "column",
                 }}
-              />
-              <Flex direction="row" align="center" gap="lg" px="md">
-                <dl>
-                  <dt>source</dt>
-                  <dd>{e.source}</dd>
-                </dl>
-                <div>
-                  <Button
-                    type="button"
-                    variant="subtle"
-                    onClick={() => onViewContextClicked(e.id)}
-                    style={{ marginTop: "-2px" }}
-                  >
-                    View context
-                  </Button>
+              >
+                <div className={eventRaw}>
+                  {parsedJsonObject ? (
+                    <JsonView value={parsedJsonObject}></JsonView>
+                  ) : (
+                    <pre>{e.raw}</pre>
+                  )}
                 </div>
-              </Flex>
-            </div>
-          </td>
-        </tr>
-      ))}
+                <hr
+                  style={{
+                    width: "100%",
+                    marginTop: "0",
+                    marginBottom: "0",
+                  }}
+                />
+                <Flex direction="row" align="center" gap="lg" px="md">
+                  <dl>
+                    <dt>source</dt>
+                    <dd>{e.source}</dd>
+                  </dl>
+                  <div>
+                    <Button
+                      type="button"
+                      variant="subtle"
+                      onClick={() => onViewContextClicked(e.id)}
+                      style={{ marginTop: "-2px" }}
+                    >
+                      View context
+                    </Button>
+                  </div>
+                </Flex>
+              </div>
+            </td>
+          </tr>
+        );
+      })}
     </tbody>
   </Table>
 );
