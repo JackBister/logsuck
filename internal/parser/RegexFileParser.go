@@ -23,6 +23,7 @@ import (
 type RegexParserConfig struct {
 	EventDelimiter  *regexp.Regexp
 	FieldExtractors []*regexp.Regexp
+	TimeField       string
 }
 
 type RegexFileParser struct {
@@ -58,6 +59,9 @@ func (r *RegexFileParser) Extract(s string) (*ExtractResult, error) {
 					zap.Stringer("fieldExtractor", rex))
 			}
 		}
+	}
+	if _, ok := ret[r.Cfg.TimeField]; ok {
+		ret["_time"] = ret[r.Cfg.TimeField]
 	}
 	return &ExtractResult{
 		Fields: ret,

@@ -90,9 +90,11 @@ var forceStaticConfigFlag bool
 var forwarderFlag string
 var fieldExtractorFlags flagStringArray
 var hostNameFlag string
+var jsonParserFlag bool
 var logTypeFlag string
 var printVersion bool
 var recipientFlag string
+var timeFieldFlag string
 var timeLayoutFlag string
 var webAddrFlag string
 
@@ -111,10 +113,12 @@ func main() {
 	flag.BoolVar(&forceStaticConfigFlag, "forceStaticConfig", false, "If enabled, the JSON configuration file will be used instead of the configuration saved in the database. This means that you cannot alter configuration at runtime and must instead update the JSON file and restart logsuck. Has no effect in forwarder mode. Default false.")
 	flag.StringVar(&forwarderFlag, "forwarder", "", "Enables forwarder mode and sets the address to forward events to. Forwarding is off by default.")
 	flag.StringVar(&hostNameFlag, "hostname", "", "The name of the host running this instance of logsuck. By default, logsuck will attempt to retrieve the hostname from the operating system.")
+	flag.BoolVar(&jsonParserFlag, "json", false, "Parse the given files as JSON instead of using Regex to parse. The fieldexctractor flag will be ignored. Disabled by default.")
 	flag.StringVar(&logTypeFlag, "logType", "production", "The type of logger to use. Set it to 'development' to get human readable logging instead of JSON logging")
 	flag.BoolVar(&printVersion, "version", false, "Print version info and quit.")
 	flag.StringVar(&recipientFlag, "recipient", "", "Enables recipient mode and sets the port to expose the recipient on. Recipient mode is off by default.")
-	flag.StringVar(&timeLayoutFlag, "timelayout", "2006/01/02 15:04:05", "The layout of the timestamp which will be extracted in the _time field. For more information on how to write a timelayout and examples, see https://golang.org/pkg/time/#Parse and https://golang.org/pkg/time/#pkg-constants.")
+	flag.StringVar(&timeFieldFlag, "timefield", "_time", "The name of the field which will contain the timestamp of the event. Default '_time'.")
+	flag.StringVar(&timeLayoutFlag, "timelayout", "2006/01/02 15:04:05", "The layout of the timestamp which will be extracted in the time field. For more information on how to write a timelayout and examples, see https://golang.org/pkg/time/#Parse and https://golang.org/pkg/time/#pkg-constants.")
 	flag.StringVar(&webAddrFlag, "webaddr", ":8080", "The address on which the search GUI will be exposed.")
 	flag.Parse()
 	if len(fieldExtractorFlags) == 0 {
@@ -187,10 +191,27 @@ func main() {
 			staticConfig.Recipient.Address = recipientFlag
 		}
 
-		fieldExtractors := make([]*regexp.Regexp, len(fieldExtractorFlags))
-		if len(fieldExtractorFlags) > 0 {
-			for i, fe := range fieldExtractorFlags {
-				fieldExtractors[i] = regexp.MustCompile(fe)
+		var jsonParserConfig *parser.JsonParserConfig
+		var regexParserConfig *parser.RegexParserConfig
+		var parserType config.ParserType
+		if jsonParserFlag {
+			parserType = config.ParserTypeJSON
+			jsonParserConfig = &parser.JsonParserConfig{
+				EventDelimiter: regexp.MustCompile(eventDelimiterFlag),
+				TimeField:      timeFieldFlag,
+			}
+		} else {
+			parserType = config.ParserTypeRegex
+			fieldExtractors := make([]*regexp.Regexp, len(fieldExtractorFlags))
+			if len(fieldExtractorFlags) > 0 {
+				for i, fe := range fieldExtractorFlags {
+					fieldExtractors[i] = regexp.MustCompile(fe)
+				}
+			}
+			regexParserConfig = &parser.RegexParserConfig{
+				EventDelimiter:  regexp.MustCompile(eventDelimiterFlag),
+				FieldExtractors: fieldExtractors,
+				TimeField:       timeFieldFlag,
 			}
 		}
 
@@ -199,11 +220,9 @@ func main() {
 				Name:         "DEFAULT",
 				TimeLayout:   timeLayoutFlag,
 				ReadInterval: 1 * time.Second,
-				ParserType:   config.ParserTypeRegex,
-				Regex: &parser.RegexParserConfig{
-					EventDelimiter:  regexp.MustCompile(eventDelimiterFlag),
-					FieldExtractors: fieldExtractors,
-				},
+				ParserType:   parserType,
+				JSON:         jsonParserConfig,
+				Regex:        regexParserConfig,
 			},
 		}
 

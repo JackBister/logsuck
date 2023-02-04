@@ -127,6 +127,17 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *za
 			}
 
 			regexParserConfig.FieldExtractors = append(regexParserConfig.FieldExtractors, t.Regex.FieldExtractors...)
+
+			timeField := t.Regex.TimeField
+			if regexParserConfig.TimeField == "" {
+				regexParserConfig.TimeField = timeField
+			} else if t.Name != "DEFAULT" && regexParserConfig.TimeField != timeField {
+				logger.Warn("encountered multiple timeFields for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same timeField.",
+					zap.String("fileName", filename),
+					zap.String("chosenTimeField", timeField),
+					zap.String("discardedTimeField", regexParserConfig.TimeField))
+				regexParserConfig.TimeField = timeField
+			}
 		} else {
 			logger.Error("unhandled parserType for file",
 				zap.String("fileName", filename),

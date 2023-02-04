@@ -59,6 +59,7 @@ type jsonJsonFileTypeParserConfig struct {
 type jsonRegexFileTypeParserConfig struct {
 	EventDelimiter  string   `json:"eventDelimiter"`
 	FieldExtractors []string `json:"fieldExtractors"`
+	TimeField       string   `json:"timeField"`
 }
 
 type jsonFileTypeParserConfig struct {
@@ -399,6 +400,7 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 				RegexConfig: &jsonRegexFileTypeParserConfig{
 					EventDelimiter:  v.Regex.EventDelimiter.String(),
 					FieldExtractors: fieldExtractors,
+					TimeField:       v.Regex.TimeField,
 				},
 			}
 		} else if v.ParserType == ParserTypeJSON {

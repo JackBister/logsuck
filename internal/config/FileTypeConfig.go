@@ -41,6 +41,7 @@ type FileTypeConfig struct {
 }
 
 const defaultEventDelimiter = "\n"
+const defaultTimeField = "_time"
 
 var defaultEventDelimiterRegexp = regexp.MustCompile(defaultEventDelimiter)
 var defaultFieldExtractors = []*regexp.Regexp{
@@ -51,6 +52,7 @@ var defaultFieldExtractors = []*regexp.Regexp{
 var defaultRegexParserConfig = parser.RegexParserConfig{
 	EventDelimiter:  defaultEventDelimiterRegexp,
 	FieldExtractors: defaultFieldExtractors,
+	TimeField:       defaultTimeField,
 }
 
 const defaultTimeLayout = "2006/01/02 15:04:05"
@@ -130,10 +132,19 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *zap.Logg
 				fe = append(fe, rex)
 			}
 
-			regexParserConfig = &parser.RegexParserConfig{
-				EventDelimiter: eventDelimiter,
+			timeField := defaultTimeField
+			if ft.Parser.RegexConfig.TimeField != "" {
+				timeField = ft.Parser.RegexConfig.TimeField
+			} else {
+				logger.Warn("got empty timeField for fileType, will use default timeField",
+					zap.String("fileType", ft.Name),
+					zap.String("defaultTimeField", defaultTimeField))
+			}
 
+			regexParserConfig = &parser.RegexParserConfig{
+				EventDelimiter:  eventDelimiter,
 				FieldExtractors: fe,
+				TimeField:       timeField,
 			}
 		} else {
 			logger.Error("failed to read config for fileType: Unknown parser.type",
