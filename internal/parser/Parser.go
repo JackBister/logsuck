@@ -92,6 +92,10 @@ func (p *parser) take() *token {
 	return ret
 }
 
-func ExtractFields(input string, internalParser FileParser) map[string]string {
-	return internalParser.Extract(input).Fields
+func ExtractFields(input string, internalParser FileParser) (map[string]string, error) {
+	res, err := internalParser.Extract(input)
+	if err != nil {
+		return map[string]string{}, err
+	}
+	return res.Fields, nil
 }

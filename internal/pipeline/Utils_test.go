@@ -23,6 +23,7 @@ import (
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/parser"
+	"go.uber.org/zap"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -88,7 +89,7 @@ func newInMemRepo(t *testing.T) events.Repository {
 	if err != nil {
 		t.Fatalf("newInMemRepo got error when creating in-memory SQLite database: %v", err)
 	}
-	repo, err := events.SqliteRepository(db, &config.SqliteConfig{})
+	repo, err := events.SqliteRepository(db, &config.SqliteConfig{}, zap.NewNop())
 	if err != nil {
 		t.Fatalf("newInMemRepo got error when creating events repo: %v", err)
 	}

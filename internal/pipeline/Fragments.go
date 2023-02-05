@@ -16,20 +16,22 @@ package pipeline
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/parser"
+	"go.uber.org/zap"
 )
 
-func compileMultipleFrags(frags []string) []*regexp.Regexp {
+func compileMultipleFrags(frags []string, logger *zap.Logger) []*regexp.Regexp {
 	ret := make([]*regexp.Regexp, 0, len(frags))
 	for _, frag := range frags {
 		compiled, err := compileFrag(frag)
 		if err != nil {
-			log.Println("Failed to compile fragment=" + frag + ", err=" + err.Error() + ", fragment will not be included")
+			logger.Warn("failed to compile fragment, fragment will not be included",
+				zap.String("fragment", frag),
+				zap.Error(err))
 		} else {
 			ret = append(ret, compiled)
 		}
@@ -37,8 +39,8 @@ func compileMultipleFrags(frags []string) []*regexp.Regexp {
 	return ret
 }
 
-func compileKeys(m map[string]struct{}) []*regexp.Regexp {
-	return compileMultipleFrags(getKeys(m))
+func compileKeys(m map[string]struct{}, logger *zap.Logger) []*regexp.Regexp {
+	return compileMultipleFrags(getKeys(m), logger)
 }
 
 func getKeys(fragments map[string]struct{}) []string {
@@ -49,14 +51,16 @@ func getKeys(fragments map[string]struct{}) []string {
 	return ret
 }
 
-func compileFieldValues(m map[string][]string) map[string][]*regexp.Regexp {
+func compileFieldValues(m map[string][]string, logger *zap.Logger) map[string][]*regexp.Regexp {
 	ret := make(map[string][]*regexp.Regexp, len(m))
 	for key, values := range m {
 		compiledValues := make([]*regexp.Regexp, len(values))
 		for i, value := range values {
 			compiled, err := compileFrag(value)
 			if err != nil {
-				log.Println("Failed to compile fieldValue=" + value + ", err=" + err.Error() + ", fieldValue will not be included")
+				logger.Warn("failed to compile fieldValue, fieldValue will not be included",
+					zap.String("fieldValue", value),
+					zap.Error(err))
 			} else {
 				compiledValues[i] = compiled
 			}
@@ -87,7 +91,7 @@ func shouldIncludeEvent(evt events.EventWithId,
 	internalParser parser.FileParser,
 	compiledFrags []*regexp.Regexp, compiledNotFrags []*regexp.Regexp,
 	compiledFields map[string][]*regexp.Regexp, compiledNotFields map[string][]*regexp.Regexp) (map[string]string, bool) {
-	evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), internalParser)
+	evtFields, _ := parser.ExtractFields(strings.ToLower(evt.Raw), internalParser)
 	// TODO: This could produce unexpected results
 	evtFields["host"] = evt.Host
 	evtFields["source"] = evt.Source

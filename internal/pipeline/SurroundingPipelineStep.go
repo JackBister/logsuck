@@ -17,13 +17,13 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/parser"
+	"go.uber.org/zap"
 )
 
 type surroundingPipelineStep struct {
@@ -36,16 +36,18 @@ func (s *surroundingPipelineStep) Execute(ctx context.Context, pipe pipelinePipe
 
 	evts, err := params.EventsRepo.GetSurroundingEvents(s.eventId, s.count)
 	if err != nil {
-		log.Printf("got error when executing surrounding pipeline step: %v\n", err) // TODO: This needs to make it to the frontend somehow
+		params.Logger.Error("got error when executing surrounding pipeline step",
+			zap.Error(err)) // TODO: This needs to make it to the frontend somehow
 		return
 	}
 
 	cfg, err := params.ConfigSource.Get()
 	if err != nil {
-		log.Printf("got error when executing surrounding pipeline step: failed to get config: %v\n", err)
+		params.Logger.Error("got error when executing surrounding pipeline step: failed to get config",
+			zap.Error(err))
 		return
 	}
-	indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg)
+	indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg, params.Logger)
 	if err != nil {
 		// TODO: signal error to rest of pipe??
 		return
@@ -56,10 +58,11 @@ func (s *surroundingPipelineStep) Execute(ctx context.Context, pipe pipelinePipe
 		ifc, ok := sourceToIfc[evt.Source]
 		if !ok {
 			// TODO: How does the user get feedback about this?
-			log.Printf("failed to find file configuration for event with source=%v. this event will be ignored.\n", evt.Source)
+			params.Logger.Warn("failed to find file configuration for event, this event will be ignored",
+				zap.String("source", evt.Source))
 			continue
 		}
-		evtFields := parser.ExtractFields(strings.ToLower(evt.Raw), ifc.FileParser)
+		evtFields, _ := parser.ExtractFields(strings.ToLower(evt.Raw), ifc.FileParser)
 		retEvts[i] = events.EventWithExtractedFields{
 			Id:        evt.Id,
 			Raw:       evt.Raw,

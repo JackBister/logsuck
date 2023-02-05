@@ -18,6 +18,7 @@ import {
   Accordion,
   Button,
   Flex,
+  NativeSelect,
   NumberInput,
   Select,
   Space,
@@ -43,11 +44,17 @@ export type FormFieldType =
   | "OBJECT"
   | "STRING";
 
+export interface ConditionalField {
+  key: string;
+  value: any;
+}
+
 export interface FormFieldBase {
   type: FormFieldType;
   displayName?: string;
   name: string;
   readonly?: boolean;
+  conditional?: ConditionalField;
 }
 
 export interface ArrayFormField extends FormFieldBase {
@@ -117,24 +124,28 @@ export function jsonSchemaToFormSpec(
         name,
         symbols: jsonSchema.enum as string[],
         readonly: metadata.readonly,
+        conditional: metadata.conditional,
       } as EnumFormField;
     }
     return {
       type: "STRING",
       name,
       readonly: metadata.readonly,
+      conditional: metadata.conditional,
     } as StringFormField;
   } else if (jsonSchema.type === "boolean") {
     return {
       type: "BOOLEAN",
       name,
       readonly: metadata.readonly,
+      conditional: metadata.conditional,
     } as BooleanFormField;
   } else if (jsonSchema.type === "number") {
     return {
       type: "NUMBER",
       name,
       readonly: metadata.readonly,
+      conditional: metadata.conditional,
     } as NumberFormField;
   } else if (jsonSchema.type === "array") {
     const itemType = jsonSchemaToFormSpec(name, jsonSchema.items);
@@ -156,6 +167,7 @@ export function jsonSchemaToFormSpec(
       headerFieldName,
       itemTypes: itemType,
       readonly: metadata.readonly,
+      conditional: metadata.conditional,
     } as ArrayFormField;
   } else if (jsonSchema.type === "object") {
     const properties = jsonSchema.properties;
@@ -165,6 +177,7 @@ export function jsonSchemaToFormSpec(
         name,
         fields: [],
         readonly: metadata.readonly,
+        conditional: metadata.conditional,
       } as ObjectFormField;
     }
     const fields = Object.keys(properties)
@@ -179,6 +192,7 @@ export function jsonSchemaToFormSpec(
       name,
       fields,
       readonly: metadata.readonly,
+      conditional: metadata.conditional,
     } as ObjectFormField;
   } else {
     return null;
@@ -237,6 +251,27 @@ const unescapeStringValue = (s: string) => {
   return JSON.parse('"' + s + '"');
 };
 
+const getDefaultValue = (fs: FormField) => {
+  switch (fs.type) {
+    case "ARRAY":
+      return [];
+    case "BOOLEAN":
+      return false;
+    case "ENUM":
+      return (fs as EnumFormField).symbols[0];
+    case "NUMBER":
+      return undefined;
+    case "OBJECT":
+      const ret: Record<string, any> = {};
+      for (const field of (fs as ObjectFormField).fields) {
+        ret[field.name] = getDefaultValue(field);
+      }
+      return ret;
+    case "STRING":
+      return "";
+  }
+};
+
 class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
   constructor(props: AutoformFieldProps) {
     super(props);
@@ -248,11 +283,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
     if (this.props.spec.type !== "ARRAY") {
       return;
     }
-    if (this.props.spec.itemTypes.type === "STRING") {
-      fa.push("");
-    } else {
-      fa.push({});
-    }
+    fa.push(getDefaultValue(this.props.spec.itemTypes));
   }
 
   render() {
@@ -359,16 +390,27 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
         )}
         {this.props.spec.type === "OBJECT" && (
           <Stack>
-            {this.props.spec.fields.map((f, i) => (
-              <AutoformField
-                key={i}
-                level={(this.props.level || 0) + 1}
-                path={`${this.props.path}.${f.name}`}
-                readonly={this.props.readonly || this.props.spec.readonly}
-                spec={f}
-                formikProps={this.props.formikProps}
-              ></AutoformField>
-            ))}
+            {this.props.spec.fields.map((f, i) => {
+              if (f.conditional) {
+                const currentValue = getPath(
+                  this.props.formikProps.values,
+                  this.props.path + "." + f.conditional.key
+                );
+                if (currentValue !== f.conditional.value) {
+                  return null;
+                }
+              }
+              return (
+                <AutoformField
+                  key={i}
+                  level={(this.props.level || 0) + 1}
+                  path={`${this.props.path}.${f.name}`}
+                  readonly={this.props.readonly || this.props.spec.readonly}
+                  spec={f}
+                  formikProps={this.props.formikProps}
+                ></AutoformField>
+              );
+            })}
           </Stack>
         )}
         {this.props.spec.type === "BOOLEAN" && (
@@ -398,7 +440,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
               {this.props.spec.displayName || this.props.spec.name}
             </label>
             <Field
-              as={Select}
+              as={NativeSelect}
               name={this.props.path}
               disabled={this.props.readonly || this.props.spec.readonly}
               readonly={this.props.readonly || this.props.spec.readonly}

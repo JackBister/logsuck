@@ -29,7 +29,7 @@
             "type": "string"
           },
           "timeLayout": {
-            "description": "The layout of the _time field which will be extracted from this file. If no _time field is extracted or it doesn't match this layout, the time when the event was read will be used as the timestamp for that event. Default '2006/01/02 15:04:05'.",
+            "description": "The layout of the _time field which will be extracted from this file. If no _time field is extracted or it doesn't match this layout, the time when the event was read will be used as the timestamp for that event. There are also the special timelayouts \"UNIX\", \"UNIX_MILLIS\", and \"UNIX_DECIMAL_NANOS\". \"UNIX\" expects the _time field to contain the number of seconds since the Unix epoch, \"UNIX_MILLIS\" expects it to contain the number of milliseconds since the Unix epoch, and UNIX_DECIMAL_NANOS expects it to contain a string of the form \"<UNIX>.<NANOS>\" where \"<UNIX>\" is the number of seconds since the Unix epoch and \"<NANOS>\" is the number of elapsed nanoseconds in that second. Default '2006/01/02 15:04:05'.",
             "type": "string"
           },
           "readInterval": {
@@ -42,14 +42,44 @@
               "type": {
                 "description": "The name of the parser to use for this file. Default 'Regex'. Regex uses regular expressions to delimit events and extract values from them.",
                 "type": "string",
-                "enum": ["Regex"]
+                "enum": ["JSON", "Regex"]
+              },
+              "jsonConfig": {
+                "description": "Configuration specific to the JSON parser",
+                "type": "object",
+                "autoform": {
+                  "conditional": {
+                    "key": "type",
+                    "value": "JSON"
+                  }
+                },
+                "properties": {
+                  "eventDelimiter": {
+                    "description": "A regex specifying the delimiter between events. For example, if the file contains one event per row this should be '\\n'. Default '\\n'.",
+                    "type": "string"
+                  },
+                  "timeField": {
+                    "description": "Which field in the JSON object representing an event should be considered the timestamp of the event and placed in the _time field. Default 'ts'.",
+                    "type": "string"
+                  }
+                }
               },
               "regexConfig": {
                 "description": "Configuration specific to the Regex parser",
                 "type": "object",
+                "autoform": {
+                  "conditional": {
+                    "key": "type",
+                    "value": "Regex"
+                  }
+                },
                 "properties": {
                   "eventDelimiter": {
                     "description": "A regex specifying the delimiter between events. For example, if the file contains one event per row this should be '\\n'. Default '\\n'.",
+                    "type": "string"
+                  },
+                  "timeField": {
+                    "description": "The name of the extracted field which should be considered the timestamp of the event and placed in the _time field. Default '_time'.",
                     "type": "string"
                   },
                   "fieldExtractors": {

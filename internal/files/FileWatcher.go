@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -27,6 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
+	"go.uber.org/zap"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -53,12 +53,16 @@ type GlobWatcher struct {
 	ctx        context.Context
 
 	Cancel func()
+
+	logger *zap.Logger
 }
 
 func (gw *GlobWatcher) UpdateConfig(cfg indexedfiles.IndexedFileConfig) {
-	log.Printf("updating fileConfig for GlobWatcher with filename=%s...\n", gw.fileConfig.Filename)
+	gw.logger.Info("updating fileConfig for GlobWatcher",
+		zap.String("fileName", gw.fileConfig.Filename))
 	if cfg == gw.fileConfig {
-		log.Printf("new config for GlobWatcher with filename=%s is the same as before. will not do anything\n", gw.fileConfig.Filename)
+		gw.logger.Info("new config for GlobWatcher is the same as before. will not do anything",
+			zap.String("fileName", gw.fileConfig.Filename))
 		return
 	}
 	for _, v := range gw.m {
@@ -84,6 +88,8 @@ type FileWatcher struct {
 	currentOffset   int64
 	readBuf         []byte
 	workingBuf      []byte
+
+	logger *zap.Logger
 }
 
 // NewGlobWatcher creates a new watcher. The watcher will find any log files matching the glob pattern and create new FileWatchers for them.
@@ -94,6 +100,8 @@ func NewGlobWatcher(
 	hostName string,
 	eventPublisher events.EventPublisher,
 	ctx context.Context,
+
+	logger *zap.Logger,
 ) (*GlobWatcher, error) {
 	absGlob, err := filepath.Abs(glob)
 	if err != nil {
@@ -126,6 +134,8 @@ func NewGlobWatcher(
 		m:          map[string]*FileWatcher{},
 		ctx:        gwCtx,
 		Cancel:     cancel,
+
+		logger: logger,
 	}
 
 	initial, err := filepath.Glob(glob)
@@ -135,12 +145,18 @@ func NewGlobWatcher(
 	for _, file := range initial {
 		absPath, err := filepath.Abs(file)
 		if err != nil {
-			log.Printf("got error when performing filepath.Abs(file) with dir=%s, file=%s: %v\n", dir, file, err)
+			logger.Warn("got error when performing filepath.Abs(file)",
+				zap.String("dir", dir),
+				zap.String("file", file),
+				zap.Error(err))
 			continue
 		}
-		fw, err := NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, gwCtx)
+		fw, err := NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, gwCtx, logger.Named("FileWatcher"))
 		if err != nil {
-			log.Printf("got error when creating new FileWatcher for filename=%s matching glob=%s: %v\n", absPath, glob, err)
+			logger.Warn("got error when creating new FileWatcher for filename matching glob",
+				zap.String("fileName", absPath),
+				zap.String("glob", glob),
+				zap.Error(err))
 			continue
 		}
 		go fw.Start()
@@ -156,30 +172,40 @@ func NewGlobWatcher(
 				if evt.Op&(fsnotify.Create|fsnotify.Remove) == 0 {
 					continue
 				}
-				log.Println("received fsnotify", evt)
 				path := evt.Name
 				matched, err := filepath.Match(absGlob, path)
 				if err != nil {
-					log.Printf("got error when matching glob=%s against path=%s: %v", glob, path, err)
+					logger.Warn("got error when matching glob against path",
+						zap.String("glob", glob),
+						zap.String("path", path),
+						zap.Error(err))
 					continue
 				}
 				if !matched {
-					log.Printf("path=%s does not match glob=%s, skipping", path, absGlob)
+					logger.Info("path does not match glob, skipping",
+						zap.String("path", path),
+						zap.String("glob", absGlob))
 					continue
 				}
 
 				absPath, err := filepath.Abs(path)
 				if err != nil {
-					log.Printf("got error when performing filepath.Abs(dir/evt.Name) after receiving fsnotify with dir=%s, evt.Name=%s: %v\n", dir, evt.Name, err)
+					logger.Warn("got error when performing filepath.Abs(dir/evt.Name) after receiving fsnotify",
+						zap.String("dir", dir),
+						zap.String("evtName", evt.Name),
+						zap.Error(err))
 					continue
 				}
 
 				if fw, ok := gw.m[absPath]; ok {
 					fw.commands <- CommandReopen
 				} else {
-					fw, err = NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, gwCtx)
+					fw, err = NewFileWatcher(fileConfig, absPath, hostName, eventPublisher, gwCtx, logger.Named("FileWatcher"))
 					if err != nil {
-						log.Printf("got error when creating new FileWatcher for filename=%s matching glob=%s: %v\n", absPath, glob, err)
+						logger.Warn("got error when creating new FileWatcher for filename matching glob",
+							zap.String("fileName", absPath),
+							zap.String("glob", glob),
+							zap.Error(err))
 						continue
 					}
 					go fw.Start()
@@ -199,6 +225,7 @@ func NewFileWatcher(
 	hostName string,
 	eventPublisher events.EventPublisher,
 	ctx context.Context,
+	logger *zap.Logger,
 ) (*FileWatcher, error) {
 	return &FileWatcher{
 		fileConfig: fileConfig,
@@ -214,13 +241,16 @@ func NewFileWatcher(
 		currentOffset: 0,
 		readBuf:       make([]byte, 4096),
 		workingBuf:    make([]byte, 0, 4096),
+
+		logger: logger,
 	}, nil
 }
 
 // Start begins watching the file according to its IndexedFileConfig
 func (fw *FileWatcher) Start() {
 	if fw.fileConfig.FileParser == nil {
-		log.Printf("FileParser is nil for file=%v. will not watch this file. review your configuration to make sure that this file has an associated file type with a parser configured.\n", fw.filename)
+		fw.logger.Warn("FileParser is nil. will not watch this file. review your configuration to make sure that this file has an associated file type with a parser configured.",
+			zap.String("fileName", fw.filename))
 		return
 	}
 	ticker := time.NewTicker(fw.fileConfig.ReadInterval)
@@ -240,13 +270,16 @@ func (fw *FileWatcher) Start() {
 		if fw.file == nil {
 			f, err := os.Open(fw.filename)
 			if err != nil {
-				log.Printf("error opening filename=%s, will retry later.\n", fw.filename)
+				fw.logger.Warn("error opening file, will retry later",
+					zap.String("fileName", fw.filename))
 			} else {
 				fw.file = f
 				fw.currentSourceId = uuid.NewString()
 				fw.currentOffset = 0
 				fw.workingBuf = fw.workingBuf[:0]
-				log.Printf("opened filename=%s with sourceId=%s\n", fw.filename, fw.currentSourceId)
+				fw.logger.Info("opened file",
+					zap.String("fileName", fw.filename),
+					zap.String("sourceId", fw.currentSourceId))
 			}
 		}
 		if fw.file != nil {
@@ -258,7 +291,9 @@ func (fw *FileWatcher) Start() {
 func (fw *FileWatcher) readToEnd() {
 	for read, err := fw.file.Read(fw.readBuf); read != 0; read, err = fw.file.Read(fw.readBuf) {
 		if err != nil && err != io.EOF {
-			log.Println("Unexpected error=" + err.Error() + ", will abort FileWatcher for filename=" + fw.filename)
+			fw.logger.Error("Unexpected error, will abort FileWatcher",
+				zap.String("fileName", fw.filename),
+				zap.Error(err))
 			break
 		}
 		fw.workingBuf = append(fw.workingBuf, fw.readBuf[:read]...)

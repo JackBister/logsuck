@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io/fs"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -33,6 +32,7 @@ import (
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/jobs"
 	"github.com/jackbister/logsuck/internal/parser"
+	"go.uber.org/zap"
 )
 
 type Web interface {
@@ -45,6 +45,8 @@ type webImpl struct {
 	eventRepo    events.Repository
 	jobRepo      jobs.Repository
 	jobEngine    *jobs.Engine
+
+	logger *zap.Logger
 }
 
 type webError struct {
@@ -56,13 +58,15 @@ func (w webError) Error() string {
 	return w.err
 }
 
-func NewWeb(configSource config.ConfigSource, configRepo config.ConfigRepository, eventRepo events.Repository, jobRepo jobs.Repository, jobEngine *jobs.Engine) Web {
+func NewWeb(configSource config.ConfigSource, configRepo config.ConfigRepository, eventRepo events.Repository, jobRepo jobs.Repository, jobEngine *jobs.Engine, logger *zap.Logger) Web {
 	return webImpl{
 		configSource: configSource,
 		configRepo:   configRepo,
 		eventRepo:    eventRepo,
 		jobRepo:      jobRepo,
 		jobEngine:    jobEngine,
+
+		logger: logger,
 	}
 }
 
@@ -76,7 +80,7 @@ func (wi webImpl) Serve() error {
 	}
 	staticCfg := cfgResp.Cfg
 	if staticCfg.Web.DebugMode {
-		log.Println("web.debugMode enabled. Will enable Gin debug mode. To disable, remove the debugMode key in the web object in your JSON config or set it to false.")
+		wi.logger.Info("web.debugMode enabled. Will enable Gin debug mode. To disable, remove the debugMode key in the web object in your JSON config or set it to false.")
 		gin.SetMode(gin.DebugMode)
 	} else {
 		gin.SetMode(gin.ReleaseMode)
@@ -218,7 +222,7 @@ func (wi webImpl) Serve() error {
 			c.AbortWithError(500, err)
 			return
 		}
-		indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg)
+		indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg, wi.logger)
 		if err != nil {
 			c.AbortWithError(500, err)
 			return
@@ -230,7 +234,7 @@ func (wi webImpl) Serve() error {
 			if !ok {
 				// TODO: default
 			}
-			fields := parser.ExtractFields(r.Raw, ifc.FileParser)
+			fields, _ := parser.ExtractFields(r.Raw, ifc.FileParser)
 			retResults = append(retResults, events.EventWithExtractedFields{
 				Id:        r.Id,
 				Raw:       r.Raw,
@@ -270,7 +274,7 @@ func (wi webImpl) Serve() error {
 		c.FileFromFS(path, filesys)
 	})
 
-	log.Printf("Starting Web GUI on address='%v'\n", staticCfg.Web.Address)
+	wi.logger.Info("Starting Web GUI", zap.String("address", staticCfg.Web.Address))
 	return r.Run(staticCfg.Web.Address)
 }
 

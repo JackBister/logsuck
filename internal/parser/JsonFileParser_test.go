@@ -14,22 +14,27 @@
 
 package parser
 
-type RawParserEvent struct {
-	Raw    string
-	Offset int64
-}
+import (
+	"regexp"
+	"testing"
 
-type ExtractResult struct {
-	Fields map[string]string
-}
+	"go.uber.org/zap"
+)
 
-type SplitResult struct {
-	Events    []RawParserEvent
-	Remainder string
-}
+func TestJsonFileParserExtract(t *testing.T) {
+	l, _ := zap.NewDevelopment()
+	p := JsonFileParser{
+		Cfg: JsonParserConfig{
+			EventDelimiter: regexp.MustCompile("\n"),
+		},
+		Logger: l,
+	}
 
-type FileParser interface {
-	CanSplit(b []byte) bool
-	Extract(s string) (*ExtractResult, error)
-	Split(s string) SplitResult
+	r, _ := p.Extract(`
+{"level":"info","ts":1675006830.0893068,"logger":"reloadFileWatchers","caller":"logsuck/main.go:339","msg":"reloading file watchers","newIndexedFilesLen":3,"oldIndexedFilesLen":0}
+	`)
+	if r.Fields["level"] != "info" {
+		t.FailNow()
+	}
+
 }

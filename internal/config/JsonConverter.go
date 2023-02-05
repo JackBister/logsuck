@@ -16,9 +16,10 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type jsonHostConfig struct {
@@ -50,14 +51,21 @@ type jsonWebConfig struct {
 	DebugMode        *bool  `json:"debugMode"`
 }
 
+type jsonJsonFileTypeParserConfig struct {
+	EventDelimiter string `json:"eventDelimiter"`
+	TimeField      string `json:"timeField"`
+}
+
 type jsonRegexFileTypeParserConfig struct {
 	EventDelimiter  string   `json:"eventDelimiter"`
 	FieldExtractors []string `json:"fieldExtractors"`
+	TimeField       string   `json:"timeField"`
 }
 
 type jsonFileTypeParserConfig struct {
 	Type string `json:"type"`
 
+	JsonConfig  *jsonJsonFileTypeParserConfig  `json:"jsonConfig"`
 	RegexConfig *jsonRegexFileTypeParserConfig `json:"regexConfig"`
 }
 
@@ -138,13 +146,13 @@ var defaultConfig = Config{
 	},
 }
 
-func FromJSON(cfg JsonConfig) (*Config, error) {
+func FromJSON(cfg JsonConfig, logger *zap.Logger) (*Config, error) {
 	var err error
 	var hostName string
 	var hostType string
 	if cfg.Host != nil {
 		if cfg.Host.Name == "" {
-			hostName, err = getDefaultHostName()
+			hostName, err = getDefaultHostName(logger)
 			if err != nil {
 				return nil, err
 			}
@@ -155,7 +163,7 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 			hostType = cfg.Host.Type
 		}
 	} else {
-		hostName, err = getDefaultHostName()
+		hostName, err = getDefaultHostName(logger)
 		if err != nil {
 			return nil, err
 		}
@@ -170,42 +178,48 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 		}
 	}
 
-	fileTypes, err := FileTypeConfigFromJSON(cfg.FileTypes)
+	fileTypes, err := FileTypeConfigFromJSON(cfg.FileTypes, logger.Named("FileTypeConfigFromJSON"))
 	if err != nil {
 		return nil, err
 	}
 
 	var forwarder *ForwarderConfig
 	if cfg.Forwarder == nil {
-		log.Println("Using default forwarder configuration.")
+		logger.Info("Using default forwarder configuration.")
 		forwarder = defaultConfig.Forwarder
 	} else {
 		forwarder = &ForwarderConfig{}
 		if cfg.Forwarder.Enabled == nil {
-			log.Println("forwarder.enabled not specified, defaulting to false")
+			logger.Info("forwarder.enabled not specified, defaulting to false")
 			forwarder.Enabled = false
 		} else {
 			forwarder.Enabled = *cfg.Forwarder.Enabled
 		}
 		if cfg.Forwarder.MaxBufferedEvents == nil {
-			log.Printf("Using default maxBufferedEvents for forwarder. defaultBufferedEvents=%v\n", defaultConfig.Forwarder.MaxBufferedEvents)
+			logger.Info("Using default maxBufferedEvents for forwarder",
+				zap.Int("defaultMaxBufferedEvents", defaultConfig.Forwarder.MaxBufferedEvents))
 			forwarder.MaxBufferedEvents = defaultConfig.Forwarder.MaxBufferedEvents
 		} else {
 			forwarder.MaxBufferedEvents = *cfg.Forwarder.MaxBufferedEvents
 		}
 		if cfg.Forwarder.RecipientAddress == "" {
-			log.Printf("Using default recipientAddress for forwarder. dedfaultRecipientAddress=%v\n", defaultConfig.Forwarder.RecipientAddress)
+			logger.Info("Using default recipientAddress for forwarder",
+				zap.String("defaultRecipientAddress", defaultConfig.Forwarder.RecipientAddress))
 			forwarder.RecipientAddress = defaultConfig.Forwarder.RecipientAddress
 		} else {
 			forwarder.RecipientAddress = cfg.Forwarder.RecipientAddress
 		}
 		if cfg.Forwarder.ConfigPollInterval == "" {
-			log.Printf("using defaultConfigPollInterval=%v\n", defaultConfig.Forwarder.ConfigPollInterval)
+			logger.Info("using defaultConfigPollInterval",
+				zap.Stringer("defaultConfigPollInterval", defaultConfig.Forwarder.ConfigPollInterval))
 			forwarder.ConfigPollInterval = defaultConfig.Forwarder.ConfigPollInterval
 		} else {
 			d, err := time.ParseDuration(cfg.Forwarder.ConfigPollInterval)
 			if err != nil {
-				log.Printf("failed to parse configPollInterval=%v, will use defaultConfigPollInterval=%v: %v\n", cfg.Forwarder.ConfigPollInterval, defaultConfig.Forwarder.ConfigPollInterval, err)
+				logger.Info("failed to parse configPollInterval, will use defaultConfigPollInterval",
+					zap.String("configPollInterval", cfg.Forwarder.ConfigPollInterval),
+					zap.Stringer("defaultConfigPollInterval", defaultConfig.Forwarder.ConfigPollInterval),
+					zap.Error(err))
 				forwarder.ConfigPollInterval = defaultConfig.Forwarder.ConfigPollInterval
 			} else {
 				forwarder.ConfigPollInterval = d
@@ -215,18 +229,19 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 
 	var recipient *RecipientConfig
 	if cfg.Recipient == nil {
-		log.Println("Using default recipient configuration.")
+		logger.Info("Using default recipient configuration.")
 		recipient = defaultConfig.Recipient
 	} else {
 		recipient = &RecipientConfig{}
 		if cfg.Recipient.Enabled == nil {
-			log.Println("recipient.enabled not specified, defaulting to false")
+			logger.Info("recipient.enabled not specified, defaulting to false")
 			recipient.Enabled = false
 		} else {
 			recipient.Enabled = *cfg.Recipient.Enabled
 		}
 		if cfg.Recipient.Address == "" {
-			log.Printf("Using default address for recipient. defaultAddress=%v\n", defaultConfig.Recipient.Address)
+			logger.Info("Using default address for recipient",
+				zap.String("defaultRecipientAddress", defaultConfig.Recipient.Address))
 			recipient.Address = defaultConfig.Recipient.Address
 		} else {
 			recipient.Address = cfg.Recipient.Address
@@ -235,18 +250,19 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 
 	var sqlite *SqliteConfig
 	if cfg.Sqlite == nil {
-		log.Println("Using default sqlite configuration.")
+		logger.Info("Using default sqlite configuration.")
 		sqlite = defaultConfig.SQLite
 	} else {
 		sqlite = &SqliteConfig{}
 		if cfg.Sqlite.FileName == "" {
-			log.Printf("Using default sqlite filename. defaultFileName=%v\n", defaultConfig.SQLite.DatabaseFile)
+			logger.Info("Using default sqlite filename",
+				zap.String("defaultSqliteFileName", defaultConfig.SQLite.DatabaseFile))
 			sqlite.DatabaseFile = defaultConfig.SQLite.DatabaseFile
 		} else {
 			sqlite.DatabaseFile = cfg.Sqlite.FileName
 		}
 		if cfg.Sqlite.TrueBatch == nil {
-			log.Println("Using default TrueBatch mode. defaultTrueBatch=true")
+			logger.Info("Using default TrueBatch mode. defaultTrueBatch=true")
 			sqlite.TrueBatch = true
 		} else {
 			sqlite.TrueBatch = *cfg.Sqlite.TrueBatch
@@ -255,39 +271,40 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 
 	var web *WebConfig
 	if cfg.Web == nil {
-		log.Println("Using default web configuration.")
+		logger.Info("Using default web configuration.")
 		web = defaultConfig.Web
 		if forwarder.Enabled {
-			log.Println("Disabling web GUI since forwarder is enabled.")
+			logger.Info("Disabling web GUI since forwarder is enabled.")
 			web.Enabled = false
 		}
 	} else {
 		web = &WebConfig{}
 		if cfg.Web.Enabled == nil {
 			if forwarder.Enabled {
-				log.Println("web.enabled not specified but forwarder.enabled is true. Setting web.enabled to false")
+				logger.Info("web.enabled not specified but forwarder.enabled is true. Setting web.enabled to false")
 				web.Enabled = false
 			} else {
-				log.Println("web.enabled not specified, defaulting to true")
+				logger.Info("web.enabled not specified, defaulting to true")
 				web.Enabled = true
 			}
 		} else {
 			web.Enabled = *cfg.Web.Enabled
 		}
 		if cfg.Web.Address == "" {
-			log.Printf("Using default web address. defaultWebAddress=%v\n", defaultConfig.Web.Address)
+			logger.Info("Using default web address",
+				zap.String("defaultWebAddress", defaultConfig.Web.Address))
 			web.Address = defaultConfig.Web.Address
 		} else {
 			web.Address = cfg.Web.Address
 		}
 		if cfg.Web.UsePackagedFiles == nil {
-			log.Println("web.usePackagedFiles not specified, defaulting to true")
+			logger.Info("web.usePackagedFiles not specified, defaulting to true")
 			web.UsePackagedFiles = true
 		} else {
 			web.UsePackagedFiles = *cfg.Web.UsePackagedFiles
 		}
 		if cfg.Web.DebugMode == nil {
-			log.Println("web.debugMode not specified, defaulting to false")
+			logger.Info("web.debugMode not specified, defaulting to false")
 			web.DebugMode = false
 		} else {
 			web.DebugMode = *cfg.Web.DebugMode
@@ -314,7 +331,10 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 		enabled := v.Enabled
 		intervalDuration, err := time.ParseDuration(v.Interval)
 		if err != nil {
-			log.Printf("got invalid duration=%v when parsing interval for task with name=%v. This task will be disabled. error: %v\n", v.Interval, v.Name, err)
+			logger.Error("got invalid duration when parsing interval for task. This task will be disabled. error",
+				zap.String("interval", v.Interval),
+				zap.String("taskName", v.Name),
+				zap.Error(err))
 			enabled = false
 		}
 		cfgMap := map[string]any{}
@@ -348,13 +368,14 @@ func FromJSON(cfg JsonConfig) (*Config, error) {
 	}, nil
 }
 
-func getDefaultHostName() (string, error) {
-	log.Println("No hostName in configuration, will try to get host name from operating system.")
+func getDefaultHostName(logger *zap.Logger) (string, error) {
+	logger.Info("No hostName in configuration, will try to get host name from operating system.")
 	hostName, err := os.Hostname()
 	if err != nil {
 		return "", fmt.Errorf("error getting host name: %w", err)
 	}
-	log.Printf("Got host name from operating system. hostName=%v\n", hostName)
+	logger.Info("Got host name from operating system",
+		zap.String("hostName", hostName))
 	return hostName, nil
 }
 
@@ -368,27 +389,36 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 	}
 	fileTypes := make([]jsonFileTypeConfig, 0, len(c.FileTypes))
 	for _, v := range c.FileTypes {
-		parserType := ""
+		var parser jsonFileTypeParserConfig
 		if v.ParserType == ParserTypeRegex {
-			parserType = "Regex"
+			fieldExtractors := make([]string, len(v.Regex.FieldExtractors))
+			for i, fe := range v.Regex.FieldExtractors {
+				fieldExtractors[i] = fe.String()
+			}
+			parser = jsonFileTypeParserConfig{
+				Type: "Regex",
+				RegexConfig: &jsonRegexFileTypeParserConfig{
+					EventDelimiter:  v.Regex.EventDelimiter.String(),
+					FieldExtractors: fieldExtractors,
+					TimeField:       v.Regex.TimeField,
+				},
+			}
+		} else if v.ParserType == ParserTypeJSON {
+			parser = jsonFileTypeParserConfig{
+				Type: "JSON",
+				JsonConfig: &jsonJsonFileTypeParserConfig{
+					EventDelimiter: v.JSON.EventDelimiter.String(),
+					TimeField:      v.JSON.TimeField,
+				},
+			}
 		} else {
 			return nil, fmt.Errorf("failed to convert config to json: unknown parserType=%v", v.ParserType)
-		}
-		fieldExtractors := make([]string, len(v.Regex.FieldExtractors))
-		for i, fe := range v.Regex.FieldExtractors {
-			fieldExtractors[i] = fe.String()
 		}
 		fileTypes = append(fileTypes, jsonFileTypeConfig{
 			Name:         v.Name,
 			TimeLayout:   v.TimeLayout,
 			ReadInterval: v.ReadInterval.String(),
-			Parser: &jsonFileTypeParserConfig{
-				Type: parserType,
-				RegexConfig: &jsonRegexFileTypeParserConfig{
-					EventDelimiter:  v.Regex.EventDelimiter.String(),
-					FieldExtractors: fieldExtractors,
-				},
-			},
+			Parser:       &parser,
 		})
 	}
 	hostTypes := make([]jsonHostTypeConfig, 0, len(c.HostTypes))

@@ -55,7 +55,7 @@ func addConfigEndpoints(g *gin.RouterGroup, wi *webImpl) {
 			ctx.AbortWithError(500, fmt.Errorf("failed to decode json config: %w", err))
 			return
 		}
-		cfgResp, err := config.FromJSON(jsonCfg)
+		cfgResp, err := config.FromJSON(jsonCfg, wi.logger)
 		if err != nil {
 			ctx.AbortWithError(500, fmt.Errorf("failed to convert config from json: %w", err))
 			return

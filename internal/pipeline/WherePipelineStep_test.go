@@ -21,6 +21,7 @@ import (
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
+	"go.uber.org/zap"
 )
 
 func TestWherePipelineStep(t *testing.T) {
@@ -32,6 +33,8 @@ func TestWherePipelineStep(t *testing.T) {
 	params := PipelineParameters{
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
+
+		Logger: zap.NewNop(),
 	}
 	pipe, input, output := newPipe()
 

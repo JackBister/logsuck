@@ -20,14 +20,18 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type SqliteConfigRepository struct {
 	db      *sql.DB
 	changes chan struct{}
+
+	logger *zap.Logger
 }
 
-func NewSqliteConfigRepository(staticConfig *Config, db *sql.DB, writeInitialConfig bool) (ConfigRepository, error) {
+func NewSqliteConfigRepository(staticConfig *Config, db *sql.DB, writeInitialConfig bool, logger *zap.Logger) (ConfigRepository, error) {
 	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Config (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, config_json TEXT, modified DATETIME)")
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: %w", err)
@@ -47,7 +51,7 @@ func NewSqliteConfigRepository(staticConfig *Config, db *sql.DB, writeInitialCon
 		return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: failed to close COUNT result: %w", err)
 	}
 	changes := make(chan struct{})
-	ret := &SqliteConfigRepository{db: db, changes: changes}
+	ret := &SqliteConfigRepository{db: db, changes: changes, logger: logger}
 	if c == 0 && writeInitialConfig {
 		err = ret.upsertInternal(staticConfig)
 		if err != nil {
@@ -77,7 +81,7 @@ func (s *SqliteConfigRepository) Get() (*ConfigResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("got error when decoding config_json: %w", err)
 	}
-	cfg, err := FromJSON(jsonCfg)
+	cfg, err := FromJSON(jsonCfg, s.logger)
 	if err != nil {
 		return nil, fmt.Errorf("got error when converting JSON config: %w", err)
 	}

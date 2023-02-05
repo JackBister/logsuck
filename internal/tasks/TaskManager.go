@@ -17,12 +17,12 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
+	"go.uber.org/zap"
 )
 
 type TaskContext struct {
@@ -34,11 +34,11 @@ type Task interface {
 	Run(cfg map[string]any, ctx context.Context)
 }
 
-type TaskConstructor func(t TaskContext) Task
+type TaskConstructor func(t TaskContext, logger *zap.Logger) Task
 
 var taskMap = map[string]TaskConstructor{
-	"@logsuck/DeleteOldEventsTask": func(t TaskContext) Task {
-		return &DeleteOldEventsTask{Repo: t.EventsRepo}
+	"@logsuck/DeleteOldEventsTask": func(t TaskContext, logger *zap.Logger) Task {
+		return &DeleteOldEventsTask{Repo: t.EventsRepo, Logger: logger}
 	},
 }
 
@@ -65,15 +65,19 @@ type TaskManager struct {
 	tasks       map[string]Task
 	taskData    sync.Map //<string, TaskData>
 	ctx         context.Context
+
+	logger *zap.Logger
 }
 
-func NewTaskManager(cfg *config.TasksConfig, taskContext TaskContext, ctx context.Context) *TaskManager {
+func NewTaskManager(cfg *config.TasksConfig, taskContext TaskContext, ctx context.Context, logger *zap.Logger) *TaskManager {
 	return &TaskManager{
 		cfg:         cfg,
 		taskContext: taskContext,
 		tasks:       map[string]Task{},
 		taskData:    sync.Map{},
 		ctx:         ctx,
+
+		logger: logger,
 	}
 }
 
@@ -128,7 +132,9 @@ func (tm *TaskManager) ScheduleTask(name string) error {
 	if !ok {
 		return fmt.Errorf("failed to cast taskData for task='%s', taskData=%v", name, tdInterface)
 	}
-	log.Printf("scheduling task='%s' with interval=%v\n", name, td.interval)
+	logger := tm.logger.With(zap.String("taskName", name))
+	logger.Info("scheduling task",
+		zap.Stringer("interval", td.interval))
 	go func(t Task, td TaskData) {
 		ticker := time.NewTicker(td.interval)
 		defer ticker.Stop()
@@ -137,14 +143,14 @@ func (tm *TaskManager) ScheduleTask(name string) error {
 		for {
 			select {
 			case <-td.ctx.Done():
-				log.Printf("context cancelled for task='%s'\n", name)
+				logger.Info("context cancelled for task")
 				td.isCancelled <- struct{}{}
 				return
 			case <-ticker.C:
 				if !td.enabled {
-					log.Printf("not running task='%s' because it is disabled", name)
+					logger.Info("not running task because it is disabled")
 				} else {
-					log.Printf("running task='%s'\n", name)
+					logger.Info("running task")
 					startTime := time.Now()
 					td.state = TaskStateRunning
 					tm.taskData.Store(name, td)
@@ -152,7 +158,8 @@ func (tm *TaskManager) ScheduleTask(name string) error {
 					endTime := time.Now()
 					td.state = TaskStateNotRunning
 					tm.taskData.Store(name, td)
-					log.Printf("task='%s' finished in time=%v", name, endTime.Sub(startTime))
+					logger.Info("task finished",
+						zap.Stringer("duration", endTime.Sub(startTime)))
 				}
 			}
 		}
@@ -161,17 +168,18 @@ func (tm *TaskManager) ScheduleTask(name string) error {
 }
 
 func (tm *TaskManager) UpdateConfig(cfg config.Config) {
-	log.Println("Updating TaskManager config")
+	tm.logger.Info("Updating TaskManager config")
 	tm.cfg = &cfg.Tasks
 	for tn := range tm.tasks {
+		logger := tm.logger.With(zap.String("taskName", tn))
 		oldTdAny, ok := tm.taskData.Load(tn)
 		if !ok {
-			log.Printf("did not get taskData for task with name='%s', continuing\n", tn)
+			logger.Error("did not get taskData for task")
 			continue
 		}
 		oldTd, ok := oldTdAny.(TaskData)
 		if !ok {
-			log.Printf("failed to cast taskData for task with name='%s', continuing\n", tn)
+			logger.Error("failed to cast taskData for task")
 			continue
 		}
 		oldTd.cancelFunc()
@@ -181,7 +189,8 @@ func (tm *TaskManager) UpdateConfig(cfg config.Config) {
 	tasksToRemove := []string{}
 	for tn := range tm.tasks {
 		if t, ok := cfg.Tasks.Tasks[tn]; !ok || !t.Enabled {
-			log.Printf("task with name='%s' was not present in new configuration. This task will not be rescheduled\n", tn)
+			tm.logger.Info("task was not present in new configuration. This task will not be rescheduled",
+				zap.String("taskName", tn))
 			tasksToRemove = append(tasksToRemove, tn)
 		}
 	}
@@ -197,10 +206,11 @@ func (tm *TaskManager) UpdateConfig(cfg config.Config) {
 		}
 		taskConstructor, ok := taskMap[t.Name]
 		if !ok {
-			log.Printf("did not find taskConstructor with name='%s', this task will be ignored\n", t.Name)
+			tm.logger.Error("did not find taskConstructor, this task will be ignored",
+				zap.String("taskName", t.Name))
 			continue
 		}
-		task := taskConstructor(tm.taskContext)
+		task := taskConstructor(tm.taskContext, tm.logger.Named(t.Name))
 		tm.taskData.Delete(t.Name)
 		delete(tm.tasks, t.Name)
 		tm.AddTask(task)

@@ -17,18 +17,19 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"log"
 	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/search"
+	"go.uber.org/zap"
 )
 
 type DeleteOldEventsTask struct {
 	Repo events.Repository
-	Now  func() time.Time
+
+	Logger *zap.Logger
 }
 
 func (t *DeleteOldEventsTask) Name() string {
@@ -38,34 +39,38 @@ func (t *DeleteOldEventsTask) Name() string {
 func (t *DeleteOldEventsTask) Run(cfg map[string]any, ctx context.Context) {
 	minAgeAny, ok := cfg["minAge"]
 	if !ok {
-		log.Println("DeleteOldEventsTask: failed to get minAge. Will not do anything.")
+		t.Logger.Error("Failed to get minAge. Will not do anything.")
 		return
 	}
 	minAgeStr, ok := minAgeAny.(string)
 	if !ok {
-		log.Println("DeleteOldEventsTask: failed to cast minAge to string. Will not do anything.")
+		t.Logger.Error("Failed to cast minAge to string. Will not do anything.")
 		return
 	}
 	if minAgeStr == "" {
-		log.Println("DeleteOldEventsTask: minAgeStr=''. Will not do anything.")
+		t.Logger.Error("minAgeStr=''. Will not do anything.")
 		return
 	}
 	d, err := parseDuration(minAgeStr)
 	if err != nil {
-		log.Println("DeleteOldEventsTask: failed to parse minAgeStr. Will not do anything.")
+		t.Logger.Error("Failed to parse minAgeStr. Will not do anything.",
+			zap.String("minAgeStr", minAgeStr))
 		return
 	}
 	endTime := time.Now().Add(-d)
 	eventsChan := t.Repo.FilterStream(&search.Search{}, nil, &endTime)
 	for events := range eventsChan {
-		log.Printf("DeleteOldEventsTask: got numEvents=%v to delete\n", len(events))
+		t.Logger.Info("Got events to delete",
+			zap.Int("numEvents", len(events)))
 		ids := make([]int64, len(events))
 		for i, evt := range events {
 			ids[i] = evt.Id
 		}
 		err := t.Repo.DeleteBatch(ids)
 		if err != nil {
-			log.Printf("DeleteOldEventsTask: failed to delete numEvents=%v: %v\n", len(ids), err)
+			t.Logger.Error("Failed to delete events",
+				zap.Int("numEvents", len(ids)),
+				zap.Error(err))
 		}
 	}
 }

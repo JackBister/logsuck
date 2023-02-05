@@ -18,13 +18,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"strconv"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/pipeline"
+	"go.uber.org/zap"
 )
 
 type Engine struct {
@@ -32,14 +31,18 @@ type Engine struct {
 	configSource config.ConfigSource
 	eventRepo    events.Repository
 	jobRepo      Repository
+
+	logger *zap.Logger
 }
 
-func NewEngine(configSource config.ConfigSource, eventRepo events.Repository, jobRepo Repository) *Engine {
+func NewEngine(configSource config.ConfigSource, eventRepo events.Repository, jobRepo Repository, logger *zap.Logger) *Engine {
 	return &Engine{
 		cancels:      map[int64]func(){},
 		configSource: configSource,
 		eventRepo:    eventRepo,
 		jobRepo:      jobRepo,
+
+		logger: logger,
 	}
 }
 
@@ -53,6 +56,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert job in repo: %w", err)
 	}
+	logger := e.logger.With(zap.Int64("jobId", *id))
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	e.cancels[*id] = cancelFunc
 	go func() {
@@ -63,6 +67,8 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 			pipeline.PipelineParameters{
 				ConfigSource: e.configSource,
 				EventsRepo:   e.eventRepo,
+
+				Logger: logger,
 			})
 		wasCancelled := false
 	out:
@@ -73,7 +79,6 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 					break out
 				}
 				evts := res.Events
-				log.Println("got", len(evts), "matching events")
 				if len(evts) > 0 {
 					converted := make([]events.EventIdAndTimestamp, len(evts))
 					for i, evt := range evts {
@@ -84,18 +89,19 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 					}
 					err := e.jobRepo.AddResults(*id, converted)
 					if err != nil {
-						log.Println("Failed to add events to jobId=" + strconv.FormatInt(*id, 10) + ", error: " + err.Error())
+						logger.Error("failed to add events to job",
+							zap.Error(err))
 						// TODO: Retry?
 						continue
 					}
 					fields := gatherFieldStats(evts)
 					err = e.jobRepo.AddFieldStats(*id, fields)
 					if err != nil {
-						log.Println("Failed to add field stats to jobId=" + strconv.FormatInt(*id, 10) + ", error: " + err.Error())
+						logger.Error("failed to add field stats to job",
+							zap.Error(err))
 					}
 				}
 			case <-done:
-				log.Println("<-done")
 				wasCancelled = true
 				break out
 			}
@@ -109,7 +115,8 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 		}
 		err = e.jobRepo.UpdateState(*id, state)
 		if err != nil {
-			log.Println("Failed to update jobId=" + strconv.FormatInt(*id, 10) + " when updating to finished state. err=" + err.Error())
+			logger.Error("failed to update job to finished state",
+				zap.Error(err))
 		}
 	}()
 	return id, nil
@@ -121,14 +128,15 @@ func (e *Engine) Abort(jobId int64) error {
 		cancelFunc()
 		return nil
 	}
-	log.Printf("Attempted to cancel jobId=%v but there was no cancelFunc in the cancels map. Will verify that state is aborted or finished.\n", jobId)
+	logger := e.logger.With(zap.Int64("jobId", jobId))
+	logger.Warn("Attempted to cancel job but there was no cancelFunc in the cancels map. Will verify that state is aborted or finished")
 	job, err := e.jobRepo.Get(jobId)
 	if err != nil {
-		log.Printf("Got error when verifying that jobId=%v is aborted or finished. The job is in an unknown state.\n", jobId)
+		logger.Error("Got error when verifying that job is aborted or finished. The job is in an unknown state.")
 		return errors.New("job does not appear to be running, but the state in the repository could not be verified")
 	}
 	if job.State == JobStateRunning {
-		log.Printf("jobId=%v has no entry in the cancels map, but state is running. Will set state to aborted. This may signify that there is a bug and the job may actually still be running.\n", jobId)
+		logger.Error("job has no entry in the cancels map, but state is running. Will set state to aborted. This may signify that there is a bug and the job may actually still be running.")
 		err = e.jobRepo.UpdateState(jobId, JobStateAborted)
 		if err != nil {
 			return errors.New("job does not appear to be running, but the state in the repository could not be set to aborted")
