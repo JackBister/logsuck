@@ -21,6 +21,7 @@ import (
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
+	"go.uber.org/zap"
 )
 
 func TestRexPipelineStep(t *testing.T) {
@@ -32,6 +33,8 @@ func TestRexPipelineStep(t *testing.T) {
 	params := PipelineParameters{
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
+
+		Logger: zap.NewNop(),
 	}
 	pipe, input, output := newPipe()
 
@@ -65,6 +68,8 @@ func TestRexPipelineStep_MultipleExtractions(t *testing.T) {
 	params := PipelineParameters{
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
+
+		Logger: zap.NewNop(),
 	}
 	pipe, input, output := newPipe()
 
@@ -101,6 +106,8 @@ func TestRexPipelineStep_ExtractedField(t *testing.T) {
 	params := PipelineParameters{
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
+
+		Logger: zap.NewNop(),
 	}
 	pipe, input, output := newPipe()
 
@@ -138,6 +145,8 @@ func TestRexPipelineStep_Source(t *testing.T) {
 	params := PipelineParameters{
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
+
+		Logger: zap.NewNop(),
 	}
 	pipe, input, output := newPipe()
 
@@ -173,6 +182,8 @@ func TestRexPipelineStep_Host(t *testing.T) {
 	params := PipelineParameters{
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
+
+		Logger: zap.NewNop(),
 	}
 	pipe, input, output := newPipe()
 
