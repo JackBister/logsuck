@@ -28,7 +28,6 @@ import (
 
 type DeleteOldEventsTask struct {
 	Repo events.Repository
-	Now  func() time.Time
 
 	Logger *zap.Logger
 }

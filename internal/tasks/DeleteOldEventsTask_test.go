@@ -31,6 +31,8 @@ func TestDeleteOldEventsTaskInvalidMinAgeDoesNotDelete(t *testing.T) {
 	repo := createRepo(t)
 	task := &DeleteOldEventsTask{
 		Repo: repo,
+
+		Logger: zap.NewNop(),
 	}
 
 	repo.AddBatch([]events.Event{
@@ -63,10 +65,8 @@ func TestDeleteOldEventsTaskInvalidMinAgeDoesNotDelete(t *testing.T) {
 func TestDeleteOldEventsDeletesOldEvents(t *testing.T) {
 	repo := createRepo(t)
 	task := &DeleteOldEventsTask{
-		Repo: repo,
-		Now: func() time.Time {
-			return time.Date(2022, 1, 27, 20, 0, 0, 0, time.UTC)
-		}}
+		Repo:   repo,
+		Logger: zap.NewNop()}
 
 	repo.AddBatch([]events.Event{
 		{
