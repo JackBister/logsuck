@@ -120,7 +120,7 @@ Print information about command line options and quit.
 `-timefield <string>` The name of the field which will contain the timestamp of the event. Default '\_time'.
 
 `-timelayout <string>`
-The layout of the timestamp which will be extracted in the \_time field. For more information on how to write a timelayout and examples, see https://golang.org/pkg/time/#Parse and https://golang.org/pkg/time/#pkg-constants. (default "2006/01/02 15:04:05")
+The layout of the timestamp which will be extracted in the \_time field. For more information on how to write a timelayout and examples, see https://golang.org/pkg/time/#Parse and https://golang.org/pkg/time/#pkg-constants. There are also the special timelayouts "UNIX", "UNIX_MILLIS", and "UNIX_DECIMAL_NANOS". "UNIX" expects the \_time field to contain the number of seconds since the Unix epoch, "UNIX_MILLIS" expects it to contain the number of milliseconds since the Unix epoch, and UNIX_DECIMAL_NANOS expects it to contain a string of the form `<UNIX>.<NANOS>` where `<UNIX>` is the number of seconds since the Unix epoch and `<NANOS>` is the number of elapsed nanoseconds in that second. (default "2006/01/02 15:04:05")
 
 `-version`
 Print version info and quit.
@@ -253,9 +253,7 @@ With those two steps done, you don't need to restart Logsuck to see the changes 
 
 ## Upcoming features
 
-Logsuck is still heavily in development, so there are many features still being worked on as we race towards version 1.0.
-
-### Before version 1.0
+Logsuck is still heavily in development, so there are many features still being worked on.
 
 - [x] Glob patterns for finding log files
 - [x] Retention setting to delete old events after a certain period of time
@@ -263,14 +261,10 @@ Logsuck is still heavily in development, so there are many features still being 
 - [x] Ability to search via time spans that are not relative to the current time, such as "All events between 2020-01-01 and 2020-01-05"
 - [x] Ad hoc field extraction using pipes in the search command (equivalent to Splunk's "| rex")
 - [ ] E-mail alerts
-
-### After version 1.0
-
-- Authentication and authorization
-- Creating tables and charts from searches
-- Dashboards
-- Plugins
-- Advanced search commands like dedup, eval, transaction, etc.
-- Support for an external database other than logsuck.db
+- [ ] Authentication and authorization
+- [ ] Plugins
+- [ ] Creating tables and charts from searches
+- [ ] Dashboards
+- [ ] Advanced search commands like dedup, eval, transaction, etc.
 - [Your favorite feature](https://github.com/JackBister/logsuck/issues/new)
 - ... And many more great things!
