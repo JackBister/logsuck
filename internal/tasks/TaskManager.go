@@ -22,6 +22,7 @@ import (
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
+	"go.uber.org/dig"
 	"go.uber.org/zap"
 )
 
@@ -69,16 +70,34 @@ type TaskManager struct {
 	logger *zap.Logger
 }
 
-func NewTaskManager(cfg *config.TasksConfig, taskContext TaskContext, ctx context.Context, logger *zap.Logger) *TaskManager {
-	return &TaskManager{
-		cfg:         cfg,
-		taskContext: taskContext,
-		tasks:       map[string]Task{},
-		taskData:    sync.Map{},
-		ctx:         ctx,
+type TaskManagerParams struct {
+	dig.In
 
-		logger: logger,
+	EventsRepo events.Repository
+	Ctx        context.Context
+	CfgSource  config.ConfigSource
+	Logger     *zap.Logger
+}
+
+func NewTaskManager(p TaskManagerParams) *TaskManager {
+	r, err := p.CfgSource.Get()
+	if err != nil {
+
 	}
+
+	tm := &TaskManager{
+		cfg: &r.Cfg.Tasks,
+		taskContext: TaskContext{
+			EventsRepo: p.EventsRepo,
+		},
+		tasks:    map[string]Task{},
+		taskData: sync.Map{},
+		ctx:      p.Ctx,
+
+		logger: p.Logger,
+	}
+	tm.UpdateConfig(r.Cfg)
+	return tm
 }
 
 func (tm *TaskManager) AddTask(t Task) error {

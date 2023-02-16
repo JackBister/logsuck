@@ -25,6 +25,7 @@ import (
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/search"
+	"go.uber.org/dig"
 	"go.uber.org/zap"
 )
 
@@ -42,24 +43,32 @@ type sqliteRepository struct {
 	logger *zap.Logger
 }
 
-func SqliteRepository(db *sql.DB, cfg *config.SqliteConfig, logger *zap.Logger) (Repository, error) {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, host TEXT NOT NULL, source TEXT NOT NULL, source_id TEXT NOT NULL, timestamp DATETIME NOT NULL, offset BIGINT NOT NULL, UNIQUE(host, source, timestamp, offset));")
+type SqliteEventRepositoryParams struct {
+	dig.In
+
+	Db     *sql.DB
+	Cfg    *config.Config
+	Logger *zap.Logger
+}
+
+func SqliteRepository(p SqliteEventRepositoryParams) (Repository, error) {
+	_, err := p.Db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, host TEXT NOT NULL, source TEXT NOT NULL, source_id TEXT NOT NULL, timestamp DATETIME NOT NULL, offset BIGINT NOT NULL, UNIQUE(host, source, timestamp, offset));")
 	if err != nil {
 		return nil, fmt.Errorf("error creating events table: %w", err)
 	}
-	_, err = db.Exec("CREATE INDEX IF NOT EXISTS IX_Events_Timestamp ON Events(timestamp);")
+	_, err = p.Db.Exec("CREATE INDEX IF NOT EXISTS IX_Events_Timestamp ON Events(timestamp);")
 	if err != nil {
 		return nil, fmt.Errorf("error creating events timestamp index: %w", err)
 	}
 	// It seems we have to use FTS4 instead of FTS5? - I could not find an option equivalent to order=DESC for FTS5 and order=DESC makes queries 8-9x faster...
-	_, err = db.Exec("CREATE VIRTUAL TABLE IF NOT EXISTS EventRaws USING fts4 (raw TEXT, source TEXT, host TEXT, order=DESC);")
+	_, err = p.Db.Exec("CREATE VIRTUAL TABLE IF NOT EXISTS EventRaws USING fts4 (raw TEXT, source TEXT, host TEXT, order=DESC);")
 	if err != nil {
 		return nil, fmt.Errorf("error creating eventraws table: %w", err)
 	}
 	return &sqliteRepository{
-		db:     db,
-		cfg:    cfg,
-		logger: logger,
+		db:     p.Db,
+		cfg:    p.Cfg.SQLite,
+		logger: p.Logger,
 	}, nil
 }
 

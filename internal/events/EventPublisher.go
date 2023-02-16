@@ -20,6 +20,7 @@ import (
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/parser"
+	"go.uber.org/dig"
 	"go.uber.org/zap"
 )
 
@@ -31,12 +32,20 @@ type batchedRepositoryPublisher struct {
 	cfg  *config.Config
 	repo Repository
 
-	adder chan<- Event
+	adder chan Event
 
 	logger *zap.Logger
 }
 
-func BatchedRepositoryPublisher(cfg *config.Config, repo Repository, logger *zap.Logger) EventPublisher {
+type BatchedRepositoryPublisherParams struct {
+	dig.In
+
+	Cfg    *config.Config
+	Repo   Repository
+	Logger *zap.Logger
+}
+
+func BatchedRepositoryPublisher(p BatchedRepositoryPublisherParams) EventPublisher {
 	adder := make(chan Event, 5000)
 
 	go func() {
@@ -46,17 +55,17 @@ func BatchedRepositoryPublisher(cfg *config.Config, repo Repository, logger *zap
 			select {
 			case <-timeout:
 				if len(accumulated) > 0 {
-					repo.AddBatch(accumulated)
+					p.Repo.AddBatch(accumulated)
 					accumulated = accumulated[:0]
 				}
 				timeout = time.After(1 * time.Second)
 			case evt := <-adder:
 				accumulated = append(accumulated, evt)
 				if len(accumulated) >= 5000 {
-					err := repo.AddBatch(accumulated)
+					err := p.Repo.AddBatch(accumulated)
 					if err != nil {
 						// TODO: Error handling
-						logger.Error("error when adding events",
+						p.Logger.Error("error when adding events",
 							zap.Error(err))
 					}
 					accumulated = accumulated[:0]
@@ -67,12 +76,12 @@ func BatchedRepositoryPublisher(cfg *config.Config, repo Repository, logger *zap
 	}()
 
 	return &batchedRepositoryPublisher{
-		cfg:  cfg,
-		repo: repo,
+		cfg:  p.Cfg,
+		repo: p.Repo,
 
 		adder: adder,
 
-		logger: logger,
+		logger: p.Logger,
 	}
 }
 

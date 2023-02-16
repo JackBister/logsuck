@@ -26,6 +26,7 @@ import (
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/parser"
 	"github.com/jackbister/logsuck/internal/rpc"
+	"go.uber.org/dig"
 	"go.uber.org/zap"
 )
 
@@ -35,20 +36,27 @@ type forwardingEventPublisher struct {
 	cfg *config.Config
 
 	accumulated []events.RawEvent
-	adder       chan<- events.RawEvent
+	adder       chan events.RawEvent
 
 	logger *zap.Logger
 }
 
-func ForwardingEventPublisher(cfg *config.Config, logger *zap.Logger) events.EventPublisher {
+type ForwardingEventPublisherParams struct {
+	dig.In
+
+	Cfg    *config.Config
+	Logger *zap.Logger
+}
+
+func ForwardingEventPublisher(p ForwardingEventPublisherParams) events.EventPublisher {
 	adder := make(chan events.RawEvent)
 	ep := forwardingEventPublisher{
-		cfg: cfg,
+		cfg: p.Cfg,
 
 		accumulated: make([]events.RawEvent, 0, forwardChunkSize),
 		adder:       adder,
 
-		logger: logger,
+		logger: p.Logger,
 	}
 
 	go func() {
@@ -61,7 +69,7 @@ func ForwardingEventPublisher(cfg *config.Config, logger *zap.Logger) events.Eve
 				if len(ep.accumulated) > 0 {
 					err := ep.forward()
 					if err != nil {
-						logger.Error("error when adding events",
+						p.Logger.Error("error when adding events",
 							zap.Error(err))
 						lastErrorTime = time.Now()
 					}
@@ -73,7 +81,7 @@ func ForwardingEventPublisher(cfg *config.Config, logger *zap.Logger) events.Eve
 				if len(ep.accumulated) >= forwardChunkSize && now.Sub(lastErrorTime).Seconds() > 1 {
 					err := ep.forward()
 					if err != nil {
-						logger.Error("error when adding events",
+						p.Logger.Error("error when adding events",
 							zap.Error(err))
 						lastErrorTime = time.Now()
 					}

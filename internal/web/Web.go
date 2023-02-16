@@ -32,6 +32,7 @@ import (
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/jobs"
 	"github.com/jackbister/logsuck/internal/parser"
+	"go.uber.org/dig"
 	"go.uber.org/zap"
 )
 
@@ -58,15 +59,26 @@ func (w webError) Error() string {
 	return w.err
 }
 
-func NewWeb(configSource config.ConfigSource, configRepo config.ConfigRepository, eventRepo events.Repository, jobRepo jobs.Repository, jobEngine *jobs.Engine, logger *zap.Logger) Web {
-	return webImpl{
-		configSource: configSource,
-		configRepo:   configRepo,
-		eventRepo:    eventRepo,
-		jobRepo:      jobRepo,
-		jobEngine:    jobEngine,
+type WebParams struct {
+	dig.In
 
-		logger: logger,
+	ConfigSource config.ConfigSource
+	ConfigRepo   config.ConfigRepository
+	EventRepo    events.Repository
+	JobRepo      jobs.Repository
+	JobEngine    *jobs.Engine
+	Logger       *zap.Logger
+}
+
+func NewWeb(p WebParams) Web {
+	return webImpl{
+		configSource: p.ConfigSource,
+		configRepo:   p.ConfigRepo,
+		eventRepo:    p.EventRepo,
+		jobRepo:      p.JobRepo,
+		jobEngine:    p.JobEngine,
+
+		logger: p.Logger,
 	}
 }
 

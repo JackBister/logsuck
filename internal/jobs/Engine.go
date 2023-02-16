@@ -23,6 +23,7 @@ import (
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/pipeline"
+	"go.uber.org/dig"
 	"go.uber.org/zap"
 )
 
@@ -35,14 +36,23 @@ type Engine struct {
 	logger *zap.Logger
 }
 
-func NewEngine(configSource config.ConfigSource, eventRepo events.Repository, jobRepo Repository, logger *zap.Logger) *Engine {
+type EngineParams struct {
+	dig.In
+
+	ConfigSource config.ConfigSource
+	EventRepo    events.Repository
+	JobRepo      Repository
+	Logger       *zap.Logger
+}
+
+func NewEngine(p EngineParams) *Engine {
 	return &Engine{
 		cancels:      map[int64]func(){},
-		configSource: configSource,
-		eventRepo:    eventRepo,
-		jobRepo:      jobRepo,
+		configSource: p.ConfigSource,
+		eventRepo:    p.EventRepo,
+		jobRepo:      p.JobRepo,
 
-		logger: logger,
+		logger: p.Logger,
 	}
 }
 

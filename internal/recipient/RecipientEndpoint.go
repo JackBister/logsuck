@@ -27,6 +27,7 @@ import (
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/parser"
 	"github.com/jackbister/logsuck/internal/rpc"
+	"go.uber.org/dig"
 	"go.uber.org/zap"
 )
 
@@ -37,8 +38,16 @@ type RecipientEndpoint struct {
 	logger *zap.Logger
 }
 
-func NewRecipientEndpoint(configSource config.ConfigSource, repo events.Repository, logger *zap.Logger) *RecipientEndpoint {
-	return &RecipientEndpoint{configSource: configSource, repo: repo, logger: logger}
+type RecipientEndpointParams struct {
+	dig.In
+
+	ConfigSource config.ConfigSource
+	Repo         events.Repository
+	Logger       *zap.Logger
+}
+
+func NewRecipientEndpoint(p RecipientEndpointParams) *RecipientEndpoint {
+	return &RecipientEndpoint{configSource: p.ConfigSource, repo: p.Repo, logger: p.Logger}
 }
 
 func (er *RecipientEndpoint) Serve() error {
