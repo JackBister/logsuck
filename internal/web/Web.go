@@ -41,11 +41,12 @@ type Web interface {
 }
 
 type webImpl struct {
-	configSource config.ConfigSource
-	configRepo   config.ConfigRepository
-	eventRepo    events.Repository
-	jobRepo      jobs.Repository
-	jobEngine    *jobs.Engine
+	configSource  config.ConfigSource
+	configRepo    config.ConfigRepository
+	eventRepo     events.Repository
+	jobRepo       jobs.Repository
+	jobEngine     *jobs.Engine
+	enumProviders map[string]EnumProvider
 
 	logger *zap.Logger
 }
@@ -68,15 +69,23 @@ type WebParams struct {
 	JobRepo      jobs.Repository
 	JobEngine    *jobs.Engine
 	Logger       *zap.Logger
+
+	EnumProviders []EnumProvider `group:"enumProviders"`
 }
 
 func NewWeb(p WebParams) Web {
+	enumProviders := make(map[string]EnumProvider, len(p.EnumProviders))
+	for _, e := range p.EnumProviders {
+		enumProviders[e.Name()] = e
+	}
 	return webImpl{
 		configSource: p.ConfigSource,
 		configRepo:   p.ConfigRepo,
 		eventRepo:    p.EventRepo,
 		jobRepo:      p.JobRepo,
 		jobEngine:    p.JobEngine,
+
+		enumProviders: enumProviders,
 
 		logger: p.Logger,
 	}

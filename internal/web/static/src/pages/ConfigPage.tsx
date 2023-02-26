@@ -31,6 +31,7 @@ import { TableRow } from "../components/TableRow";
 interface ConfigPageProps {
   getConfig: () => Promise<LogsuckConfig>;
   updateConfig: (value: LogsuckConfig) => Promise<any>;
+  getDynamicEnum: (enumName: string) => Promise<string[]>;
 
   getQueryParams: () => URLSearchParams;
   setQueryParams: (params: URLSearchParams) => void;
@@ -152,6 +153,7 @@ export class ConfigPageComponent extends Component<
                       await this.props.updateConfig(v);
                       await this.reload();
                     }}
+                    getDynamicEnum={this.props.getDynamicEnum}
                     readonly={this.state.initialValues.forceStaticConfig}
                   ></Autoform>
                 )}

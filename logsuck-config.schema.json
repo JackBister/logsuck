@@ -109,7 +109,10 @@
           "fileTypes": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "autoform": {
+                "dynamicEnum": "fileTypes"
+              }
             }
           }
         }
@@ -134,7 +137,10 @@
               "properties": {
                 "fileName": {
                   "description": "The name of the file. This can also be a glob pattern such as \"log-*.txt\".",
-                  "type": "string"
+                  "type": "string",
+                  "autoform": {
+                    "dynamicEnum": "files"
+                  }
                 }
               },
               "required": ["fileName"]
@@ -154,7 +160,10 @@
         },
         "type": {
           "description": "The type of this host. Must be a key of the \"hostTypes\" object. This will define what files will be read by this instance of logsuck.",
-          "type": "string"
+          "type": "string",
+          "autoform": {
+            "dynamicEnum": "hostTypes"
+          }
         }
       }
     },
@@ -233,7 +242,10 @@
             "properties": {
               "name": {
                 "description": "The name of the task.",
-                "type": "string"
+                "type": "string",
+                "autoform": {
+                  "dynamicEnum": "tasks"
+                }
               },
               "enabled": {
                 "description": "Whether the task should run or not.",

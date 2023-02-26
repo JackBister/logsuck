@@ -33,11 +33,15 @@ func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logg
 	if err != nil {
 		return nil, err
 	}
-	err = c.Provide(jobs.NewEngine)
+	err = provideTasks(c, logger)
 	if err != nil {
 		return nil, err
 	}
-	err = c.Provide(tasks.NewTaskManager)
+	err = provideEnumProviders(c, logger)
+	if err != nil {
+		return nil, err
+	}
+	err = c.Provide(jobs.NewEngine)
 	if err != nil {
 		return nil, err
 	}
@@ -180,4 +184,36 @@ func provideConfigSource(c *dig.Container, logger *zap.Logger) error {
 		}
 		return nil
 	})
+}
+
+func provideTasks(c *dig.Container, logger *zap.Logger) error {
+	err := c.Provide(tasks.NewDeleteOldEventsTask, dig.Group("tasks"))
+	if err != nil {
+		return err
+	}
+	err = c.Provide(tasks.NewTaskManager)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func provideEnumProviders(c *dig.Container, logger *zap.Logger) error {
+	err := c.Provide(tasks.NewTaskEnumProvider, dig.Group("enumProviders"))
+	if err != nil {
+		return err
+	}
+	err = c.Provide(web.NewFileTypeEnumProvider, dig.Group("enumProviders"))
+	if err != nil {
+		return err
+	}
+	err = c.Provide(web.NewFileEnumProvider, dig.Group("enumProviders"))
+	if err != nil {
+		return err
+	}
+	err = c.Provide(web.NewHostTypeEnumProvider, dig.Group("enumProviders"))
+	if err != nil {
+		return err
+	}
+	return nil
 }

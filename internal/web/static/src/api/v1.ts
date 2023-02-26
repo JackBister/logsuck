@@ -136,3 +136,7 @@ export function updateConfig(value: LogsuckConfig): Promise<any> {
     body: JSON.stringify(value),
   });
 }
+
+export function getDynamicEnum(enumName: string): Promise<string[]> {
+  return fetch(`/api/v1/config/enums/${enumName}`).then((r) => r.json());
+}
