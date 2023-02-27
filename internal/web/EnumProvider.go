@@ -45,7 +45,7 @@ func (f *FileTypeEnumProvider) Values() ([]string, error) {
 		return nil, fmt.Errorf("failed to get fileTypes enum values: %w", err)
 	}
 	res := make([]string, 0, len(r.Cfg.FileTypes))
-	for k, _ := range r.Cfg.FileTypes {
+	for k := range r.Cfg.FileTypes {
 		res = append(res, k)
 	}
 	return res, nil
@@ -71,7 +71,7 @@ func (f *FileEnumProvider) Values() ([]string, error) {
 		return nil, fmt.Errorf("failed to get files enum values: %w", err)
 	}
 	res := make([]string, 0, len(r.Cfg.Files))
-	for k, _ := range r.Cfg.Files {
+	for k := range r.Cfg.Files {
 		res = append(res, k)
 	}
 	return res, nil
@@ -97,7 +97,7 @@ func (f *HostTypeEnumProvider) Values() ([]string, error) {
 		return nil, fmt.Errorf("failed to get files enum values: %w", err)
 	}
 	res := make([]string, 0, len(r.Cfg.HostTypes))
-	for k, _ := range r.Cfg.HostTypes {
+	for k := range r.Cfg.HostTypes {
 		res = append(res, k)
 	}
 	return res, nil
