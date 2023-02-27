@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/pipeline"
 )
 
 type JobState int32
@@ -34,6 +35,7 @@ type Job struct {
 	Query              string
 	StartTime, EndTime *time.Time
 	SortMode           events.SortMode
+	OutputType         pipeline.PipelinePipeType
 }
 
 type JobStats struct {

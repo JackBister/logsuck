@@ -78,12 +78,16 @@ func (s *surroundingPipelineStep) Execute(ctx context.Context, pipe pipelinePipe
 	}
 }
 
-func (s *surroundingPipelineStep) IsGeneratorStep() bool {
-	return true
-}
-
 func (s *surroundingPipelineStep) Name() string {
 	return "surrounding"
+}
+
+func (r *surroundingPipelineStep) InputType() PipelinePipeType {
+	return PipelinePipeTypeNone
+}
+
+func (r *surroundingPipelineStep) OutputType() PipelinePipeType {
+	return PipelinePipeTypeEvents
 }
 
 func compileSurroundingStep(input string, options map[string]string) (pipelineStep, error) {

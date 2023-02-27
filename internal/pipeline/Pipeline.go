@@ -25,10 +25,19 @@ import (
 	"go.uber.org/zap"
 )
 
+type PipelinePipeType int
+
+const (
+	PipelinePipeTypeNone   PipelinePipeType = 0
+	PipelinePipeTypeEvents PipelinePipeType = 1
+	PipelinePipeTypeTable  PipelinePipeType = 2
+)
+
 type Pipeline struct {
-	steps   []pipelineStep
-	pipes   []pipelinePipe
-	outChan <-chan PipelineStepResult
+	steps      []pipelineStep
+	pipes      []pipelinePipe
+	outputType PipelinePipeType
+	outChan    <-chan PipelineStepResult
 }
 
 type PipelineParameters struct {
@@ -39,7 +48,8 @@ type PipelineParameters struct {
 }
 
 type PipelineStepResult struct {
-	Events []events.EventWithExtractedFields
+	Events    []events.EventWithExtractedFields
+	TableRows []map[string]string
 }
 
 // TODO: What is a reasonable value? Configurable? Dynamic?
@@ -58,18 +68,18 @@ type pipelinePipe struct {
 type pipelineStep interface {
 	Execute(ctx context.Context, pipe pipelinePipe, params PipelineParameters)
 
-	// IsGeneratorStep should return true if the step does not use the results of the last step.
-	// In that case the pipeline can be optimized by removing all preceding steps
-	IsGeneratorStep() bool
-
 	// Returns the name of the operator that created this step, for example "rex"
 	Name() string
+
+	InputType() PipelinePipeType
+	OutputType() PipelinePipeType
 }
 
 var compilers = map[string]func(input string, options map[string]string) (pipelineStep, error){
 	"rex":         compileRexStep,
 	"search":      compileSearchStep,
 	"surrounding": compileSurroundingStep,
+	"table":       compileTableStep,
 	"where":       compileWhereStep,
 }
 
@@ -103,11 +113,23 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 
 	lastGeneratorIndex := 0
 	for i, compiled := range compiledSteps {
-		if compiled.IsGeneratorStep() {
+		if compiled.InputType() == PipelinePipeTypeNone {
 			lastGeneratorIndex = i
 		}
 	}
 	compiledSteps = compiledSteps[lastGeneratorIndex:]
+
+	for i, compiled := range compiledSteps {
+		if i == len(compiledSteps)-1 {
+			if compiled.OutputType() != PipelinePipeTypeEvents && compiled.OutputType() != PipelinePipeTypeTable {
+				return nil, fmt.Errorf("failed to compile pipeline: invalid output type for last step: %v", compiled.Name())
+			}
+		} else {
+			if compiled.OutputType() != compiledSteps[i+1].InputType() {
+				return nil, fmt.Errorf("failed to compile pipeline: output type for step %v does not match input type for step %v", compiled.Name(), compiledSteps[i+1].Name())
+			}
+		}
+	}
 
 	lastOutput := make(chan PipelineStepResult, pipeBufferSize)
 	close(lastOutput)
@@ -141,4 +163,8 @@ func (p *Pipeline) GetStepNames() []string {
 		ret[i] = s.Name()
 	}
 	return ret
+}
+
+func (p *Pipeline) OutputType() PipelinePipeType {
+	return p.steps[len(p.steps)-1].OutputType()
 }

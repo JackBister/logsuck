@@ -52,6 +52,12 @@ func ParsePipeline(s string) (*PipelineParseResult, error) {
 			Args:     map[string]string{},
 			Value:    sb.String(),
 		})
+	} else {
+		steps = append(steps, ParsedPipelineStep{
+			StepType: "search",
+			Args:     map[string]string{},
+			Value:    "",
+		})
 	}
 
 	for len(p.tokens) > 0 {
