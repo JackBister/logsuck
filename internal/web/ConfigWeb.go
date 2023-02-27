@@ -25,6 +25,20 @@ import (
 func addConfigEndpoints(g *gin.RouterGroup, wi *webImpl) {
 	g = g.Group("config")
 
+	g.GET("/enums/:name", func(ctx *gin.Context) {
+		providerName, _ := ctx.Params.Get("name")
+		provider, ok := wi.enumProviders[providerName]
+		if !ok {
+			ctx.AbortWithError(500, fmt.Errorf("failed to get enum provider with name=%v", providerName))
+			return
+		}
+		values, err := provider.Values()
+		if err != nil {
+			ctx.AbortWithError(500, fmt.Errorf("failed to get values from enum provider with name=%v: %w", providerName, err))
+		}
+		ctx.JSON(200, values)
+	})
+
 	g.GET("", func(ctx *gin.Context) {
 		cfg, err := wi.configSource.Get()
 		if err != nil {

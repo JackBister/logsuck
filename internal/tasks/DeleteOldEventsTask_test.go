@@ -107,11 +107,13 @@ func createRepo(t *testing.T) events.Repository {
 	if err != nil {
 		t.Fatalf("got error when creating in-memory SQLite database: %v", err)
 	}
-	repo, err := events.SqliteRepository(db, &config.SqliteConfig{
-		DatabaseFile: ":memory:",
-		TrueBatch:    true,
-	},
-		zap.NewNop())
+	repo, err := events.SqliteRepository(events.SqliteEventRepositoryParams{
+		Db: db,
+		Cfg: &config.Config{
+			SQLite: &config.SqliteConfig{},
+		},
+		Logger: zap.NewNop(),
+	})
 	if err != nil {
 		t.Fatalf("got error when creating events repo: %v", err)
 	}

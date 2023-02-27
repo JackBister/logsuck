@@ -21,6 +21,7 @@ import (
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/rpc"
+	"go.uber.org/dig"
 	"go.uber.org/zap"
 )
 
@@ -36,22 +37,29 @@ type RemoteConfigSource struct {
 	logger *zap.Logger
 }
 
-func NewRemoteConfigSource(cfg *config.Config, logger *zap.Logger) config.ConfigSource {
+type RemoteConfigSourceParams struct {
+	dig.In
+
+	Cfg    *config.Config
+	Logger *zap.Logger
+}
+
+func NewRemoteConfigSource(p RemoteConfigSourceParams) config.ConfigSource {
 	ret := RemoteConfigSource{
-		cfg: cfg,
+		cfg: p.Cfg,
 		client: http.Client{
-			Timeout: cfg.Forwarder.ConfigPollInterval,
+			Timeout: p.Cfg.Forwarder.ConfigPollInterval,
 		},
 
 		changes: make(chan struct{}), // We need to buffer to avoid hanging on startup
 		cached: &config.ConfigResponse{
 			Modified: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
-			Cfg:      *cfg,
+			Cfg:      *p.Cfg,
 		},
 
-		ticker: time.NewTicker(cfg.Forwarder.ConfigPollInterval),
+		ticker: time.NewTicker(p.Cfg.Forwarder.ConfigPollInterval),
 
-		logger: logger,
+		logger: p.Logger,
 	}
 	ret.refresh()
 	go func(r *RemoteConfigSource) {

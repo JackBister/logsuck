@@ -32,6 +32,13 @@ type DeleteOldEventsTask struct {
 	Logger *zap.Logger
 }
 
+func NewDeleteOldEventsTask(repo events.Repository, logger *zap.Logger) Task {
+	return &DeleteOldEventsTask{
+		Repo:   repo,
+		Logger: logger,
+	}
+}
+
 func (t *DeleteOldEventsTask) Name() string {
 	return "@logsuck/DeleteOldEventsTask"
 }

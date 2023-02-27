@@ -22,6 +22,8 @@ import (
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/web"
+	"go.uber.org/dig"
 	"go.uber.org/zap"
 )
 
@@ -32,14 +34,6 @@ type TaskContext struct {
 type Task interface {
 	Name() string
 	Run(cfg map[string]any, ctx context.Context)
-}
-
-type TaskConstructor func(t TaskContext, logger *zap.Logger) Task
-
-var taskMap = map[string]TaskConstructor{
-	"@logsuck/DeleteOldEventsTask": func(t TaskContext, logger *zap.Logger) Task {
-		return &DeleteOldEventsTask{Repo: t.EventsRepo, Logger: logger}
-	},
 }
 
 type TaskState int
@@ -59,6 +53,26 @@ type TaskData struct {
 	isCancelled chan struct{}
 }
 
+type TaskEnumProvider struct {
+	tm *TaskManager
+}
+
+func NewTaskEnumProvider(tm *TaskManager) web.EnumProvider {
+	return &TaskEnumProvider{tm: tm}
+}
+
+func (te *TaskEnumProvider) Name() string {
+	return "tasks"
+}
+
+func (te *TaskEnumProvider) Values() ([]string, error) {
+	ret := make([]string, 0, len(te.tm.tasks))
+	for k := range te.tm.tasks {
+		ret = append(ret, k)
+	}
+	return ret, nil
+}
+
 type TaskManager struct {
 	cfg         *config.TasksConfig
 	taskContext TaskContext
@@ -69,24 +83,46 @@ type TaskManager struct {
 	logger *zap.Logger
 }
 
-func NewTaskManager(cfg *config.TasksConfig, taskContext TaskContext, ctx context.Context, logger *zap.Logger) *TaskManager {
-	return &TaskManager{
-		cfg:         cfg,
-		taskContext: taskContext,
-		tasks:       map[string]Task{},
-		taskData:    sync.Map{},
-		ctx:         ctx,
+type TaskManagerParams struct {
+	dig.In
 
-		logger: logger,
-	}
+	EventsRepo events.Repository
+	Ctx        context.Context
+	CfgSource  config.ConfigSource
+	Logger     *zap.Logger
+
+	Tasks []Task `group:"tasks"`
 }
 
-func (tm *TaskManager) AddTask(t Task) error {
-	name := t.Name()
-	if _, exists := tm.tasks[name]; exists {
-		return fmt.Errorf("a task with name=%s already exists", t.Name())
+func NewTaskManager(p TaskManagerParams) (*TaskManager, error) {
+	r, err := p.CfgSource.Get()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TaskManager: %w", err)
 	}
-	tm.tasks[name] = t
+
+	tm := &TaskManager{
+		cfg: &r.Cfg.Tasks,
+		taskContext: TaskContext{
+			EventsRepo: p.EventsRepo,
+		},
+		tasks:    map[string]Task{},
+		taskData: sync.Map{},
+		ctx:      p.Ctx,
+
+		logger: p.Logger,
+	}
+	for _, t := range p.Tasks {
+		tm.tasks[t.Name()] = t
+	}
+	tm.UpdateConfig(r.Cfg)
+	return tm, nil
+}
+
+func (tm *TaskManager) ScheduleTask(name string) error {
+	t, ok := tm.tasks[name]
+	if !ok {
+		return fmt.Errorf("task with name='%s' not found", name)
+	}
 
 	ctx, cancelFunc := context.WithCancel(tm.ctx)
 	var td TaskData
@@ -112,26 +148,6 @@ func (tm *TaskManager) AddTask(t Task) error {
 		}
 	}
 	tm.taskData.Store(name, td)
-	err := tm.ScheduleTask(name)
-	if err != nil {
-		return fmt.Errorf("failed to schedule task='%s': %w", name, err)
-	}
-	return nil
-}
-
-func (tm *TaskManager) ScheduleTask(name string) error {
-	t, ok := tm.tasks[name]
-	if !ok {
-		return fmt.Errorf("task with name='%s' not found", name)
-	}
-	tdInterface, ok := tm.taskData.Load(name)
-	if !ok {
-		return fmt.Errorf("taskData for task='%s' not found", name)
-	}
-	td, ok := tdInterface.(TaskData)
-	if !ok {
-		return fmt.Errorf("failed to cast taskData for task='%s', taskData=%v", name, tdInterface)
-	}
 	logger := tm.logger.With(zap.String("taskName", name))
 	logger.Info("scheduling task",
 		zap.Stringer("interval", td.interval))
@@ -183,7 +199,9 @@ func (tm *TaskManager) UpdateConfig(cfg config.Config) {
 			continue
 		}
 		oldTd.cancelFunc()
-		<-oldTd.isCancelled
+		if oldTd.isCancelled != nil {
+			<-oldTd.isCancelled
+		}
 	}
 
 	tasksToRemove := []string{}
@@ -197,22 +215,12 @@ func (tm *TaskManager) UpdateConfig(cfg config.Config) {
 
 	for _, tn := range tasksToRemove {
 		tm.taskData.Delete(tn)
-		delete(tm.tasks, tn)
 	}
 
 	for _, t := range cfg.Tasks.Tasks {
 		if !t.Enabled {
 			continue
 		}
-		taskConstructor, ok := taskMap[t.Name]
-		if !ok {
-			tm.logger.Error("did not find taskConstructor, this task will be ignored",
-				zap.String("taskName", t.Name))
-			continue
-		}
-		task := taskConstructor(tm.taskContext, tm.logger.Named(t.Name))
-		tm.taskData.Delete(t.Name)
-		delete(tm.tasks, t.Name)
-		tm.AddTask(task)
+		tm.ScheduleTask(t.Name)
 	}
 }

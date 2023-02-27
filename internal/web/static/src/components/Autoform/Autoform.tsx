@@ -83,6 +83,8 @@ export interface ObjectFormField extends FormFieldBase {
 
 export interface StringFormField extends FormFieldBase {
   type: "STRING";
+
+  dynamicEnum: string;
 }
 
 export type FormField =
@@ -95,6 +97,28 @@ export type FormField =
 
 export interface FormSpec {
   fields: FormField[];
+}
+
+function map<T>(field: FormField, mapper: (f: FormField) => T): T[] {
+  const t = field.type;
+  switch (t) {
+    case "ARRAY":
+      return [mapper(field)].concat(map(field.itemTypes, mapper));
+    case "BOOLEAN":
+      return [mapper(field)];
+    case "ENUM":
+      return [mapper(field)];
+    case "NUMBER":
+      return [mapper(field)];
+    case "OBJECT":
+      return [mapper(field)].concat(
+        (field as ObjectFormField).fields.flatMap((f) => map(f, mapper))
+      );
+    case "STRING":
+      return [mapper(field)];
+    default:
+      return exhaustiveSwitch(t);
+  }
 }
 
 function notNull<T>(value: T | null): value is T {
@@ -127,11 +151,15 @@ export function jsonSchemaToFormSpec(
         conditional: metadata.conditional,
       } as EnumFormField;
     }
+    if (metadata) {
+      console.log("md", metadata);
+    }
     return {
       type: "STRING",
       name,
       readonly: metadata.readonly,
       conditional: metadata.conditional,
+      dynamicEnum: metadata.dynamicEnum,
     } as StringFormField;
   } else if (jsonSchema.type === "boolean") {
     return {
@@ -205,6 +233,7 @@ interface AutoformFieldProps {
   readonly?: boolean;
   spec: FormField;
 
+  dynamicEnums?: { [key: string]: string[] };
   formikProps: FormikProps<any>;
 }
 
@@ -252,7 +281,8 @@ const unescapeStringValue = (s: string) => {
 };
 
 const getDefaultValue = (fs: FormField) => {
-  switch (fs.type) {
+  const t = fs.type;
+  switch (t) {
     case "ARRAY":
       return [];
     case "BOOLEAN":
@@ -269,8 +299,86 @@ const getDefaultValue = (fs: FormField) => {
       return ret;
     case "STRING":
       return "";
+    default:
+      return exhaustiveSwitch(t);
   }
 };
+
+function exhaustiveSwitch(v: never): never {
+  throw new Error("Unhandled type=" + v);
+}
+
+function StringField(props: AutoformFieldProps) {
+  if (props.spec.type !== "STRING") {
+    throw new Error(
+      "Attempted to use StringField on non-STRING field=" + props.spec
+    );
+  }
+  const escapedStringValue = escapeStringValue(
+    getPath(props.formikProps.values, props.path)
+  );
+  const isDynamicEnum = props.spec.type === "STRING" && props.spec.dynamicEnum;
+  const isWaitingForDynamicEnum = isDynamicEnum && !props.dynamicEnums;
+  if (isWaitingForDynamicEnum) {
+    return (
+      <div>
+        <label htmlFor={props.path}>
+          {props.spec.displayName || props.spec.name}
+        </label>
+        <Field
+          as={TextInput}
+          name={props.path}
+          disabled={true}
+          readonly={props.readonly || props.spec.readonly}
+          value={escapedStringValue}
+        ></Field>
+      </div>
+    );
+  }
+  if (isDynamicEnum && props.dynamicEnums) {
+    const dynamicEnumValues = props.dynamicEnums[props.spec.dynamicEnum];
+    return (
+      <div>
+        <label htmlFor={props.path}>
+          {props.spec.displayName || props.spec.name}
+        </label>
+        <Field
+          as={NativeSelect}
+          name={props.path}
+          disabled={props.readonly || props.spec.readonly}
+          readonly={props.readonly || props.spec.readonly}
+          data={dynamicEnumValues.map((s) => ({
+            value: s,
+            label: s,
+          }))}
+        ></Field>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <label htmlFor={props.path}>
+        {props.spec.displayName || props.spec.name}
+      </label>
+      <Field
+        as={TextInput}
+        name={props.path}
+        onChange={(evt: InputEvent) => {
+          if (!evt.target || !(evt.target as any).value) {
+            return;
+          }
+          props.formikProps.setFieldValue(
+            props.path,
+            unescapeStringValue((evt.target as any).value)
+          );
+        }}
+        disabled={props.readonly || props.spec.readonly}
+        readonly={props.readonly || props.spec.readonly}
+        value={escapedStringValue}
+      ></Field>
+    </div>
+  );
+}
 
 class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
   constructor(props: AutoformFieldProps) {
@@ -287,12 +395,6 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
   }
 
   render() {
-    let escapedStringValue = "";
-    if (this.props.spec.type === "STRING") {
-      escapedStringValue = escapeStringValue(
-        getPath(this.props.formikProps.values, this.props.path)
-      );
-    }
     return (
       <div>
         {this.props.spec.type === "ARRAY" && (
@@ -350,6 +452,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                                   this.props.spec.readonly
                                 }
                                 spec={this.props.spec.itemTypes}
+                                dynamicEnums={this.props.dynamicEnums}
                                 formikProps={this.props.formikProps}
                               ></AutoformField>
                             </Accordion.Panel>
@@ -366,6 +469,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                               this.props.readonly || this.props.spec.readonly
                             }
                             spec={this.props.spec.itemTypes}
+                            dynamicEnums={this.props.dynamicEnums}
                             formikProps={this.props.formikProps}
                           ></AutoformField>
                           {!this.props.readonly &&
@@ -407,6 +511,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                   path={`${this.props.path}.${f.name}`}
                   readonly={this.props.readonly || this.props.spec.readonly}
                   spec={f}
+                  dynamicEnums={this.props.dynamicEnums}
                   formikProps={this.props.formikProps}
                 ></AutoformField>
               );
@@ -465,27 +570,14 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
           </div>
         )}
         {this.props.spec.type === "STRING" && (
-          <div>
-            <label htmlFor={this.props.path}>
-              {this.props.spec.displayName || this.props.spec.name}
-            </label>
-            <Field
-              as={TextInput}
-              name={this.props.path}
-              onChange={(evt: InputEvent) => {
-                if (!evt.target || !(evt.target as any).value) {
-                  return;
-                }
-                this.props.formikProps.setFieldValue(
-                  this.props.path,
-                  unescapeStringValue((evt.target as any).value)
-                );
-              }}
-              disabled={this.props.readonly || this.props.spec.readonly}
-              readonly={this.props.readonly || this.props.spec.readonly}
-              value={escapedStringValue}
-            ></Field>
-          </div>
+          <StringField
+            level={this.props.level}
+            path={this.props.path}
+            readonly={this.props.readonly}
+            spec={this.props.spec}
+            dynamicEnums={this.props.dynamicEnums}
+            formikProps={this.props.formikProps}
+          />
         )}
       </div>
     );
@@ -497,9 +589,13 @@ export interface AutoformProps<Values> {
   onSubmit: (v: Values) => void;
   readonly?: boolean;
   spec: FormSpec;
+
+  getDynamicEnum: (enumName: string) => Promise<string[]>;
 }
 
-interface AutoformState {}
+interface AutoformState {
+  dynamicEnums?: { [key: string]: string[] };
+}
 
 export class Autoform<Values extends FormikValues> extends Component<
   AutoformProps<Values>,
@@ -509,6 +605,23 @@ export class Autoform<Values extends FormikValues> extends Component<
     super(props);
 
     this.state = {};
+  }
+
+  async componentDidMount() {
+    const allDynamicEnums = this.props.spec.fields
+      .flatMap((f) =>
+        map(f, (f2) => (f2.type === "STRING" ? f2.dynamicEnum : undefined))
+      )
+      .filter((f) => !!f) as string[];
+    const dynamicEnums = {} as { [key: string]: string[] };
+    await Promise.all(
+      allDynamicEnums.map((s) =>
+        this.props
+          .getDynamicEnum(s)
+          .then((values) => (dynamicEnums[s] = values))
+      )
+    );
+    this.setState({ dynamicEnums });
   }
 
   render() {
@@ -526,6 +639,7 @@ export class Autoform<Values extends FormikValues> extends Component<
                   spec={f}
                   level={1}
                   readonly={this.props.readonly}
+                  dynamicEnums={this.state.dynamicEnums}
                   formikProps={p}
                 ></AutoformField>
               ))}

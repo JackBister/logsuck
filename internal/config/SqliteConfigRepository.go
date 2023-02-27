@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/dig"
 	"go.uber.org/zap"
 )
 
@@ -31,12 +32,21 @@ type SqliteConfigRepository struct {
 	logger *zap.Logger
 }
 
-func NewSqliteConfigRepository(staticConfig *Config, db *sql.DB, writeInitialConfig bool, logger *zap.Logger) (ConfigRepository, error) {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Config (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, config_json TEXT, modified DATETIME)")
+type SqliteConfigRepositoryParams struct {
+	dig.In
+
+	Cfg               *Config
+	Db                *sql.DB
+	ForceStaticConfig bool `name:"forceStaticConfig"`
+	Logger            *zap.Logger
+}
+
+func NewSqliteConfigRepository(p SqliteConfigRepositoryParams) (ConfigRepository, error) {
+	_, err := p.Db.Exec("CREATE TABLE IF NOT EXISTS Config (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, config_json TEXT, modified DATETIME)")
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: %w", err)
 	}
-	r, err := db.Query("SELECT COUNT(1) FROM Config")
+	r, err := p.Db.Query("SELECT COUNT(1) FROM Config")
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: failed to query for COUNT from Config: %w", err)
 	}
@@ -51,9 +61,9 @@ func NewSqliteConfigRepository(staticConfig *Config, db *sql.DB, writeInitialCon
 		return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: failed to close COUNT result: %w", err)
 	}
 	changes := make(chan struct{})
-	ret := &SqliteConfigRepository{db: db, changes: changes, logger: logger}
-	if c == 0 && writeInitialConfig {
-		err = ret.upsertInternal(staticConfig)
+	ret := &SqliteConfigRepository{db: p.Db, changes: changes, logger: p.Logger}
+	if c == 0 && !p.ForceStaticConfig {
+		err = ret.upsertInternal(p.Cfg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: failed to upsert initial config: %w", err)
 		}
