@@ -199,6 +199,10 @@ The search command starts a new search. It ignores all previous results and inst
 
 Shows the events that have the same source as the given event and which were close to the event in the log file. This is used when clicking "View context" on an event. This is useful if you are finding results from many different files and want to drill down into a specific file.
 
+#### `| table "<field1>,<field2>,..."`
+
+Creates a table containing the values of the specified fields.
+
 #### `| where <field1>=<value1> <field2>=<value2>...`
 
 The where command filters events by field value. The benefit of having this as a separate command instead of using the field=value syntax in the search command is that `| where` can act on fields that are extracted later in the pipeline, such as fields extracted by `| rex`.
