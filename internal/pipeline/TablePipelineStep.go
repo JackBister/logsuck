@@ -62,7 +62,11 @@ func (r *tablePipelineStep) OutputType() PipelinePipeType {
 
 func compileTableStep(input string, options map[string]string) (pipelineStep, error) {
 	fields := strings.Split(input, ",")
+	trimmedFields := make([]string, len(fields))
+	for i, f := range fields {
+		trimmedFields[i] = strings.TrimSpace(f)
+	}
 	return &tablePipelineStep{
-		fields: fields,
+		fields: trimmedFields,
 	}, nil
 }
