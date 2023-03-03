@@ -151,9 +151,6 @@ export function jsonSchemaToFormSpec(
         conditional: metadata.conditional,
       } as EnumFormField;
     }
-    if (metadata) {
-      console.log("md", metadata);
-    }
     return {
       type: "STRING",
       name,

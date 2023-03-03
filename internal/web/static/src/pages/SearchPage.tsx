@@ -615,7 +615,6 @@ export class SearchPageComponent extends Component<
       this.state.state === SearchState.SEARCHED_POLLING ||
       this.state.state === SearchState.SEARCHED_POLLING_FINISHED
     ) {
-      console.log(this.state.searchResult);
       if (this.state.searchResult.resultType === "EVENTS") {
         resultLength = this.state.searchResult.events.length;
       } else {
