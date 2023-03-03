@@ -87,23 +87,60 @@ export function pollJob(jobId: number): Promise<PollJobResult> {
     }));
 }
 
+export interface TableRow {
+  rowNumber: number;
+  values: { [key: string]: string };
+}
+
+interface RestTableRow {
+  RowNumber: number;
+  Values: { [key: string]: string };
+}
+
+interface JobResultResponseBase {
+  resultType: "EVENTS" | "TABLE";
+}
+
+export interface JobResultEvents extends JobResultResponseBase {
+  resultType: "EVENTS";
+  events: LogEvent[];
+}
+
+export interface JobResultTable extends JobResultResponseBase {
+  resultType: "TABLE";
+  tableRows: TableRow[];
+}
+
+export type JobResultResponse = JobResultEvents | JobResultTable;
+
+interface RestJobResultResponse {
+  resultType: number;
+  events: RestEvent[];
+  tableRows: RestTableRow[];
+}
+
 export function getResults(
   jobId: number,
   skip: number,
   take: number
-): Promise<LogEvent[]> {
+): Promise<JobResultResponse> {
   const queryParams = `?jobId=${jobId}&skip=${skip}&take=${take}`;
   return fetch("/api/v1/jobResults" + queryParams)
     .then((r) => r.json())
-    .then((r: RestEvent[]) =>
-      r.map((e) => ({
+    .then((r: RestJobResultResponse) => ({
+      resultType: r.resultType === 1 ? "EVENTS" : "TABLE",
+      events: r.events.map((e) => ({
         id: e.Id,
         raw: e.Raw,
         timestamp: new Date(e.Timestamp),
         source: e.Source,
         fields: e.Fields,
-      }))
-    );
+      })),
+      tableRows: r.tableRows.map((r) => ({
+        rowNumber: r.RowNumber,
+        values: r.Values,
+      })),
+    }));
 }
 
 export function abortJob(jobId: number): Promise<{}> {

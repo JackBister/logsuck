@@ -55,12 +55,16 @@ func (s *wherePipelineStep) Execute(ctx context.Context, pipe pipelinePipe, para
 	}
 }
 
-func (s *wherePipelineStep) IsGeneratorStep() bool {
-	return false
-}
-
 func (s *wherePipelineStep) Name() string {
 	return "where"
+}
+
+func (r *wherePipelineStep) InputType() PipelinePipeType {
+	return PipelinePipeTypeEvents
+}
+
+func (r *wherePipelineStep) OutputType() PipelinePipeType {
+	return PipelinePipeTypeEvents
 }
 
 func compileWhereStep(input string, options map[string]string) (pipelineStep, error) {

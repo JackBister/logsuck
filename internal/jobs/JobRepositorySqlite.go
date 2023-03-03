@@ -16,11 +16,13 @@ package jobs
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/pipeline"
 )
 
 type sqliteRepository struct {
@@ -28,13 +30,17 @@ type sqliteRepository struct {
 }
 
 func SqliteRepository(db *sql.DB) (Repository, error) {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Jobs (id INTEGER NOT NULL PRIMARY KEY, state INTEGER NOT NULL, query TEXT NOT NULL, start_time DATETIME, end_time DATETIME, sort_mode INTEGER NOT NULL);")
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Jobs (id INTEGER NOT NULL PRIMARY KEY, state INTEGER NOT NULL, query TEXT NOT NULL, start_time DATETIME, end_time DATETIME, sort_mode INTEGER NOT NULL, output_type INTEGER NOT NULL);")
 	if err != nil {
 		return nil, fmt.Errorf("error when creating Jobs table: %w", err)
 	}
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS JobResults (job_id INTEGER NOT NULL, event_id INTEGER NOT NULL, timestamp DATETIME NOT NULL, FOREIGN KEY(job_id) REFERENCES Jobs(id), FOREIGN KEY(event_id) REFERENCES Events(id));")
 	if err != nil {
 		return nil, fmt.Errorf("error when creating JobResults table: %w", err)
+	}
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS JobTableResults (job_id INTEGER NOT NULL, row_number INTEGER NOT NULL, row_json TEXT NOT NULL, FOREIGN KEY(job_id) REFERENCES Jobs(id));")
+	if err != nil {
+		return nil, fmt.Errorf("error when creating JobTableResults table: %w", err)
 	}
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS JobFieldValues (job_id INTEGER NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, occurrences INTEGER NOT NULL, UNIQUE(job_id, key, value), FOREIGN KEY(job_id) REFERENCES Jobs(id));")
 	if err != nil {
@@ -65,6 +71,30 @@ func (repo *sqliteRepository) AddResults(id int64, events []events.EventIdAndTim
 	return nil
 }
 
+func (repo *sqliteRepository) AddTableResults(id int64, tableRows []TableRow) error {
+	if len(tableRows) == 0 {
+		return nil
+	}
+	idString := strconv.FormatInt(id, 10)
+	stmt := "INSERT INTO JobTableResults (job_id, row_number, row_json) VALUES "
+	for i, r := range tableRows {
+		b, err := json.Marshal(r.Values)
+		if err != nil {
+			return fmt.Errorf("error adding table results to jobId=%v: failed to marshal row=%v: %w", id, r, err)
+		}
+		stmt += "(" + idString + ", " + strconv.FormatInt(int64(r.RowNumber), 10) + ", '" + string(b) + "')"
+		if i != len(tableRows)-1 {
+			stmt += ", "
+		}
+	}
+	stmt += ";"
+	_, err := repo.db.Exec(stmt)
+	if err != nil {
+		return fmt.Errorf("error adding results to jobId=%v: %w", id, err)
+	}
+	return nil
+}
+
 func (repo *sqliteRepository) AddFieldStats(id int64, fields []FieldStats) error {
 	idString := strconv.FormatInt(id, 10)
 	stmt := "INSERT INTO JobFieldValues (job_id, key, value, occurrences) VALUES "
@@ -83,7 +113,7 @@ func (repo *sqliteRepository) AddFieldStats(id int64, fields []FieldStats) error
 }
 
 func (repo *sqliteRepository) Get(id int64) (*Job, error) {
-	res, err := repo.db.Query("SELECT id, state, query, start_time, end_time, sort_mode FROM Jobs WHERE id=?;", id)
+	res, err := repo.db.Query("SELECT id, state, query, start_time, end_time, sort_mode, output_type FROM Jobs WHERE id=?;", id)
 	if err != nil {
 		return nil, fmt.Errorf("error getting job with jobId=%v: %w", id, err)
 	}
@@ -92,7 +122,7 @@ func (repo *sqliteRepository) Get(id int64) (*Job, error) {
 		return nil, fmt.Errorf("jobId=%v not found", id)
 	}
 	var job Job
-	err = res.Scan(&job.Id, &job.State, &job.Query, &job.StartTime, &job.EndTime, &job.SortMode)
+	err = res.Scan(&job.Id, &job.State, &job.Query, &job.StartTime, &job.EndTime, &job.SortMode, &job.OutputType)
 	if err != nil {
 		return nil, fmt.Errorf("error reading jobId=%v from database: %w", id, err)
 	}
@@ -115,6 +145,33 @@ func (repo *sqliteRepository) GetResults(jobId int64, skip int, take int) ([]int
 		ids = append(ids, id)
 	}
 	return ids, nil
+}
+
+func (repo *sqliteRepository) GetTableResults(id int64, skip int, take int) ([]TableRow, error) {
+	res, err := repo.db.Query("SELECT row_number, row_json FROM JobTableResults WHERE job_id=? ORDER BY row_number LIMIT ? OFFSET ?", id, take, skip)
+	if err != nil {
+		return nil, fmt.Errorf("error when getting table results for jobId=%v, skip=%v, take=%v: %w", id, skip, take, err)
+	}
+	defer res.Close()
+	ret := make([]TableRow, 0, take+1)
+	for res.Next() {
+		var rowNumber int
+		var rowJson string
+		err = res.Scan(&rowNumber, &rowJson)
+		if err != nil {
+			return nil, fmt.Errorf("error reading table row from database when getting table results for jobId=%v, skip=%v, take=%v: %w", id, skip, take, err)
+		}
+		var values map[string]string
+		err = json.Unmarshal([]byte(rowJson), &values)
+		if err != nil {
+			return nil, fmt.Errorf("error unmarshalling table row when getting table results for jobId=%v, skip=%v, take=%v: %w", id, skip, take, err)
+		}
+		ret = append(ret, TableRow{
+			RowNumber: rowNumber,
+			Values:    values,
+		})
+	}
+	return ret, nil
 }
 
 func (repo *sqliteRepository) GetFieldOccurences(id int64) (map[string]int, error) {
@@ -156,7 +213,15 @@ func (repo *sqliteRepository) GetFieldValues(id int64, fieldName string) (map[st
 }
 
 func (repo *sqliteRepository) GetNumMatchedEvents(id int64) (int64, error) {
-	res, err := repo.db.Query("SELECT COUNT(1) FROM JobResults WHERE job_id=?;", id)
+	job, err := repo.Get(id)
+	if err != nil {
+		return 0, fmt.Errorf("error when getting number of matched events for jobId=%v: %w", id, err)
+	}
+	stmt := "SELECT COUNT(1) FROM JobResults WHERE job_id=?"
+	if job.OutputType == pipeline.PipelinePipeTypeTable {
+		stmt = "SELECT COUNT(1) FROM JobTableResults WHERE job_id=?"
+	}
+	res, err := repo.db.Query(stmt, id)
 	if err != nil {
 		return 0, fmt.Errorf("error when getting number of matched events for jobId=%v: %w", id, err)
 	}
@@ -172,9 +237,9 @@ func (repo *sqliteRepository) GetNumMatchedEvents(id int64) (int64, error) {
 	return count, nil
 }
 
-func (repo *sqliteRepository) Insert(query string, startTime, endTime *time.Time, sortMode events.SortMode) (*int64, error) {
-	res, err := repo.db.Exec("INSERT INTO Jobs (state, query, start_time, end_time, sort_mode) VALUES(?, ?, ?, ?, ?);",
-		JobStateRunning, query, startTime, endTime, sortMode)
+func (repo *sqliteRepository) Insert(query string, startTime, endTime *time.Time, sortMode events.SortMode, outputType pipeline.PipelinePipeType) (*int64, error) {
+	res, err := repo.db.Exec("INSERT INTO Jobs (state, query, start_time, end_time, sort_mode, output_type) VALUES(?, ?, ?, ?, ?, ?);",
+		JobStateRunning, query, startTime, endTime, sortMode, outputType)
 	if err != nil {
 		return nil, fmt.Errorf("error when inserting new job: %w", err)
 	}

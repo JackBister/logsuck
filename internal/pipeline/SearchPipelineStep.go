@@ -90,12 +90,16 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 	}
 }
 
-func (s *searchPipelineStep) IsGeneratorStep() bool {
-	return true
-}
-
 func (s *searchPipelineStep) Name() string {
 	return "search"
+}
+
+func (r *searchPipelineStep) InputType() PipelinePipeType {
+	return PipelinePipeTypeNone
+}
+
+func (r *searchPipelineStep) OutputType() PipelinePipeType {
+	return PipelinePipeTypeEvents
 }
 
 func compileSearchStep(input string, options map[string]string) (pipelineStep, error) {

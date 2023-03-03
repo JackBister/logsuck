@@ -223,50 +223,26 @@ func (wi webImpl) Serve() error {
 			c.AbortWithError(400, err)
 			return
 		}
-		eventIds, err := wi.jobRepo.GetResults(jobId, skip, take)
-		if err != nil {
-			c.AbortWithError(500, err)
-			return
-		}
 		job, err := wi.jobRepo.Get(jobId)
 		if err != nil {
 			c.AbortWithError(500, err)
 			return
 		}
-		results, err := wi.eventRepo.GetByIds(eventIds, job.SortMode)
+		eventResults, err := wi.getJobResults(job, skip, take)
 		if err != nil {
 			c.AbortWithError(500, err)
 			return
 		}
-		cfg, err := wi.configSource.Get()
+		tableRows, err := wi.jobRepo.GetTableResults(job.Id, skip, take)
 		if err != nil {
 			c.AbortWithError(500, err)
 			return
 		}
-		indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg, wi.logger)
-		if err != nil {
-			c.AbortWithError(500, err)
-			return
-		}
-		sourceToIfc := getSourceToIndexedFileConfig(results, indexedFileConfigs)
-		retResults := make([]events.EventWithExtractedFields, 0, len(results))
-		for _, r := range results {
-			ifc, ok := sourceToIfc[r.Source]
-			if !ok {
-				// TODO: default
-			}
-			fields, _ := parser.ExtractFields(r.Raw, ifc.FileParser)
-			retResults = append(retResults, events.EventWithExtractedFields{
-				Id:        r.Id,
-				Raw:       r.Raw,
-				Host:      r.Host,
-				Source:    r.Source,
-				SourceId:  r.SourceId,
-				Timestamp: r.Timestamp,
-				Fields:    fields,
-			})
-		}
-		c.JSON(200, retResults)
+		c.JSON(200, gin.H{
+			"resultType": job.OutputType,
+			"events":     eventResults,
+			"tableRows":  tableRows,
+		})
 	})
 
 	g.GET("/jobFieldStats", func(c *gin.Context) {
@@ -297,6 +273,44 @@ func (wi webImpl) Serve() error {
 
 	wi.logger.Info("Starting Web GUI", zap.String("address", staticCfg.Web.Address))
 	return r.Run(staticCfg.Web.Address)
+}
+
+func (wi *webImpl) getJobResults(job *jobs.Job, skip, take int) ([]events.EventWithExtractedFields, error) {
+	eventIds, err := wi.jobRepo.GetResults(job.Id, skip, take)
+	if err != nil {
+		return nil, err
+	}
+	results, err := wi.eventRepo.GetByIds(eventIds, job.SortMode)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := wi.configSource.Get()
+	if err != nil {
+		return nil, err
+	}
+	indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg, wi.logger)
+	if err != nil {
+		return nil, err
+	}
+	sourceToIfc := getSourceToIndexedFileConfig(results, indexedFileConfigs)
+	retResults := make([]events.EventWithExtractedFields, 0, len(results))
+	for _, r := range results {
+		ifc, ok := sourceToIfc[r.Source]
+		if !ok {
+			// TODO: default
+		}
+		fields, _ := parser.ExtractFields(r.Raw, ifc.FileParser)
+		retResults = append(retResults, events.EventWithExtractedFields{
+			Id:        r.Id,
+			Raw:       r.Raw,
+			Host:      r.Host,
+			Source:    r.Source,
+			SourceId:  r.SourceId,
+			Timestamp: r.Timestamp,
+			Fields:    fields,
+		})
+	}
+	return retResults, nil
 }
 
 func parseTemplate(fs http.FileSystem) (*template.Template, error) {

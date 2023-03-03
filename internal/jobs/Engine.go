@@ -62,7 +62,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 		return nil, fmt.Errorf("failed to compile search query: %w", err)
 	}
 	sortMode := getSortMode(pl)
-	id, err := e.jobRepo.Insert(query, startTime, endTime, sortMode)
+	id, err := e.jobRepo.Insert(query, startTime, endTime, sortMode, pl.OutputType())
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert job in repo: %w", err)
 	}
@@ -71,6 +71,8 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 	e.cancels[*id] = cancelFunc
 	go func() {
 		done := ctx.Done()
+		outputType := pl.OutputType()
+		rowNumber := 0
 		// TODO: This should probably be batched
 		results := pl.Execute(
 			ctx,
@@ -88,28 +90,57 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 				if !ok {
 					break out
 				}
-				evts := res.Events
-				if len(evts) > 0 {
-					converted := make([]events.EventIdAndTimestamp, len(evts))
-					for i, evt := range evts {
-						converted[i] = events.EventIdAndTimestamp{
-							Id:        evt.Id,
-							Timestamp: evt.Timestamp,
+				if outputType == pipeline.PipelinePipeTypeEvents {
+					evts := res.Events
+					if len(evts) > 0 {
+						converted := make([]events.EventIdAndTimestamp, len(evts))
+						for i, evt := range evts {
+							converted[i] = events.EventIdAndTimestamp{
+								Id:        evt.Id,
+								Timestamp: evt.Timestamp,
+							}
+						}
+						err := e.jobRepo.AddResults(*id, converted)
+						if err != nil {
+							logger.Error("failed to add events to job",
+								zap.Error(err))
+							// TODO: Retry?
+							continue
+						}
+						fields := gatherFieldStats(evts)
+						err = e.jobRepo.AddFieldStats(*id, fields)
+						if err != nil {
+							logger.Error("failed to add field stats to job",
+								zap.Error(err))
 						}
 					}
-					err := e.jobRepo.AddResults(*id, converted)
-					if err != nil {
-						logger.Error("failed to add events to job",
-							zap.Error(err))
-						// TODO: Retry?
-						continue
+				} else if outputType == pipeline.PipelinePipeTypeTable {
+					tableRows := res.TableRows
+					if len(tableRows) > 0 {
+						rows := make([]TableRow, 0, len(tableRows))
+						for _, r := range tableRows {
+							rows = append(rows, TableRow{
+								RowNumber: rowNumber,
+								Values:    r,
+							})
+							rowNumber++
+						}
+						err := e.jobRepo.AddTableResults(*id, rows)
+						if err != nil {
+							logger.Error("failed to add table results to job",
+								zap.Error(err))
+							// TODO: Retry?
+							continue
+						}
+						fields := gatherFieldStatsFromTable(tableRows)
+						err = e.jobRepo.AddFieldStats(*id, fields)
+						if err != nil {
+							logger.Error("failed to add field stats to job",
+								zap.Error(err))
+						}
 					}
-					fields := gatherFieldStats(evts)
-					err = e.jobRepo.AddFieldStats(*id, fields)
-					if err != nil {
-						logger.Error("failed to add field stats to job",
-							zap.Error(err))
-					}
+				} else {
+					logger.Error("unhandled outputType", zap.Int("outputType", int(outputType)))
 				}
 			case <-done:
 				wasCancelled = true
@@ -160,6 +191,36 @@ func gatherFieldStats(evts []events.EventWithExtractedFields) []FieldStats {
 	size := 0
 	for _, evt := range evts {
 		for k, v := range evt.Fields {
+			if _, ok := m[k]; !ok {
+				size++
+				m[k] = map[string]int{}
+				m[k][v] = 1
+			} else if _, ok := m[k][v]; !ok {
+				m[k][v] = 1
+			} else {
+				m[k][v]++
+			}
+		}
+	}
+
+	ret := make([]FieldStats, 0, size)
+	for k, vm := range m {
+		for v, o := range vm {
+			ret = append(ret, FieldStats{
+				Key:         k,
+				Value:       v,
+				Occurrences: o,
+			})
+		}
+	}
+	return ret
+}
+
+func gatherFieldStatsFromTable(rows []map[string]string) []FieldStats {
+	m := map[string]map[string]int{}
+	size := 0
+	for _, row := range rows {
+		for k, v := range row {
 			if _, ok := m[k]; !ok {
 				size++
 				m[k] = map[string]int{}

@@ -40,14 +40,14 @@ func TestExplicitSearch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExplicitSearch parse returned error: %v", err)
 	}
-	if len(res.Steps) != 1 {
-		t.Fatalf("ExplicitSearch expected 1 step, got %v", len(res.Steps))
+	if len(res.Steps) != 2 {
+		t.Fatalf("ExplicitSearch expected 2 steps, got %v", len(res.Steps))
 	}
-	if res.Steps[0].StepType != "search" {
-		t.Fatalf("ExplicitSearch expected step 0 to be search, got %v", res.Steps[0].StepType)
+	if res.Steps[1].StepType != "search" {
+		t.Fatalf("ExplicitSearch expected step 1 to be search, got %v", res.Steps[0].StepType)
 	}
 	const expected = "source=*my-log.txt* hello world"
-	if expected != res.Steps[0].Value {
+	if expected != res.Steps[1].Value {
 		t.Fatalf("ExplicitSearch expected value='%v', got '%v'", expected, res.Steps[0].Value)
 	}
 }

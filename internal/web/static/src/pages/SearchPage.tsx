@@ -17,6 +17,7 @@
 import { Component, h } from "preact";
 import {
   FieldValueCounts,
+  JobResultResponse,
   JobState,
   PollJobResult,
   StartJobResult,
@@ -32,7 +33,8 @@ import { TopFieldValueInfo } from "../models/TopFieldValueInfo";
 import { RecentSearch } from "../services/RecentSearches";
 import { validateIsoTimestamp } from "../validateIsoTimestamp";
 import { LogsuckAppShell } from "../components/LogsuckAppShell";
-import { Alert, Button, Card, Pagination, Popover } from "@mantine/core";
+import { Alert, Button, Card, Pagination, Popover, Table } from "@mantine/core";
+import { JsonView } from "../components/JsonView/JsonView";
 
 const EVENTS_PER_PAGE = 25;
 const TOP_FIELDS_COUNT = 15;
@@ -47,7 +49,7 @@ interface SearchProps {
     jobId: number,
     skip: number,
     take: number
-  ) => Promise<LogEvent[]>;
+  ) => Promise<JobResultResponse>;
   abortJob: (jobId: number) => Promise<{}>;
   getFieldValueCounts: (
     jobId: number,
@@ -102,7 +104,7 @@ interface SearchedPolling extends SearchStateBase {
   jobId: number;
   poller: number;
 
-  searchResult: LogEvent[];
+  searchResult: JobResultResponse;
   numMatched: number;
 
   currentPageIndex: number;
@@ -118,7 +120,7 @@ interface SearchedPollingFinished extends SearchStateBase {
 
   jobId: number;
 
-  searchResult: LogEvent[];
+  searchResult: JobResultResponse;
   numMatched: number;
 
   currentPageIndex: number;
@@ -205,7 +207,10 @@ export class SearchPageComponent extends Component<
           state: SearchState.SEARCHED_POLLING,
           jobId: jobId,
           poller: window.setTimeout(async () => this.poll(jobId), 0),
-          searchResult: [],
+          searchResult: {
+            resultType: "EVENTS",
+            events: [],
+          },
           numMatched: 0,
           currentPageIndex: currentPageIndex,
         };
@@ -220,6 +225,7 @@ export class SearchPageComponent extends Component<
   }
 
   render() {
+    const resultLength = this.getResultLength();
     return (
       <LogsuckAppShell>
         <SearchInput
@@ -238,17 +244,17 @@ export class SearchPageComponent extends Component<
           )}
           {(this.state.state === SearchState.WAITING_FOR_SEARCH ||
             (this.state.state === SearchState.SEARCHED_POLLING &&
-              this.state.searchResult.length === 0)) && (
+              resultLength === 0)) && (
             <div>Loading... There should be a spinner here!</div>
           )}
           {((this.state.state === SearchState.SEARCHED_POLLING &&
-            this.state.searchResult.length > 0) ||
+            resultLength > 0) ||
             this.state.state === SearchState.SEARCHED_POLLING_FINISHED) && (
             <div>
-              {this.state.searchResult.length === 0 && (
+              {resultLength === 0 && (
                 <Alert>No results found. Try a different search?</Alert>
               )}
-              {this.state.searchResult.length !== 0 && (
+              {resultLength !== 0 && (
                 <div className="w-100 d-flex flex-row align-start gap-6">
                   <Popover
                     position="right"
@@ -299,12 +305,50 @@ export class SearchPageComponent extends Component<
                       </div>
                     </div>
                     <Card>
-                      <EventTable
-                        events={this.state.searchResult}
-                        onViewContextClicked={(id) =>
-                          this.onViewContextClicked(id)
-                        }
-                      />
+                      {this.state.searchResult.resultType === "EVENTS" && (
+                        <EventTable
+                          events={this.state.searchResult.events}
+                          onViewContextClicked={(id) =>
+                            this.onViewContextClicked(id)
+                          }
+                        />
+                      )}
+                      {this.state.searchResult.resultType === "TABLE" && (
+                        <div>
+                          <Table>
+                            <thead>
+                              <tr>
+                                {Object.keys(
+                                  this.state.searchResult.tableRows[0].values
+                                ).map((k) => (
+                                  <th style={{ paddingLeft: "28px" }}>{k}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {this.state.searchResult.tableRows.map((tr) => (
+                                <tr key={tr.rowNumber}>
+                                  {Object.keys(tr.values).map((k) => (
+                                    <td key={k}>
+                                      <Button
+                                        variant="subtle"
+                                        onClick={() =>
+                                          this.addFieldQueryAndSearch(
+                                            k,
+                                            tr.values[k]
+                                          )
+                                        }
+                                      >
+                                        {tr.values[k]}
+                                      </Button>
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
+                        </div>
+                      )}
                     </Card>
                   </div>
                 </div>
@@ -399,13 +443,13 @@ export class SearchPageComponent extends Component<
       );
     }
     try {
-      const newEvents = await this.props.getResults(
+      const result = await this.props.getResults(
         this.state.jobId,
         newPageIndex * EVENTS_PER_PAGE,
         EVENTS_PER_PAGE
       );
       this.setState({
-        searchResult: newEvents,
+        searchResult: result,
         currentPageIndex: newPageIndex,
       });
       this.setQueryParams({
@@ -469,7 +513,10 @@ export class SearchPageComponent extends Component<
           async () => this.poll(startJobResult.id),
           500
         ),
-        searchResult: [],
+        searchResult: {
+          resultType: "EVENTS",
+          events: [],
+        },
         numMatched: 0,
         currentPageIndex: 0,
       });
@@ -541,15 +588,17 @@ export class SearchPageComponent extends Component<
       } else {
         nextState.poller = window.setTimeout(() => this.poll(id), 500);
       }
+      const resultLength = this.getResultLength();
       if (
-        this.state.searchResult.length < EVENTS_PER_PAGE &&
-        pollResult.stats.numMatchedEvents > this.state.searchResult.length
+        resultLength < EVENTS_PER_PAGE &&
+        pollResult.stats.numMatchedEvents > resultLength
       ) {
-        nextState.searchResult = await this.props.getResults(
+        const result = await this.props.getResults(
           id,
           this.state.currentPageIndex * EVENTS_PER_PAGE,
           EVENTS_PER_PAGE
         );
+        nextState.searchResult = result;
         if (id !== this.state.jobId) {
           return;
         }
@@ -558,5 +607,20 @@ export class SearchPageComponent extends Component<
     } catch (e) {
       console.log(e);
     }
+  }
+
+  private getResultLength(): number {
+    let resultLength = 0;
+    if (
+      this.state.state === SearchState.SEARCHED_POLLING ||
+      this.state.state === SearchState.SEARCHED_POLLING_FINISHED
+    ) {
+      if (this.state.searchResult.resultType === "EVENTS") {
+        resultLength = this.state.searchResult.events.length;
+      } else {
+        resultLength = this.state.searchResult.tableRows.length;
+      }
+    }
+    return resultLength;
   }
 }
