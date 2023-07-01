@@ -285,7 +285,7 @@ export class SearchPageComponent extends Component<
                   <div className="grow-1 shrink-0" style={{ flexBasis: "80%" }}>
                     <div className="d-flex flex-row justify-between">
                       <Pagination
-                        page={this.state.currentPageIndex + 1}
+                        value={this.state.currentPageIndex + 1}
                         total={Math.ceil(
                           this.state.numMatched / EVENTS_PER_PAGE
                         )}

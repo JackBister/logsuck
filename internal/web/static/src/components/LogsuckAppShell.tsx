@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { h, JSX } from "preact";
+import { JSX, h } from "preact";
 import {
   Anchor,
   AppShell,
@@ -29,10 +29,10 @@ import {
   UnstyledButton,
   useMantineTheme,
 } from "@mantine/core";
-import { IconSearch, IconSettings } from "@tabler/icons";
+import { IconSearch, IconSettings } from "@tabler/icons-preact";
 
 interface MainLinkProps {
-  iconSvg: string;
+  iconSvg: JSX.Element;
   href: string;
   label: string;
 }
@@ -59,11 +59,7 @@ const MainLink = ({ iconSvg, href, label }: MainLinkProps) => {
       })}
     >
       <Group>
-        <ThemeIcon
-          variant="light"
-          dangerouslySetInnerHTML={{ __html: iconSvg }}
-        ></ThemeIcon>
-
+        <ThemeIcon variant="light">{iconSvg}</ThemeIcon>
         <Text size="sm">{label}</Text>
       </Group>
     </UnstyledButton>
@@ -90,12 +86,12 @@ export const LogsuckAppShell = (props: any) => {
                 <Navbar.Section>
                   <MainLink
                     label="Search"
-                    iconSvg={(IconSearch as any)()}
+                    iconSvg={<IconSearch />}
                     href="/search"
                   ></MainLink>
                   <MainLink
                     label="Config"
-                    iconSvg={(IconSettings as any)()}
+                    iconSvg={<IconSettings />}
                     href="/config"
                   ></MainLink>
                 </Navbar.Section>
