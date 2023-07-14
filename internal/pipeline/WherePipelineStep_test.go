@@ -67,6 +67,62 @@ func TestWherePipelineStep(t *testing.T) {
 	}
 }
 
+func TestWherePipelineStep_MultipleConditions(t *testing.T) {
+	input, output := setup(t, map[string]string{"userId": "123", "username": "charles"})
+	input <- PipelineStepResult{
+		Events: []events.EventWithExtractedFields{
+			{
+				Id: 1,
+				Fields: map[string]string{
+					"userid":   "123",
+					"username": "charles",
+				},
+				Raw:       "2021-01-20 19:37:00 The user did something. The userid was 123. The username was charles.",
+				Host:      "my-host",
+				Source:    "my-log.txt",
+				SourceId:  "1a9a7cd6-0f00-4aa6-ae2e-1ad17d40bb35",
+				Timestamp: time.Date(2021, 1, 20, 19, 37, 0, 0, time.UTC),
+			},
+			{
+				Id: 2,
+				Fields: map[string]string{
+					"userid":   "456",
+					"username": "jonny",
+				},
+				Raw:       "2021-01-20 19:37:00 The user did something. The userid was 456. The username was jonny.",
+				Host:      "my-host",
+				Source:    "my-log.txt",
+				SourceId:  "1a9a7cd6-0f00-4aa6-ae2e-1ad17d40bb35",
+				Timestamp: time.Date(2021, 1, 20, 19, 37, 0, 0, time.UTC),
+			},
+			{
+				Id: 3,
+				Fields: map[string]string{
+					"userid": "789",
+				},
+				Raw:       "2021-01-20 19:37:00 The user did something. The userid was 789. The username was unknown.",
+				Host:      "my-host",
+				Source:    "my-log.txt",
+				SourceId:  "1a9a7cd6-0f00-4aa6-ae2e-1ad17d40bb35",
+				Timestamp: time.Date(2021, 1, 20, 19, 37, 0, 0, time.UTC),
+			},
+		},
+	}
+	close(input)
+
+	result, ok := <-output
+	if !ok {
+		t.Fatal("got unexpected !ok when receiving output")
+	}
+	if len(result.Events) != 1 {
+		t.Fatalf("got unexpected number of events, expected 1 but got %v", len(result.Events))
+	}
+	_, ok = <-output
+	if ok {
+		t.Fatal("got unexpected ok when receiving output, expected the channel to be closed by now")
+	}
+}
+
 func TestWherePipelineStep_TableInput(t *testing.T) {
 	input, output := setup(t, map[string]string{"userId": "123"})
 	input <- PipelineStepResult{
