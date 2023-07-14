@@ -87,3 +87,17 @@ func TestSortMode_SurroundingPipeline(t *testing.T) {
 		t.Error("unexpected sortMode, expected SortModePreserveArgOrder for surrounding pipeline", p.SortMode())
 	}
 }
+
+func TestTypePropagation_Events(t *testing.T) {
+	p, _ := CompilePipeline("| where x=y", nil, nil)
+	if p.OutputType() != PipelinePipeTypeEvents {
+		t.Error("unexpected output type, expected PipelinePipeTypeEvents since the where pipe should propagate the search pipe's output type", p.OutputType())
+	}
+}
+
+func TestTypePropagation_Table(t *testing.T) {
+	p, _ := CompilePipeline("| table \"x\" | where x=y", nil, nil)
+	if p.OutputType() != PipelinePipeTypeTable {
+		t.Error("unexpected output type, expected PipelinePipeTypeTable since the where pipe should propagate the table pipe's output type", p.OutputType())
+	}
+}

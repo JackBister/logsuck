@@ -31,13 +31,14 @@ const (
 	PipelinePipeTypeNone   PipelinePipeType = 0
 	PipelinePipeTypeEvents PipelinePipeType = 1
 	PipelinePipeTypeTable  PipelinePipeType = 2
+
+	PipelinePipeTypePropagate PipelinePipeType = 999
 )
 
 type Pipeline struct {
-	steps      []pipelineStep
-	pipes      []pipelinePipe
-	outputType PipelinePipeType
-	outChan    <-chan PipelineStepResult
+	steps   []pipelineStep
+	pipes   []pipelinePipe
+	outChan <-chan PipelineStepResult
 }
 
 type PipelineParameters struct {
@@ -61,8 +62,10 @@ type PipelineStepResult struct {
 const pipeBufferSize = 100
 
 type pipelinePipe struct {
-	input  <-chan PipelineStepResult
-	output chan<- PipelineStepResult
+	input      <-chan PipelineStepResult
+	inputType  PipelinePipeType
+	output     chan<- PipelineStepResult
+	outputType PipelinePipeType
 }
 
 type pipelineStep interface {
@@ -127,28 +130,43 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 	}
 	compiledSteps = compiledSteps[lastGeneratorIndex:]
 
+	outputType := compiledSteps[0].OutputType()
 	for i, compiled := range compiledSteps {
+		if (compiled.InputType() == PipelinePipeTypePropagate || compiled.OutputType() == PipelinePipeTypePropagate) && compiled.InputType() != compiled.OutputType() {
+			return nil, fmt.Errorf("failed to compile pipeline: mismatching input/output type for propagating step. input=%v, output=%v. This is a bug", compiled.InputType(), compiled.OutputType())
+		}
+		if compiled.OutputType() != PipelinePipeTypePropagate {
+			outputType = compiled.OutputType()
+		}
 		if i == len(compiledSteps)-1 {
-			if compiled.OutputType() != PipelinePipeTypeEvents && compiled.OutputType() != PipelinePipeTypeTable {
+			if outputType != PipelinePipeTypeEvents && outputType != PipelinePipeTypeTable {
 				return nil, fmt.Errorf("failed to compile pipeline: invalid output type for last step: %v", compiled.Name())
 			}
 		} else {
-			if compiled.OutputType() != compiledSteps[i+1].InputType() {
+			if outputType != compiledSteps[i+1].InputType() && compiledSteps[i+1].InputType() != PipelinePipeTypePropagate {
 				return nil, fmt.Errorf("failed to compile pipeline: output type for step %v does not match input type for step %v", compiled.Name(), compiledSteps[i+1].Name())
 			}
 		}
 	}
 
 	lastOutput := make(chan PipelineStepResult, pipeBufferSize)
+	lastOutputType := compiledSteps[0].OutputType()
 	close(lastOutput)
 	pipes := make([]pipelinePipe, len(compiledSteps))
 	for i := 0; i < len(compiledSteps); i++ {
+		currentOutputType := compiledSteps[i].OutputType()
+		if currentOutputType == PipelinePipeTypePropagate {
+			currentOutputType = lastOutputType
+		}
 		outputEvents := make(chan PipelineStepResult, pipeBufferSize)
 		pipes[i] = pipelinePipe{
-			input:  lastOutput,
-			output: outputEvents,
+			input:      lastOutput,
+			inputType:  lastOutputType,
+			output:     outputEvents,
+			outputType: currentOutputType,
 		}
 		lastOutput = outputEvents
+		lastOutputType = currentOutputType
 	}
 
 	return &Pipeline{
@@ -187,7 +205,13 @@ func (p *Pipeline) GetStepNames() []string {
 }
 
 func (p *Pipeline) OutputType() PipelinePipeType {
-	return p.steps[len(p.steps)-1].OutputType()
+	outputType := p.steps[0].OutputType()
+	for _, s := range p.steps {
+		if s.OutputType() != PipelinePipeTypePropagate {
+			outputType = s.OutputType()
+		}
+	}
+	return outputType
 }
 
 func (p *Pipeline) SortMode() events.SortMode {

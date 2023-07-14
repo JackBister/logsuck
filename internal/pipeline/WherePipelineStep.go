@@ -36,20 +36,35 @@ func (s *wherePipelineStep) Execute(ctx context.Context, pipe pipelinePipe, para
 			if !ok {
 				return
 			}
-			ret := make([]events.EventWithExtractedFields, 0, len(res.Events))
+			retEvents := make([]events.EventWithExtractedFields, 0, len(res.Events))
 			for _, evt := range res.Events {
 				include := true
 				for k, v := range s.fieldValues {
-					actualValue := evt.Fields[k]
+					actualValue := evt.Fields[strings.ToLower(k)]
 					if actualValue != v {
 						include = false
 					}
 				}
 				if include {
-					ret = append(ret, evt)
+					retEvents = append(retEvents, evt)
 				}
 			}
-			res.Events = ret
+			res.Events = retEvents
+
+			retTableRows := make([]map[string]string, 0, len(res.TableRows))
+			for _, tr := range res.TableRows {
+				include := true
+				for k, v := range s.fieldValues {
+					actualValue := tr[k]
+					if actualValue != v {
+						include = false
+					}
+				}
+				if include {
+					retTableRows = append(retTableRows, tr)
+				}
+			}
+			res.TableRows = retTableRows
 			pipe.output <- res
 		}
 	}
@@ -60,20 +75,15 @@ func (s *wherePipelineStep) Name() string {
 }
 
 func (r *wherePipelineStep) InputType() PipelinePipeType {
-	return PipelinePipeTypeEvents
+	return PipelinePipeTypePropagate
 }
 
 func (r *wherePipelineStep) OutputType() PipelinePipeType {
-	return PipelinePipeTypeEvents
+	return PipelinePipeTypePropagate
 }
 
 func compileWhereStep(input string, options map[string]string) (pipelineStep, error) {
-	// This is pretty hacky. I think every command type might need to do its own parsing in the future.
-	m := make(map[string]string, len(options))
-	for k, v := range options {
-		m[strings.ToLower(k)] = v
-	}
 	return &wherePipelineStep{
-		fieldValues: m,
+		fieldValues: options,
 	}, nil
 }

@@ -25,21 +25,7 @@ import (
 )
 
 func TestWherePipelineStep(t *testing.T) {
-	wps, err := compileWhereStep("", map[string]string{"userId": "123"})
-	if err != nil {
-		t.Fatalf("TestRexPipelineStep got unexpected error: %v", err)
-	}
-	repo := newInMemRepo(t)
-	params := PipelineParameters{
-		ConfigSource: &config.NullConfigSource{},
-		EventsRepo:   repo,
-
-		Logger: zap.NewNop(),
-	}
-	pipe, input, output := newPipe()
-
-	go wps.Execute(context.Background(), pipe, params)
-
+	input, output := setup(t, map[string]string{"userId": "123"})
 	input <- PipelineStepResult{
 		Events: []events.EventWithExtractedFields{
 			{
@@ -79,4 +65,52 @@ func TestWherePipelineStep(t *testing.T) {
 	if ok {
 		t.Fatal("got unexpected ok when receiving output, expected the channel to be closed by now")
 	}
+}
+
+func TestWherePipelineStep_TableInput(t *testing.T) {
+	input, output := setup(t, map[string]string{"userId": "123"})
+	input <- PipelineStepResult{
+		TableRows: []map[string]string{
+			{
+				"userId":   "123",
+				"username": "charles",
+			},
+			{
+				"userId":   "456",
+				"username": "jonny",
+			},
+		},
+	}
+	close(input)
+
+	result, ok := <-output
+	if !ok {
+		t.Fatal("got unexpected !ok when receiving output")
+	}
+	if len(result.TableRows) != 1 {
+		t.Fatalf("got unexpected number of table rows, expected 1 but got %v", len(result.TableRows))
+	}
+	_, ok = <-output
+	if ok {
+		t.Fatal("got unexpected ok when receiving output, expected the channel to be closed by now")
+	}
+}
+
+func setup(t *testing.T, fieldValues map[string]string) (input chan PipelineStepResult, output chan PipelineStepResult) {
+	wps, err := compileWhereStep("", fieldValues)
+	if err != nil {
+		t.Fatalf("got unexpected error: %v", err)
+	}
+	repo := newInMemRepo(t)
+	params := PipelineParameters{
+		ConfigSource: &config.NullConfigSource{},
+		EventsRepo:   repo,
+
+		Logger: zap.NewNop(),
+	}
+	pipe, input, output := newPipe()
+
+	go wps.Execute(context.Background(), pipe, params)
+
+	return input, output
 }
