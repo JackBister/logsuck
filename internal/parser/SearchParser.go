@@ -59,14 +59,14 @@ func ParseSearch(input string) (*SearchParseResult, error) {
 			if p.peek() == tokenEquals {
 				p.take()
 				if p.peek() != tokenString && p.peek() != tokenQuotedString {
-					return nil, errors.New("unexpected token, expected string or quoted string after =")
+					return nil, errors.New("unexpected token, expected a fragment after =")
 				}
 				value := p.take()
 				ret.Fields[lowered] = []string{value.value}
 			} else if p.peek() == tokenNotEquals {
 				p.take()
 				if p.peek() != tokenString && p.peek() != tokenQuotedString {
-					return nil, errors.New("unexpected token, expected string or quoted string after =")
+					return nil, errors.New("unexpected token, expected a fragment after !=")
 				}
 				value := p.take()
 				if existingNots, ok := ret.NotFields[lowered]; ok {
@@ -87,19 +87,24 @@ func ParseSearch(input string) (*SearchParseResult, error) {
 				} else if p.peek() == tokenKeyword && p.peekValue() == "NOT" {
 					p.take()
 					p.skipWhitespace()
-					if p.peek() != tokenKeyword || p.peekValue() != "IN" {
-						return nil, errors.New("unexpected token, expected 'IN' after 'NOT'")
-					}
-					p.take()
-					p.skipWhitespace()
-					values, err := p.parseParenList()
-					if err != nil {
-						return nil, fmt.Errorf("error while parsing NOT IN expression: %w", err)
-					}
-					if existingNots, ok := ret.NotFields[lowered]; ok {
-						ret.NotFields[lowered] = append(existingNots, values...)
+					if p.peek() == tokenKeyword && p.peekValue() == "IN" {
+						p.take()
+						p.skipWhitespace()
+						values, err := p.parseParenList()
+						if err != nil {
+							return nil, fmt.Errorf("error while parsing NOT IN expression: %w", err)
+						}
+						if existingNots, ok := ret.NotFields[lowered]; ok {
+							ret.NotFields[lowered] = append(existingNots, values...)
+						} else {
+							ret.NotFields[lowered] = values
+						}
+					} else if p.peek() == tokenString || p.peek() == tokenQuotedString {
+						notTok := p.take()
+						ret.Fragments[tok.value] = struct{}{}
+						ret.NotFragments[notTok.value] = struct{}{}
 					} else {
-						ret.NotFields[lowered] = values
+						return nil, errors.New("unexpected token, expected 'IN' or a fragment after 'NOT'")
 					}
 				} else {
 					ret.Fragments[tok.value] = struct{}{}
@@ -111,11 +116,9 @@ func ParseSearch(input string) (*SearchParseResult, error) {
 			ret.Fragments[tok.value] = struct{}{}
 		} else if tok.typ == tokenKeyword {
 			if tok.value == "NOT" {
-				if p.peek() == tokenWhitespace {
-					p.take()
-				}
+				p.skipWhitespace()
 				if p.peek() != tokenString && p.peek() != tokenQuotedString {
-					return nil, errors.New("unexpected token, expected string or quoted string after =")
+					return nil, errors.New("unexpected token, expected a fragment after NOT")
 				}
 				frag := p.take().value
 				ret.NotFragments[frag] = struct{}{}
