@@ -16,6 +16,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"strings"
 )
 
@@ -48,6 +49,10 @@ func (s *tablePipelineStep) Execute(ctx context.Context, pipe pipelinePipe, para
 	}
 }
 
+func (s *tablePipelineStep) ColumnOrder() []string {
+	return s.fields
+}
+
 func (s *tablePipelineStep) Name() string {
 	return "table"
 }
@@ -62,9 +67,15 @@ func (r *tablePipelineStep) OutputType() PipelinePipeType {
 
 func compileTableStep(input string, options map[string]string) (pipelineStep, error) {
 	fields := strings.Split(input, ",")
-	trimmedFields := make([]string, len(fields))
-	for i, f := range fields {
-		trimmedFields[i] = strings.TrimSpace(f)
+	trimmedFields := make([]string, 0, len(fields))
+	for _, f := range fields {
+		trimmed := strings.TrimSpace(f)
+		if len(trimmed) > 0 {
+			trimmedFields = append(trimmedFields, trimmed)
+		}
+	}
+	if len(trimmedFields) == 0 {
+		return nil, fmt.Errorf("failed to compile table: no fields given. You must specify which fields should be present in the table using this syntax: '| table \"field1, field2, ...\"'")
 	}
 	return &tablePipelineStep{
 		fields: trimmedFields,

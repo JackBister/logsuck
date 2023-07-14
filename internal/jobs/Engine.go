@@ -62,7 +62,12 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 		return nil, fmt.Errorf("failed to compile search query: %w", err)
 	}
 	sortMode := getSortMode(pl)
-	id, err := e.jobRepo.Insert(query, startTime, endTime, sortMode, pl.OutputType())
+	columnOrder, err := pl.ColumnOrder()
+	if err != nil {
+		e.logger.Warn("Got error when getting column order for pipeline. The columns may not be ordered correctly when displayed.", zap.Error(err))
+		columnOrder = []string{}
+	}
+	id, err := e.jobRepo.Insert(query, startTime, endTime, sortMode, pl.OutputType(), columnOrder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert job in repo: %w", err)
 	}

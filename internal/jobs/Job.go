@@ -36,6 +36,7 @@ type Job struct {
 	StartTime, EndTime *time.Time
 	SortMode           events.SortMode
 	OutputType         pipeline.PipelinePipeType
+	ColumnOrder        []string // when OutputType is PipelinePipeTypeTable this is used to decide the order of the columns in the table, otherwise empty
 }
 
 type JobStats struct {

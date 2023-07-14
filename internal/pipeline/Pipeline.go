@@ -75,6 +75,10 @@ type pipelineStep interface {
 	OutputType() PipelinePipeType
 }
 
+type tableGeneratingPipelineStep interface {
+	ColumnOrder() []string
+}
+
 var compilers = map[string]func(input string, options map[string]string) (pipelineStep, error){
 	"rex":         compileRexStep,
 	"search":      compileSearchStep,
@@ -148,6 +152,19 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 		pipes:   pipes,
 		outChan: lastOutput,
 	}, nil
+}
+
+func (p *Pipeline) ColumnOrder() ([]string, error) {
+	lastStep := p.steps[len(p.steps)-1]
+	if lastStep.OutputType() != PipelinePipeTypeTable {
+		return []string{}, nil
+	}
+	if t, ok := lastStep.(tableGeneratingPipelineStep); !ok {
+		return []string{}, fmt.Errorf("failed to cast step=%v to tableGeneratingPipelineStep despite OutputType being PipelinePipeTypeTable. This is likely a bug! stepName=%v",
+			lastStep, lastStep.Name())
+	} else {
+		return t.ColumnOrder(), nil
+	}
 }
 
 func (p *Pipeline) Execute(ctx context.Context, params PipelineParameters) <-chan PipelineStepResult {

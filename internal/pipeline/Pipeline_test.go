@@ -40,3 +40,34 @@ func TestIgnoresPreviousStepsOptimization(t *testing.T) {
 		return
 	}
 }
+
+func TestColumnOrder_OutputTypeNotTable(t *testing.T) {
+	p, _ := CompilePipeline("", nil, nil)
+	columnOrder, err := p.ColumnOrder()
+	if err != nil {
+		t.Error("got error when getting column order for 'everything' pipeline", err)
+	}
+	if columnOrder == nil {
+		t.Error("got nil column order for 'everything' pipeline")
+	}
+	if len(columnOrder) != 0 {
+		t.Error("got unexpected columnOrder for 'everything' pipeline. Since this pipeline does not generate a table it should have an empty columnOrder", columnOrder)
+	}
+}
+
+func TestColumnOrder_OutputTypeTable(t *testing.T) {
+	p, _ := CompilePipeline("| table \"host, source, _time\"", nil, nil)
+	columnOrder, err := p.ColumnOrder()
+	if err != nil {
+		t.Error("got error when getting column order for pipeline with table step", err)
+	}
+	if columnOrder[0] != "host" {
+		t.Errorf("unexpected columnOrder, expected \"host\" at index 0 but have %v", columnOrder[0])
+	}
+	if columnOrder[1] != "source" {
+		t.Errorf("unexpected columnOrder, expected \"source\" at index 1 but have %v", columnOrder[1])
+	}
+	if columnOrder[2] != "_time" {
+		t.Errorf("unexpected columnOrder, expected \"_time\" at index 0 but have %v", columnOrder[2])
+	}
+}

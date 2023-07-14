@@ -108,6 +108,7 @@ export interface JobResultEvents extends JobResultResponseBase {
 
 export interface JobResultTable extends JobResultResponseBase {
   resultType: "TABLE";
+  columnOrder: string[];
   tableRows: TableRow[];
 }
 
@@ -115,6 +116,7 @@ export type JobResultResponse = JobResultEvents | JobResultTable;
 
 interface RestJobResultResponse {
   resultType: number;
+  columnOrder: string[];
   events: RestEvent[];
   tableRows: RestTableRow[];
 }
@@ -129,6 +131,7 @@ export function getResults(
     .then((r) => r.json())
     .then((r: RestJobResultResponse) => ({
       resultType: r.resultType === 1 ? "EVENTS" : "TABLE",
+      columnOrder: r.columnOrder,
       events: r.events.map((e) => ({
         id: e.Id,
         raw: e.Raw,

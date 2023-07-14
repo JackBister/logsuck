@@ -318,33 +318,33 @@ export class SearchPageComponent extends Component<
                           <Table>
                             <thead>
                               <tr>
-                                {Object.keys(
-                                  this.state.searchResult.tableRows[0].values
-                                ).map((k) => (
+                                {this.getColumnOrder().map((k) => (
                                   <th style={{ paddingLeft: "28px" }}>{k}</th>
                                 ))}
                               </tr>
                             </thead>
                             <tbody>
-                              {this.state.searchResult.tableRows.map((tr) => (
-                                <tr key={tr.rowNumber}>
-                                  {Object.keys(tr.values).map((k) => (
-                                    <td key={k}>
-                                      <Button
-                                        variant="subtle"
-                                        onClick={() =>
-                                          this.addFieldQueryAndSearch(
-                                            k,
-                                            tr.values[k]
-                                          )
-                                        }
-                                      >
-                                        {tr.values[k]}
-                                      </Button>
-                                    </td>
-                                  ))}
-                                </tr>
-                              ))}
+                              {this.state.searchResult.tableRows.map((tr) => {
+                                return (
+                                  <tr key={tr.rowNumber}>
+                                    {this.getColumnOrder().map((k) => (
+                                      <td key={k}>
+                                        <Button
+                                          variant="subtle"
+                                          onClick={() =>
+                                            this.addFieldQueryAndSearch(
+                                              k,
+                                              tr.values[k]
+                                            )
+                                          }
+                                        >
+                                          {tr.values[k]}
+                                        </Button>
+                                      </td>
+                                    ))}
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </Table>
                         </div>
@@ -607,6 +607,33 @@ export class SearchPageComponent extends Component<
     } catch (e) {
       console.log(e);
     }
+  }
+
+  private getColumnOrder(): string[] {
+    if (
+      this.state.state !== SearchState.SEARCHED_POLLING &&
+      this.state.state !== SearchState.SEARCHED_POLLING_FINISHED
+    ) {
+      throw new Error(
+        "Unexpected state, inside TABLE tbody but state is not SEARCHED_POLLING or SEARCHED_POLLING_FINISHED."
+      );
+    }
+    if (this.state.searchResult.resultType !== "TABLE") {
+      throw new Error(
+        "Unexpected state, inside TABLE tbody but resultType is not TABLE."
+      );
+    }
+    if (
+      !this.state.searchResult.columnOrder ||
+      this.state.searchResult.columnOrder.length === 0
+    ) {
+      if (this.state.searchResult.tableRows.length > 0) {
+        return Object.keys(this.state.searchResult.tableRows[0].values);
+      } else {
+        return [];
+      }
+    }
+    return this.state.searchResult.columnOrder;
   }
 
   private getResultLength(): number {

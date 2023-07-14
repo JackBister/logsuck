@@ -239,9 +239,10 @@ func (wi webImpl) Serve() error {
 			return
 		}
 		c.JSON(200, gin.H{
-			"resultType": job.OutputType,
-			"events":     eventResults,
-			"tableRows":  tableRows,
+			"resultType":  job.OutputType,
+			"columnOrder": job.ColumnOrder,
+			"events":      eventResults,
+			"tableRows":   tableRows,
 		})
 	})
 
