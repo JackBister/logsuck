@@ -75,6 +75,10 @@ type pipelineStep interface {
 	OutputType() PipelinePipeType
 }
 
+type pipelineStepWithSortMode interface {
+	SortMode() events.SortMode
+}
+
 type tableGeneratingPipelineStep interface {
 	ColumnOrder() []string
 }
@@ -184,4 +188,14 @@ func (p *Pipeline) GetStepNames() []string {
 
 func (p *Pipeline) OutputType() PipelinePipeType {
 	return p.steps[len(p.steps)-1].OutputType()
+}
+
+func (p *Pipeline) SortMode() events.SortMode {
+	sortMode := events.SortModeTimestampDesc
+	for _, s := range p.steps {
+		if ss, ok := s.(pipelineStepWithSortMode); ok {
+			sortMode = ss.SortMode()
+		}
+	}
+	return sortMode
 }

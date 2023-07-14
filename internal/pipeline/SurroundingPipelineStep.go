@@ -90,6 +90,10 @@ func (r *surroundingPipelineStep) OutputType() PipelinePipeType {
 	return PipelinePipeTypeEvents
 }
 
+func (r *surroundingPipelineStep) SortMode() events.SortMode {
+	return events.SortModePreserveArgOrder
+}
+
 func compileSurroundingStep(input string, options map[string]string) (pipelineStep, error) {
 	eventIdString, ok := options["eventId"]
 	if !ok {

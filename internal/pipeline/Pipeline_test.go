@@ -17,6 +17,8 @@ package pipeline
 import (
 	"reflect"
 	"testing"
+
+	"github.com/jackbister/logsuck/internal/events"
 )
 
 func TestIgnoresPreviousStepsOptimization(t *testing.T) {
@@ -69,5 +71,19 @@ func TestColumnOrder_OutputTypeTable(t *testing.T) {
 	}
 	if columnOrder[2] != "_time" {
 		t.Errorf("unexpected columnOrder, expected \"_time\" at index 0 but have %v", columnOrder[2])
+	}
+}
+
+func TestSortMode_EverythingPipeline(t *testing.T) {
+	p, _ := CompilePipeline("", nil, nil)
+	if p.SortMode() != events.SortModeTimestampDesc {
+		t.Error("unexpected sortMode, expected SortModeTimestampDesc for 'everything' pipeline", p.SortMode())
+	}
+}
+
+func TestSortMode_SurroundingPipeline(t *testing.T) {
+	p, _ := CompilePipeline("| surrounding eventId=1", nil, nil)
+	if p.SortMode() != events.SortModePreserveArgOrder {
+		t.Error("unexpected sortMode, expected SortModePreserveArgOrder for surrounding pipeline", p.SortMode())
 	}
 }

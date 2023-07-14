@@ -61,7 +61,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile search query: %w", err)
 	}
-	sortMode := getSortMode(pl)
+	sortMode := pl.SortMode()
 	columnOrder, err := pl.ColumnOrder()
 	if err != nil {
 		e.logger.Warn("Got error when getting column order for pipeline. The columns may not be ordered correctly when displayed.", zap.Error(err))
@@ -249,12 +249,4 @@ func gatherFieldStatsFromTable(rows []map[string]string) []FieldStats {
 		}
 	}
 	return ret
-}
-
-func getSortMode(pl *pipeline.Pipeline) events.SortMode {
-	sn := pl.GetStepNames()
-	if len(sn) > 0 && sn[len(sn)-1] == "surrounding" {
-		return events.SortModePreserveArgOrder
-	}
-	return events.SortModeTimestampDesc
 }
