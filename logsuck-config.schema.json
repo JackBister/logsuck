@@ -156,13 +156,17 @@
       "properties": {
         "name": {
           "description": "The name of the host running this instance of logsuck. If empty or unset, logsuck will attempt to retrieve the hostname from the operating system.",
-          "type": "string"
+          "type": "string",
+          "autoform": {
+            "readonly": true
+          }
         },
         "type": {
           "description": "The type of this host. Must be a key of the \"hostTypes\" object. This will define what files will be read by this instance of logsuck.",
           "type": "string",
           "autoform": {
-            "dynamicEnum": "hostTypes"
+            "dynamicEnum": "hostTypes",
+            "readonly": true
           }
         }
       }
