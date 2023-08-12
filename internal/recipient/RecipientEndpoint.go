@@ -33,6 +33,7 @@ import (
 
 type RecipientEndpoint struct {
 	configSource config.ConfigSource
+	staticConfig *config.Config
 	repo         events.Repository
 
 	logger *zap.Logger
@@ -42,23 +43,18 @@ type RecipientEndpointParams struct {
 	dig.In
 
 	ConfigSource config.ConfigSource
+	StaticConfig *config.Config
 	Repo         events.Repository
 	Logger       *zap.Logger
 }
 
 func NewRecipientEndpoint(p RecipientEndpointParams) *RecipientEndpoint {
-	return &RecipientEndpoint{configSource: p.ConfigSource, repo: p.Repo, logger: p.Logger}
+	return &RecipientEndpoint{configSource: p.ConfigSource, staticConfig: p.StaticConfig, repo: p.Repo, logger: p.Logger}
 }
 
 func (er *RecipientEndpoint) Serve() error {
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
-
-	cfgResp, err := er.configSource.Get()
-	if err != nil {
-		return fmt.Errorf("failed to start recipient endpoint: failed to get config: %w", err)
-	}
-	staticCfg := cfgResp.Cfg
 
 	r.GET("/v1/config", func(c *gin.Context) {
 		cfg, err := er.configSource.Get()
@@ -162,6 +158,6 @@ func (er *RecipientEndpoint) Serve() error {
 	})
 
 	er.logger.Info("Starting recipient",
-		zap.String("address", staticCfg.Recipient.Address))
-	return r.Run(staticCfg.Recipient.Address)
+		zap.String("address", er.staticConfig.Recipient.Address))
+	return r.Run(er.staticConfig.Recipient.Address)
 }

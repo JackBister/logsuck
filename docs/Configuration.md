@@ -13,7 +13,7 @@ All configuration properties can be modified from the GUI, but there are some co
 - `host`
 - `recipient`
 - `sqlite`
-- `web.enabled`
+- `web`
 
 ## Initial configuration
 

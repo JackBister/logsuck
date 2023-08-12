@@ -43,6 +43,7 @@ type Web interface {
 type webImpl struct {
 	configSource  config.ConfigSource
 	configRepo    config.ConfigRepository
+	staticConfig  *config.Config
 	eventRepo     events.Repository
 	jobRepo       jobs.Repository
 	jobEngine     *jobs.Engine
@@ -65,6 +66,7 @@ type WebParams struct {
 
 	ConfigSource config.ConfigSource
 	ConfigRepo   config.ConfigRepository
+	StaticConfig *config.Config
 	EventRepo    events.Repository
 	JobRepo      jobs.Repository
 	JobEngine    *jobs.Engine
@@ -79,6 +81,7 @@ func NewWeb(p WebParams) Web {
 		enumProviders[e.Name()] = e
 	}
 	return webImpl{
+		staticConfig: p.StaticConfig,
 		configSource: p.ConfigSource,
 		configRepo:   p.ConfigRepo,
 		eventRepo:    p.EventRepo,
@@ -95,12 +98,7 @@ func NewWeb(p WebParams) Web {
 var Assets embed.FS
 
 func (wi webImpl) Serve() error {
-	cfgResp, err := wi.configSource.Get()
-	if err != nil {
-		return fmt.Errorf("failed to start web server: failed to get config: %w", err)
-	}
-	staticCfg := cfgResp.Cfg
-	if staticCfg.Web.DebugMode {
+	if wi.staticConfig.Web.DebugMode {
 		wi.logger.Info("web.debugMode enabled. Will enable Gin debug mode. To disable, remove the debugMode key in the web object in your JSON config or set it to false.")
 		gin.SetMode(gin.DebugMode)
 	} else {
@@ -110,7 +108,7 @@ func (wi webImpl) Serve() error {
 	r.SetTrustedProxies(nil)
 
 	var filesys http.FileSystem
-	if staticCfg.Web.UsePackagedFiles {
+	if wi.staticConfig.Web.UsePackagedFiles {
 		assets, err := fs.Sub(Assets, "static/dist")
 		if err != nil {
 			return fmt.Errorf("failed to Sub into static/dist directory: %w", err)
@@ -272,8 +270,8 @@ func (wi webImpl) Serve() error {
 		c.FileFromFS(path, filesys)
 	})
 
-	wi.logger.Info("Starting Web GUI", zap.String("address", staticCfg.Web.Address))
-	return r.Run(staticCfg.Web.Address)
+	wi.logger.Info("Starting Web GUI", zap.String("address", wi.staticConfig.Web.Address))
+	return r.Run(wi.staticConfig.Web.Address)
 }
 
 func (wi *webImpl) getJobResults(job *jobs.Job, skip, take int) ([]events.EventWithExtractedFields, error) {
