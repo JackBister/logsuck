@@ -16,12 +16,12 @@ package pipeline
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
-	"go.uber.org/zap"
 )
 
 func TestWherePipelineStep(t *testing.T) {
@@ -162,7 +162,7 @@ func setup(t *testing.T, fieldValues map[string]string) (input chan PipelineStep
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
 
-		Logger: zap.NewNop(),
+		Logger: slog.Default()(),
 	}
 	pipe, input, output := newPipe()
 

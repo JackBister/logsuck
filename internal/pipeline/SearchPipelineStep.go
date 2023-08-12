@@ -17,13 +17,13 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/araddon/dateparse"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/search"
-	"go.uber.org/zap"
 )
 
 type searchPipelineStep struct {
@@ -37,7 +37,7 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 	cfg, err := params.ConfigSource.Get()
 	if err != nil {
 		params.Logger.Error("got error when executing search pipeline step: failed to get config",
-			zap.Error(err))
+			slog.Any("error", err))
 		return
 	}
 
@@ -67,7 +67,7 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 				if !ok {
 					// TODO: How does the user get feedback about this?
 					params.Logger.Warn("failed to find file configuration for event, this event will be ignored",
-						zap.String("source", evt.Source))
+						slog.String("source", evt.Source))
 					continue
 				}
 				evtFields, include := shouldIncludeEvent(evt, ifc.FileParser, compiledFrags, compiledNotFrags, compiledFields, compiledNotFields)

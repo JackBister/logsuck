@@ -18,12 +18,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"regexp"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/parser"
-	"go.uber.org/zap"
 )
 
 type FlagStringArray []string
@@ -81,7 +81,7 @@ func ParseCommandLine() *CommandLineFlags {
 	return &ret
 }
 
-func (c *CommandLineFlags) ToConfig(logger *zap.Logger) *Config {
+func (c *CommandLineFlags) ToConfig(logger *slog.Logger) *Config {
 	staticConfig := Config{
 		HostType: "DEFAULT",
 
@@ -111,22 +111,25 @@ func (c *CommandLineFlags) ToConfig(logger *zap.Logger) *Config {
 		var jsonCfg JsonConfig
 		err = json.NewDecoder(cfgFile).Decode(&jsonCfg)
 		if err != nil {
-			logger.Fatal("error decoding json from config file", zap.String("fileName", c.CfgFile), zap.Error(err))
+			logger.Error("error decoding json from config file", slog.String("fileName", c.CfgFile), slog.Any("error", err))
+			os.Exit(1)
 		}
-		newCfg, err := FromJSON(jsonCfg, logger.Named("configFromJSON"))
+		newCfg, err := FromJSON(jsonCfg, logger)
 		if err != nil {
-			logger.Fatal("error parsing configuration from config file", zap.String("fileName", c.CfgFile), zap.Error(err))
+			logger.Error("error parsing configuration from config file", slog.String("fileName", c.CfgFile), slog.Any("error", err))
+			os.Exit(1)
 		}
 		staticConfig = *newCfg
-		logger.Info("using configuration from file", zap.String("fileName", c.CfgFile), zap.Any("staticConfig", staticConfig))
+		logger.Info("using configuration from file", slog.String("fileName", c.CfgFile), slog.Any("staticConfig", staticConfig))
 	} else {
-		logger.Warn("Could not open config file, will use command line configuration", zap.String("fileName", c.CfgFile))
+		logger.Warn("Could not open config file, will use command line configuration", slog.String("fileName", c.CfgFile))
 		if c.HostName != "" {
 			staticConfig.HostName = c.HostName
 		} else {
 			hostName, err := os.Hostname()
 			if err != nil {
-				logger.Fatal("error getting hostname", zap.Error(err))
+				logger.Error("error getting hostname", slog.Any("error", err))
+				os.Exit(1)
 			}
 			staticConfig.HostName = hostName
 		}

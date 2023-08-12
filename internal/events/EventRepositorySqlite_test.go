@@ -16,11 +16,11 @@ package events
 
 import (
 	"database/sql"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
-	"go.uber.org/zap"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -150,7 +150,7 @@ func createRepoWithCfg(t *testing.T, cfg *config.SqliteConfig) Repository {
 		Cfg: &config.Config{
 			SQLite: cfg,
 		},
-		Logger: zap.NewNop(),
+		Logger: slog.Default()(),
 	})
 	if err != nil {
 		t.Fatalf("got error when creating events repo: %v", err)

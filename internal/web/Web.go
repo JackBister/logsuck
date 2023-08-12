@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/fs"
 	"io/ioutil"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -33,7 +34,6 @@ import (
 	"github.com/jackbister/logsuck/internal/jobs"
 	"github.com/jackbister/logsuck/internal/parser"
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 )
 
 type Web interface {
@@ -49,7 +49,7 @@ type webImpl struct {
 	jobEngine     *jobs.Engine
 	enumProviders map[string]EnumProvider
 
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 type webError struct {
@@ -70,7 +70,7 @@ type WebParams struct {
 	EventRepo    events.Repository
 	JobRepo      jobs.Repository
 	JobEngine    *jobs.Engine
-	Logger       *zap.Logger
+	Logger       *slog.Logger
 
 	EnumProviders []EnumProvider `group:"enumProviders"`
 }
@@ -270,7 +270,7 @@ func (wi webImpl) Serve() error {
 		c.FileFromFS(path, filesys)
 	})
 
-	wi.logger.Info("Starting Web GUI", zap.String("address", wi.staticConfig.Web.Address))
+	wi.logger.Info("Starting Web GUI", slog.String("address", wi.staticConfig.Web.Address))
 	return r.Run(wi.staticConfig.Web.Address)
 }
 

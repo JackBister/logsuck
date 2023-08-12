@@ -16,10 +16,9 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 type jsonHostConfig struct {
@@ -146,7 +145,7 @@ var defaultConfig = Config{
 	},
 }
 
-func FromJSON(cfg JsonConfig, logger *zap.Logger) (*Config, error) {
+func FromJSON(cfg JsonConfig, logger *slog.Logger) (*Config, error) {
 	var err error
 	var hostName string
 	var hostType string
@@ -178,7 +177,7 @@ func FromJSON(cfg JsonConfig, logger *zap.Logger) (*Config, error) {
 		}
 	}
 
-	fileTypes, err := FileTypeConfigFromJSON(cfg.FileTypes, logger.Named("FileTypeConfigFromJSON"))
+	fileTypes, err := FileTypeConfigFromJSON(cfg.FileTypes, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -197,29 +196,29 @@ func FromJSON(cfg JsonConfig, logger *zap.Logger) (*Config, error) {
 		}
 		if cfg.Forwarder.MaxBufferedEvents == nil {
 			logger.Info("Using default maxBufferedEvents for forwarder",
-				zap.Int("defaultMaxBufferedEvents", defaultConfig.Forwarder.MaxBufferedEvents))
+				slog.Int("defaultMaxBufferedEvents", defaultConfig.Forwarder.MaxBufferedEvents))
 			forwarder.MaxBufferedEvents = defaultConfig.Forwarder.MaxBufferedEvents
 		} else {
 			forwarder.MaxBufferedEvents = *cfg.Forwarder.MaxBufferedEvents
 		}
 		if cfg.Forwarder.RecipientAddress == "" {
 			logger.Info("Using default recipientAddress for forwarder",
-				zap.String("defaultRecipientAddress", defaultConfig.Forwarder.RecipientAddress))
+				slog.String("defaultRecipientAddress", defaultConfig.Forwarder.RecipientAddress))
 			forwarder.RecipientAddress = defaultConfig.Forwarder.RecipientAddress
 		} else {
 			forwarder.RecipientAddress = cfg.Forwarder.RecipientAddress
 		}
 		if cfg.Forwarder.ConfigPollInterval == "" {
 			logger.Info("using defaultConfigPollInterval",
-				zap.Stringer("defaultConfigPollInterval", defaultConfig.Forwarder.ConfigPollInterval))
+				slog.Duration("defaultConfigPollInterval", defaultConfig.Forwarder.ConfigPollInterval))
 			forwarder.ConfigPollInterval = defaultConfig.Forwarder.ConfigPollInterval
 		} else {
 			d, err := time.ParseDuration(cfg.Forwarder.ConfigPollInterval)
 			if err != nil {
 				logger.Info("failed to parse configPollInterval, will use defaultConfigPollInterval",
-					zap.String("configPollInterval", cfg.Forwarder.ConfigPollInterval),
-					zap.Stringer("defaultConfigPollInterval", defaultConfig.Forwarder.ConfigPollInterval),
-					zap.Error(err))
+					slog.String("configPollInterval", cfg.Forwarder.ConfigPollInterval),
+					slog.Duration("defaultConfigPollInterval", defaultConfig.Forwarder.ConfigPollInterval),
+					slog.Any("error", err))
 				forwarder.ConfigPollInterval = defaultConfig.Forwarder.ConfigPollInterval
 			} else {
 				forwarder.ConfigPollInterval = d
@@ -241,7 +240,7 @@ func FromJSON(cfg JsonConfig, logger *zap.Logger) (*Config, error) {
 		}
 		if cfg.Recipient.Address == "" {
 			logger.Info("Using default address for recipient",
-				zap.String("defaultRecipientAddress", defaultConfig.Recipient.Address))
+				slog.String("defaultRecipientAddress", defaultConfig.Recipient.Address))
 			recipient.Address = defaultConfig.Recipient.Address
 		} else {
 			recipient.Address = cfg.Recipient.Address
@@ -256,7 +255,7 @@ func FromJSON(cfg JsonConfig, logger *zap.Logger) (*Config, error) {
 		sqlite = &SqliteConfig{}
 		if cfg.Sqlite.FileName == "" {
 			logger.Info("Using default sqlite filename",
-				zap.String("defaultSqliteFileName", defaultConfig.SQLite.DatabaseFile))
+				slog.String("defaultSqliteFileName", defaultConfig.SQLite.DatabaseFile))
 			sqlite.DatabaseFile = defaultConfig.SQLite.DatabaseFile
 		} else {
 			sqlite.DatabaseFile = cfg.Sqlite.FileName
@@ -292,7 +291,7 @@ func FromJSON(cfg JsonConfig, logger *zap.Logger) (*Config, error) {
 		}
 		if cfg.Web.Address == "" {
 			logger.Info("Using default web address",
-				zap.String("defaultWebAddress", defaultConfig.Web.Address))
+				slog.String("defaultWebAddress", defaultConfig.Web.Address))
 			web.Address = defaultConfig.Web.Address
 		} else {
 			web.Address = cfg.Web.Address
@@ -332,9 +331,9 @@ func FromJSON(cfg JsonConfig, logger *zap.Logger) (*Config, error) {
 		intervalDuration, err := time.ParseDuration(v.Interval)
 		if err != nil {
 			logger.Error("got invalid duration when parsing interval for task. This task will be disabled. error",
-				zap.String("interval", v.Interval),
-				zap.String("taskName", v.Name),
-				zap.Error(err))
+				slog.String("interval", v.Interval),
+				slog.String("taskName", v.Name),
+				slog.Any("error", err))
 			enabled = false
 		}
 		cfgMap := map[string]any{}
@@ -368,14 +367,14 @@ func FromJSON(cfg JsonConfig, logger *zap.Logger) (*Config, error) {
 	}, nil
 }
 
-func getDefaultHostName(logger *zap.Logger) (string, error) {
+func getDefaultHostName(logger *slog.Logger) (string, error) {
 	logger.Info("No hostName in configuration, will try to get host name from operating system.")
 	hostName, err := os.Hostname()
 	if err != nil {
 		return "", fmt.Errorf("error getting host name: %w", err)
 	}
 	logger.Info("Got host name from operating system",
-		zap.String("hostName", hostName))
+		slog.String("hostName", hostName))
 	return hostName, nil
 }
 

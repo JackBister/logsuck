@@ -15,13 +15,13 @@
 package events
 
 import (
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/parser"
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 )
 
 type EventPublisher interface {
@@ -34,7 +34,7 @@ type batchedRepositoryPublisher struct {
 
 	adder chan Event
 
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 type BatchedRepositoryPublisherParams struct {
@@ -42,7 +42,7 @@ type BatchedRepositoryPublisherParams struct {
 
 	Cfg    *config.Config
 	Repo   Repository
-	Logger *zap.Logger
+	Logger *slog.Logger
 }
 
 func BatchedRepositoryPublisher(p BatchedRepositoryPublisherParams) EventPublisher {
@@ -66,7 +66,7 @@ func BatchedRepositoryPublisher(p BatchedRepositoryPublisherParams) EventPublish
 					if err != nil {
 						// TODO: Error handling
 						p.Logger.Error("error when adding events",
-							zap.Error(err))
+							slog.Any("error", err))
 					}
 					accumulated = accumulated[:0]
 					timeout = time.After(1 * time.Second)
@@ -97,13 +97,13 @@ func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout stri
 	fields, err := parser.ExtractFields(strings.ToLower(evt.Raw), fileParser)
 	if err != nil {
 		ep.logger.Warn("failed to extract fields when getting timestamp, will use current time as timestamp",
-			zap.Error(err))
+			slog.Any("error", err))
 		processed.Timestamp = time.Now()
 	} else if t, ok := fields["_time"]; ok {
 		parsed, err := parser.ParseTime(timeLayout, t)
 		if err != nil {
 			ep.logger.Warn("failed to parse _time field, will use current time as timestamp",
-				zap.Error(err))
+				slog.Any("error", err))
 			processed.Timestamp = time.Now()
 		} else {
 			processed.Timestamp = parsed

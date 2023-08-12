@@ -17,6 +17,7 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/web"
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 )
 
 type TaskContext struct {
@@ -80,7 +80,7 @@ type TaskManager struct {
 	taskData    sync.Map //<string, TaskData>
 	ctx         context.Context
 
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 type TaskManagerParams struct {
@@ -89,7 +89,7 @@ type TaskManagerParams struct {
 	EventsRepo events.Repository
 	Ctx        context.Context
 	CfgSource  config.ConfigSource
-	Logger     *zap.Logger
+	Logger     *slog.Logger
 
 	Tasks []Task `group:"tasks"`
 }
@@ -148,9 +148,9 @@ func (tm *TaskManager) ScheduleTask(name string) error {
 		}
 	}
 	tm.taskData.Store(name, td)
-	logger := tm.logger.With(zap.String("taskName", name))
+	logger := tm.logger.With(slog.String("taskName", name))
 	logger.Info("scheduling task",
-		zap.Stringer("interval", td.interval))
+		slog.Duration("interval", td.interval))
 	go func(t Task, td TaskData) {
 		ticker := time.NewTicker(td.interval)
 		defer ticker.Stop()
@@ -175,7 +175,7 @@ func (tm *TaskManager) ScheduleTask(name string) error {
 					td.state = TaskStateNotRunning
 					tm.taskData.Store(name, td)
 					logger.Info("task finished",
-						zap.Stringer("duration", endTime.Sub(startTime)))
+						slog.Duration("duration", endTime.Sub(startTime)))
 				}
 			}
 		}
@@ -187,7 +187,7 @@ func (tm *TaskManager) UpdateConfig(cfg config.Config) {
 	tm.logger.Info("Updating TaskManager config")
 	tm.cfg = &cfg.Tasks
 	for tn := range tm.tasks {
-		logger := tm.logger.With(zap.String("taskName", tn))
+		logger := tm.logger.With(slog.String("taskName", tn))
 		oldTdAny, ok := tm.taskData.Load(tn)
 		if !ok {
 			logger.Error("did not get taskData for task")
@@ -208,7 +208,7 @@ func (tm *TaskManager) UpdateConfig(cfg config.Config) {
 	for tn := range tm.tasks {
 		if t, ok := cfg.Tasks.Tasks[tn]; !ok || !t.Enabled {
 			tm.logger.Info("task was not present in new configuration. This task will not be rescheduled",
-				zap.String("taskName", tn))
+				slog.String("taskName", tn))
 			tasksToRemove = append(tasksToRemove, tn)
 		}
 	}

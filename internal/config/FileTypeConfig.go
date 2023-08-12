@@ -16,11 +16,11 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"regexp"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/parser"
-	"go.uber.org/zap"
 )
 
 type ParserType = int
@@ -57,7 +57,7 @@ var defaultRegexParserConfig = parser.RegexParserConfig{
 
 const defaultTimeLayout = "2006/01/02 15:04:05"
 
-func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *zap.Logger) (map[string]FileTypeConfig, error) {
+func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *slog.Logger) (map[string]FileTypeConfig, error) {
 	var err error
 	fileTypes := make(map[string]FileTypeConfig, len(jsonFileTypes))
 	for _, ft := range jsonFileTypes {
@@ -66,13 +66,13 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *zap.Logg
 			readInterval, err = time.ParseDuration(ft.ReadInterval)
 			if err != nil {
 				logger.Error("failed to read config for fileType: failed to parse readInterval",
-					zap.String("fileType", ft.Name),
-					zap.String("readInterval", ft.ReadInterval))
+					slog.String("fileType", ft.Name),
+					slog.String("readInterval", ft.ReadInterval))
 				return nil, fmt.Errorf("failed to read config for fileType: failed to parse readInterval")
 			}
 		} else {
 			logger.Info("will use default readInterval for fileType",
-				zap.String("fileType", ft.Name))
+				slog.String("fileType", ft.Name))
 			readInterval = defaultReadInterval
 		}
 
@@ -81,13 +81,13 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *zap.Logg
 		var regexParserConfig *parser.RegexParserConfig
 		if ft.Parser == nil {
 			logger.Info("will use default parser config for fileType",
-				zap.String("fileType", ft.Name))
+				slog.String("fileType", ft.Name))
 			parserType = ParserTypeRegex
 			regexParserConfig = &defaultRegexParserConfig
 		} else if ft.Parser.Type == "JSON" {
 			if ft.Parser.JsonConfig == nil {
 				logger.Error("failed to read config for fileType: parser.jsonConfig was nil",
-					zap.String("fileType", ft.Name))
+					slog.String("fileType", ft.Name))
 				return nil, fmt.Errorf("failed to read config for fileType: parser.jsonConfig was nil")
 			}
 
@@ -95,8 +95,8 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *zap.Logg
 			eventDelimiter, err := regexp.Compile(ft.Parser.JsonConfig.EventDelimiter)
 			if err != nil {
 				logger.Error("failed to read config for fileType: failed to compile eventDelimiter regexp",
-					zap.String("fileType", ft.Name),
-					zap.Error(err))
+					slog.String("fileType", ft.Name),
+					slog.Any("error", err))
 			}
 
 			jsonParserConfig = &parser.JsonParserConfig{
@@ -106,7 +106,7 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *zap.Logg
 		} else if ft.Parser.Type == "Regex" {
 			if ft.Parser.RegexConfig == nil {
 				logger.Error("failed to read config for fileType: parser.regexConfig was nil",
-					zap.String("fileType", ft.Name))
+					slog.String("fileType", ft.Name))
 				return nil, fmt.Errorf("failed to read config for fileType: parser.regexConfig was nil")
 			}
 
@@ -114,8 +114,8 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *zap.Logg
 			eventDelimiter, err := regexp.Compile(ft.Parser.RegexConfig.EventDelimiter)
 			if err != nil {
 				logger.Error("failed to read config for fileType: failed to compile eventDelimiter regexp",
-					zap.String("fileType", ft.Name),
-					zap.Error(err))
+					slog.String("fileType", ft.Name),
+					slog.Any("error", err))
 				return nil, fmt.Errorf("failed to read config for fileType: failed to compile eventDelimiter regexp")
 			}
 
@@ -124,9 +124,9 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *zap.Logg
 				rex, err := regexp.Compile(s)
 				if err != nil {
 					logger.Error("failed to read config for fileType: failed to compile fieldExtractor regexp",
-						zap.String("fileType", ft.Name),
-						zap.Int("index", i),
-						zap.Error(err))
+						slog.String("fileType", ft.Name),
+						slog.Int("index", i),
+						slog.Any("error", err))
 					continue
 				}
 				fe = append(fe, rex)
@@ -137,8 +137,8 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *zap.Logg
 				timeField = ft.Parser.RegexConfig.TimeField
 			} else {
 				logger.Warn("got empty timeField for fileType, will use default timeField",
-					zap.String("fileType", ft.Name),
-					zap.String("defaultTimeField", defaultTimeField))
+					slog.String("fileType", ft.Name),
+					slog.String("defaultTimeField", defaultTimeField))
 			}
 
 			regexParserConfig = &parser.RegexParserConfig{
@@ -148,8 +148,8 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *zap.Logg
 			}
 		} else {
 			logger.Error("failed to read config for fileType: Unknown parser.type",
-				zap.String("fileType", ft.Name),
-				zap.String("parserType", ft.Parser.Type))
+				slog.String("fileType", ft.Name),
+				slog.String("parserType", ft.Parser.Type))
 			return nil, fmt.Errorf("failed to read config for fileType: Unknown parser.type")
 		}
 

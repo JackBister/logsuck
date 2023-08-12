@@ -18,13 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/pipeline"
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 )
 
 type Engine struct {
@@ -33,7 +33,7 @@ type Engine struct {
 	eventRepo    events.Repository
 	jobRepo      Repository
 
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 type EngineParams struct {
@@ -42,7 +42,7 @@ type EngineParams struct {
 	ConfigSource config.ConfigSource
 	EventRepo    events.Repository
 	JobRepo      Repository
-	Logger       *zap.Logger
+	Logger       *slog.Logger
 }
 
 func NewEngine(p EngineParams) *Engine {
@@ -64,14 +64,14 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 	sortMode := pl.SortMode()
 	columnOrder, err := pl.ColumnOrder()
 	if err != nil {
-		e.logger.Warn("Got error when getting column order for pipeline. The columns may not be ordered correctly when displayed.", zap.Error(err))
+		e.logger.Warn("Got error when getting column order for pipeline. The columns may not be ordered correctly when displayed.", slog.Any("error", err))
 		columnOrder = []string{}
 	}
 	id, err := e.jobRepo.Insert(query, startTime, endTime, sortMode, pl.OutputType(), columnOrder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert job in repo: %w", err)
 	}
-	logger := e.logger.With(zap.Int64("jobId", *id))
+	logger := e.logger.With(slog.Int64("jobId", *id))
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	e.cancels[*id] = cancelFunc
 	go func() {
@@ -108,7 +108,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 						err := e.jobRepo.AddResults(*id, converted)
 						if err != nil {
 							logger.Error("failed to add events to job",
-								zap.Error(err))
+								slog.Any("error", err))
 							// TODO: Retry?
 							continue
 						}
@@ -116,7 +116,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 						err = e.jobRepo.AddFieldStats(*id, fields)
 						if err != nil {
 							logger.Error("failed to add field stats to job",
-								zap.Error(err))
+								slog.Any("error", err))
 						}
 					}
 				} else if outputType == pipeline.PipelinePipeTypeTable {
@@ -133,7 +133,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 						err := e.jobRepo.AddTableResults(*id, rows)
 						if err != nil {
 							logger.Error("failed to add table results to job",
-								zap.Error(err))
+								slog.Any("error", err))
 							// TODO: Retry?
 							continue
 						}
@@ -141,11 +141,11 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 						err = e.jobRepo.AddFieldStats(*id, fields)
 						if err != nil {
 							logger.Error("failed to add field stats to job",
-								zap.Error(err))
+								slog.Any("error", err))
 						}
 					}
 				} else {
-					logger.Error("unhandled outputType", zap.Int("outputType", int(outputType)))
+					logger.Error("unhandled outputType", slog.Int("outputType", int(outputType)))
 				}
 			case <-done:
 				wasCancelled = true
@@ -162,7 +162,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 		err = e.jobRepo.UpdateState(*id, state)
 		if err != nil {
 			logger.Error("failed to update job to finished state",
-				zap.Error(err))
+				slog.Any("error", err))
 		}
 	}()
 	return id, nil
@@ -174,7 +174,7 @@ func (e *Engine) Abort(jobId int64) error {
 		cancelFunc()
 		return nil
 	}
-	logger := e.logger.With(zap.Int64("jobId", jobId))
+	logger := e.logger.With(slog.Int64("jobId", jobId))
 	logger.Warn("Attempted to cancel job but there was no cancelFunc in the cancels map. Will verify that state is aborted or finished")
 	job, err := e.jobRepo.Get(jobId)
 	if err != nil {

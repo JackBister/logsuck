@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
+	"os"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/dependencyinjection"
@@ -28,7 +30,6 @@ import (
 	"github.com/jackbister/logsuck/internal/tasks"
 	"github.com/jackbister/logsuck/internal/web"
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -48,22 +49,29 @@ func main() {
 	}
 
 	var err error
-	var logger *zap.Logger
+	var logger *slog.Logger
 	if cmdFlags.LogType == "development" {
-		logger, err = zap.NewDevelopment()
-
+		logger = slog.New(slog.NewTextHandler(
+			os.Stdout,
+			&slog.HandlerOptions{
+				AddSource: true,
+				Level:     slog.LevelDebug,
+			},
+		))
 	} else {
-		logger, err = zap.NewProduction()
-	}
-	if err != nil {
-		log.Fatalf("failed to create Zap logger: %v\n", err)
-		return
+		logger = slog.New(slog.NewJSONHandler(
+			os.Stdout,
+			&slog.HandlerOptions{
+				AddSource: true,
+				Level:     slog.LevelInfo,
+			},
+		))
 	}
 
 	staticConfig := cmdFlags.ToConfig(logger)
 	c, err := dependencyinjection.InjectionContextFromConfig(staticConfig, cmdFlags.ForceStaticConfig, logger)
 	if err != nil {
-		logger.Fatal("failed to create dependency injection context", zap.Error(err))
+		logger.Error("failed to create dependency injection context", slog.Any("error", err))
 		return
 	}
 
@@ -86,21 +94,24 @@ func main() {
 			r, _ := p.ConfigSource.Get()
 			indexedFiles, err := indexedfiles.ReadFileConfig(&r.Cfg, logger)
 			if err != nil {
-				logger.Fatal("got error when reading dynamic file config", zap.Error(err))
+				logger.Error("got error when reading dynamic file config", slog.Any("error", err))
+				os.Exit(1)
 				return
 			}
-			reloadFileWatchers(logger.Named("reloadFileWatchers"), &watchers, indexedFiles, p.StaticConfig, &r.Cfg, p.Publisher, p.Ctx)
+			reloadFileWatchers(logger, &watchers, indexedFiles, p.StaticConfig, &r.Cfg, p.Publisher, p.Ctx)
 		}
 
 		if p.StaticConfig.Recipient.Enabled {
 			go func() {
-				logger.Fatal("got error from recipient Serve method", zap.Error(p.RecipientEndpoint.Serve()))
+				logger.Error("got error from recipient Serve method", slog.Any("error", p.RecipientEndpoint.Serve()))
+				os.Exit(1)
 			}()
 		}
 
 		if p.StaticConfig.Web.Enabled {
 			go func() {
-				logger.Fatal("got error from web Serve method", zap.Error(p.Web.Serve()))
+				logger.Error("got error from web Serve method", slog.Any("error", p.Web.Serve()))
+				os.Exit(1)
 			}()
 		}
 
@@ -109,15 +120,15 @@ func main() {
 				<-p.ConfigSource.Changes()
 				newCfg, err := p.ConfigSource.Get()
 				if err != nil {
-					logger.Warn("got error when reading updated dynamic file config. file and task config will not be updated", zap.Error(err))
+					logger.Warn("got error when reading updated dynamic file config. file and task config will not be updated", slog.Any("error", err))
 					continue
 				}
 				if !p.StaticConfig.Recipient.Enabled {
 					newIndexedFiles, err := indexedfiles.ReadFileConfig(&newCfg.Cfg, logger)
 					if err != nil {
-						logger.Warn("got error when reading updated dynamic file config. file config will not be updated", zap.Error(err))
+						logger.Warn("got error when reading updated dynamic file config. file config will not be updated", slog.Any("error", err))
 					} else {
-						reloadFileWatchers(logger.Named("reloadFileWatchers"), &watchers, newIndexedFiles, p.StaticConfig, &newCfg.Cfg, p.Publisher, p.Ctx)
+						reloadFileWatchers(logger, &watchers, newIndexedFiles, p.StaticConfig, &newCfg.Cfg, p.Publisher, p.Ctx)
 					}
 				}
 				p.TaskManager.UpdateConfig(newCfg.Cfg)
@@ -131,8 +142,8 @@ func main() {
 	select {}
 }
 
-func reloadFileWatchers(logger *zap.Logger, watchers *map[string]*files.GlobWatcher, indexedFiles []indexedfiles.IndexedFileConfig, staticConfig *config.Config, cfg *config.Config, publisher events.EventPublisher, ctx context.Context) {
-	logger.Info("reloading file watchers", zap.Int("newIndexedFilesLen", len(indexedFiles)), zap.Int("oldIndexedFilesLen", len(*watchers)))
+func reloadFileWatchers(logger *slog.Logger, watchers *map[string]*files.GlobWatcher, indexedFiles []indexedfiles.IndexedFileConfig, staticConfig *config.Config, cfg *config.Config, publisher events.EventPublisher, ctx context.Context) {
+	logger.Info("reloading file watchers", slog.Int("newIndexedFilesLen", len(indexedFiles)), slog.Int("oldIndexedFilesLen", len(*watchers)))
 	indexedFilesMap := map[string]indexedfiles.IndexedFileConfig{}
 	for _, cfg := range indexedFiles {
 		indexedFilesMap[cfg.Filename] = cfg
@@ -142,7 +153,7 @@ func reloadFileWatchers(logger *zap.Logger, watchers *map[string]*files.GlobWatc
 	for k, v := range *watchers {
 		newCfg, ok := indexedFilesMap[k]
 		if !ok {
-			logger.Info("filename not found in new indexed files config. will cancel and delete watcher", zap.String("fileName", k))
+			logger.Info("filename not found in new indexed files config. will cancel and delete watcher", slog.String("fileName", k))
 			v.Cancel()
 			watchersToDelete = append(watchersToDelete, k)
 			continue
@@ -161,10 +172,10 @@ func reloadFileWatchers(logger *zap.Logger, watchers *map[string]*files.GlobWatc
 		if ok {
 			continue
 		}
-		logger.Info("creating new watcher", zap.String("fileName", k))
-		w, err := files.NewGlobWatcher(v, v.Filename, staticConfig.HostName, publisher, ctx, logger.Named("GlobWatcher"))
+		logger.Info("creating new watcher", slog.String("fileName", k))
+		w, err := files.NewGlobWatcher(v, v.Filename, staticConfig.HostName, publisher, ctx, logger)
 		if err != nil {
-			logger.Warn("got error when creating GlobWatcher", zap.String("fileName", v.Filename), zap.Error(err))
+			logger.Warn("got error when creating GlobWatcher", slog.String("fileName", v.Filename), slog.Any("error", err))
 			continue
 		}
 		(*watchers)[k] = w

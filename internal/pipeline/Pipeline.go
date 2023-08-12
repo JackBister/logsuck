@@ -17,12 +17,12 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/parser"
-	"go.uber.org/zap"
 )
 
 type PipelinePipeType int
@@ -45,7 +45,7 @@ type PipelineParameters struct {
 	ConfigSource config.ConfigSource
 	EventsRepo   events.Repository
 
-	Logger *zap.Logger
+	Logger *slog.Logger
 }
 
 type PipelineStepResult struct {

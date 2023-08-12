@@ -17,13 +17,13 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/parser"
-	"go.uber.org/zap"
 )
 
 type surroundingPipelineStep struct {
@@ -37,14 +37,14 @@ func (s *surroundingPipelineStep) Execute(ctx context.Context, pipe pipelinePipe
 	evts, err := params.EventsRepo.GetSurroundingEvents(s.eventId, s.count)
 	if err != nil {
 		params.Logger.Error("got error when executing surrounding pipeline step",
-			zap.Error(err)) // TODO: This needs to make it to the frontend somehow
+			slog.Any("error", err)) // TODO: This needs to make it to the frontend somehow
 		return
 	}
 
 	cfg, err := params.ConfigSource.Get()
 	if err != nil {
 		params.Logger.Error("got error when executing surrounding pipeline step: failed to get config",
-			zap.Error(err))
+			slog.Any("error", err))
 		return
 	}
 	indexedFileConfigs, err := indexedfiles.ReadFileConfig(&cfg.Cfg, params.Logger)
@@ -59,7 +59,7 @@ func (s *surroundingPipelineStep) Execute(ctx context.Context, pipe pipelinePipe
 		if !ok {
 			// TODO: How does the user get feedback about this?
 			params.Logger.Warn("failed to find file configuration for event, this event will be ignored",
-				zap.String("source", evt.Source))
+				slog.String("source", evt.Source))
 			continue
 		}
 		evtFields, _ := parser.ExtractFields(strings.ToLower(evt.Raw), ifc.FileParser)

@@ -16,11 +16,11 @@ package pipeline
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/events"
-	"go.uber.org/zap"
 )
 
 func TestSurroundingPipelineStep(t *testing.T) {
@@ -35,7 +35,7 @@ func TestSurroundingPipelineStep(t *testing.T) {
 		ConfigSource: newConfigSource(),
 		EventsRepo:   repo,
 
-		Logger: zap.NewNop(),
+		Logger: slog.Default()(),
 	}
 	pipe, input, output := newPipe()
 	close(input)

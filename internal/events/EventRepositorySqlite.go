@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,7 +27,6 @@ import (
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/search"
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 )
 
 // It might be more correct to use source_id + offset for deduplication, but this works poorly in single mode / while developing since
@@ -40,7 +40,7 @@ type sqliteRepository struct {
 
 	cfg *config.SqliteConfig
 
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 type SqliteEventRepositoryParams struct {
@@ -48,7 +48,7 @@ type SqliteEventRepositoryParams struct {
 
 	Db     *sql.DB
 	Cfg    *config.Config
-	Logger *zap.Logger
+	Logger *slog.Logger
 }
 
 func SqliteRepository(p SqliteEventRepositoryParams) (Repository, error) {
@@ -138,14 +138,14 @@ func (repo *sqliteRepository) addBatchTrueBatch(events []Event) error {
 	}
 	newMaxID, err := res.LastInsertId()
 	if err != nil {
-		repo.logger.Error("got error when getting new max ID to clean up EventRaws", zap.Error(err))
+		repo.logger.Error("got error when getting new max ID to clean up EventRaws", slog.Any("error", err))
 	} else {
 		res, err = tx.Exec("DELETE FROM EventRaws AS er WHERE NOT EXISTS (SELECT 1 FROM Events e WHERE e.ID = er.rowid) AND er.rowid > ? AND er.rowid <= ? AND er.rowid != (SELECT MAX(ID) FROM Events)", prevMaxID, newMaxID)
 		if err != nil {
-			repo.logger.Error("got error when cleaning up EventRaws", zap.Error(err))
+			repo.logger.Error("got error when cleaning up EventRaws", slog.Any("error", err))
 		} else if deleted, err := res.RowsAffected(); err == nil && deleted > 0 {
 			repo.logger.Info("Skipped adding events as they appear to be duplicates (same source, offset and timestamp as an existing event)",
-				zap.Int64("numEvents", deleted))
+				slog.Int64("numEvents", deleted))
 		}
 	}
 	err = tx.Commit()
@@ -153,8 +153,8 @@ func (repo *sqliteRepository) addBatchTrueBatch(events []Event) error {
 		// TODO: Hmm?
 	}
 	repo.logger.Info("added events",
-		zap.Int("numEvents", len(events)),
-		zap.Stringer("duration", time.Now().Sub(startTime)))
+		slog.Int("numEvents", len(events)),
+		slog.Duration("duration", time.Now().Sub(startTime)))
 	return nil
 }
 
@@ -195,11 +195,11 @@ func (repo *sqliteRepository) addBatchOneByOne(events []Event) error {
 	}
 	for k, v := range numberOfDuplicates {
 		repo.logger.Info("Skipped adding events because they appear to be duplicates (same source, offset and timestamp as an existing event)",
-			zap.Int64("numEvents", v), zap.String("source", k))
+			slog.Int64("numEvents", v), slog.String("source", k))
 	}
 	repo.logger.Info("added events",
-		zap.Int("numEvents", len(events)),
-		zap.Stringer("duration", time.Now().Sub(startTime)))
+		slog.Int("numEvents", len(events)),
+		slog.Duration("duration", time.Now().Sub(startTime)))
 	return nil
 }
 
@@ -271,7 +271,7 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 		defer close(ret)
 		res, err := repo.db.Query("SELECT MAX(id) FROM Events;")
 		if err != nil {
-			repo.logger.Error("error when getting max(id) from Events table in FilterStream", zap.Error(err))
+			repo.logger.Error("error when getting max(id) from Events table in FilterStream", slog.Any("error", err))
 			return
 		}
 		if !res.Next() {
@@ -286,7 +286,7 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 			if err.Error() == expectedErrorWhenDatabaseIsEmpty {
 				return
 			}
-			repo.logger.Error("error when scanning max(id) in FilterStream", zap.Error(err))
+			repo.logger.Error("error when scanning max(id) in FilterStream", slog.Any("error", err))
 			return
 		}
 		var lastTimestamp string
@@ -350,10 +350,10 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 				stmt += " AND EventRaws MATCH '" + matchString + "'"
 			}
 			stmt += " ORDER BY e.timestamp DESC LIMIT " + strconv.Itoa(filterStreamPageSize)
-			repo.logger.Info("executing SQL statement", zap.String("stmt", stmt))
+			repo.logger.Info("executing SQL statement", slog.String("stmt", stmt))
 			res, err = repo.db.Query(stmt)
 			if err != nil {
-				repo.logger.Error("error when getting filtered events in FilterStream", zap.Error(err))
+				repo.logger.Error("error when getting filtered events in FilterStream", slog.Any("error", err))
 				return
 			}
 			evts := make([]EventWithId, 0, filterStreamPageSize)
@@ -362,7 +362,7 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 				var evt EventWithId
 				err := res.Scan(&evt.Id, &evt.Host, &evt.Source, &evt.SourceId, &evt.Timestamp, &evt.Raw)
 				if err != nil {
-					repo.logger.Warn("error when scanning result in FilterStream", zap.Error(err))
+					repo.logger.Warn("error when scanning result in FilterStream", slog.Any("error", err))
 				} else {
 					evts = append(evts, evt)
 				}
@@ -374,7 +374,7 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 			if eventsInPage < filterStreamPageSize {
 				endTime := time.Now()
 				repo.logger.Info("SQL search completed",
-					zap.Stringer("duration", endTime.Sub(startTime)))
+					slog.Duration("duration", endTime.Sub(startTime)))
 				return
 			}
 		}

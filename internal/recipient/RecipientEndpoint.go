@@ -17,6 +17,7 @@ package recipient
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"time"
@@ -28,7 +29,6 @@ import (
 	"github.com/jackbister/logsuck/internal/parser"
 	"github.com/jackbister/logsuck/internal/rpc"
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 )
 
 type RecipientEndpoint struct {
@@ -36,7 +36,7 @@ type RecipientEndpoint struct {
 	staticConfig *config.Config
 	repo         events.Repository
 
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 type RecipientEndpointParams struct {
@@ -45,7 +45,7 @@ type RecipientEndpointParams struct {
 	ConfigSource config.ConfigSource
 	StaticConfig *config.Config
 	Repo         events.Repository
-	Logger       *zap.Logger
+	Logger       *slog.Logger
 }
 
 func NewRecipientEndpoint(p RecipientEndpointParams) *RecipientEndpoint {
@@ -131,21 +131,21 @@ func (er *RecipientEndpoint) Serve() error {
 			fields, err := parser.ExtractFields(strings.ToLower(evt.Raw), ifc.FileParser)
 			if err != nil {
 				er.logger.Warn("failed to extract fields when getting timestamp, will use current time as timestamp",
-					zap.Error(err))
+					slog.Any("error", err))
 				processed[i].Timestamp = time.Now()
 			} else if t, ok := fields["_time"]; ok {
 				parsed, err := parser.ParseTime(ifc.TimeLayout, t)
 				if err != nil {
 					er.logger.Warn("failed to parse _time field, will use current time as timestamp",
-						zap.Error(err))
+						slog.Any("error", err))
 					processed[i].Timestamp = time.Now()
 				} else {
 					processed[i].Timestamp = parsed
 				}
 			} else {
 				er.logger.Warn("no _time field extracted for event, got fields, will use current time as timestamp",
-					zap.String("eventRaw", evt.Raw),
-					zap.Any("fields", fields))
+					slog.String("eventRaw", evt.Raw),
+					slog.Any("fields", fields))
 				processed[i].Timestamp = time.Now()
 			}
 		}
@@ -158,6 +158,6 @@ func (er *RecipientEndpoint) Serve() error {
 	})
 
 	er.logger.Info("Starting recipient",
-		zap.String("address", er.staticConfig.Recipient.Address))
+		slog.String("address", er.staticConfig.Recipient.Address))
 	return r.Run(er.staticConfig.Recipient.Address)
 }

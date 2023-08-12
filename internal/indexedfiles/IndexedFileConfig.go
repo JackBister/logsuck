@@ -16,11 +16,11 @@ package indexedfiles
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/parser"
-	"go.uber.org/zap"
 )
 
 // IndexedFileConfig contains configuration for a specific file which will be indexed
@@ -40,7 +40,7 @@ type IndexedFileConfig struct {
 var defaultReadInterval = 1 * time.Second
 var defaultTimeLayout = "2006/01/02 15:04:05"
 
-func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *zap.Logger) (*IndexedFileConfig, error) {
+func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *slog.Logger) (*IndexedFileConfig, error) {
 	var jsonParserConfig *parser.JsonParserConfig
 	var regexParserConfig *parser.RegexParserConfig
 	timeLayout := ""
@@ -51,9 +51,9 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *za
 		} else {
 			if t.Name != "DEFAULT" && timeLayout != t.TimeLayout {
 				logger.Warn("encountered multiple timeLayouts for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same timeLayout.",
-					zap.String("fileName", filename),
-					zap.String("chosenTimeLayout", timeLayout),
-					zap.String("discardedTimeLayout", t.TimeLayout))
+					slog.String("fileName", filename),
+					slog.String("chosenTimeLayout", timeLayout),
+					slog.String("discardedTimeLayout", t.TimeLayout))
 			}
 		}
 
@@ -62,9 +62,9 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *za
 		} else {
 			if t.Name != "DEFAULT" && readInterval != &t.ReadInterval {
 				logger.Warn("encountered multiple readIntervals for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same readInterval.",
-					zap.String("fileName", filename),
-					zap.Stringer("chosenReadInterval", readInterval),
-					zap.Stringer("discardedReadInterval", t.ReadInterval))
+					slog.String("fileName", filename),
+					slog.Duration("chosenReadInterval", *readInterval),
+					slog.Duration("discardedReadInterval", t.ReadInterval))
 			}
 		}
 
@@ -86,9 +86,9 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *za
 				jsonParserConfig.EventDelimiter = eventDelimiter
 			} else if t.Name != "DEFAULT" && jsonParserConfig.EventDelimiter.String() != eventDelimiter.String() {
 				logger.Warn("encountered multiple eventDelimiters for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same eventDelimiter.",
-					zap.String("fileName", filename),
-					zap.Stringer("chosenEventDelimiter", eventDelimiter),
-					zap.Stringer("discardedEventDelimiter", jsonParserConfig.EventDelimiter))
+					slog.String("fileName", filename),
+					slog.Any("chosenEventDelimiter", eventDelimiter),
+					slog.Any("discardedEventDelimiter", jsonParserConfig.EventDelimiter))
 				jsonParserConfig.EventDelimiter = eventDelimiter
 			}
 
@@ -97,9 +97,9 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *za
 				jsonParserConfig.TimeField = timeField
 			} else if t.Name != "DEFAULT" && jsonParserConfig.TimeField != timeField {
 				logger.Warn("encountered multiple timeFields for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same timeField.",
-					zap.String("fileName", filename),
-					zap.String("chosenTimeField", timeField),
-					zap.String("discardedTimeField", jsonParserConfig.TimeField))
+					slog.String("fileName", filename),
+					slog.String("chosenTimeField", timeField),
+					slog.String("discardedTimeField", jsonParserConfig.TimeField))
 				jsonParserConfig.TimeField = timeField
 			}
 		} else if t.Regex != nil {
@@ -120,9 +120,9 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *za
 				regexParserConfig.EventDelimiter = eventDelimiter
 			} else if t.Name != "DEFAULT" && regexParserConfig.EventDelimiter.String() != eventDelimiter.String() {
 				logger.Warn("encountered multiple eventDelimiters for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same eventDelimiter.",
-					zap.String("fileName", filename),
-					zap.Stringer("chosenEventDelimiter", eventDelimiter),
-					zap.Stringer("discardedEventDelimiter", regexParserConfig.EventDelimiter))
+					slog.String("fileName", filename),
+					slog.Any("chosenEventDelimiter", eventDelimiter),
+					slog.Any("discardedEventDelimiter", regexParserConfig.EventDelimiter))
 				regexParserConfig.EventDelimiter = eventDelimiter
 			}
 
@@ -133,15 +133,15 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *za
 				regexParserConfig.TimeField = timeField
 			} else if t.Name != "DEFAULT" && regexParserConfig.TimeField != timeField {
 				logger.Warn("encountered multiple timeFields for file. will choose one of them. to avoid this error all fileTypes used by this filename must have the same timeField.",
-					zap.String("fileName", filename),
-					zap.String("chosenTimeField", timeField),
-					zap.String("discardedTimeField", regexParserConfig.TimeField))
+					slog.String("fileName", filename),
+					slog.String("chosenTimeField", timeField),
+					slog.String("discardedTimeField", regexParserConfig.TimeField))
 				regexParserConfig.TimeField = timeField
 			}
 		} else {
 			logger.Error("unhandled parserType for file",
-				zap.String("fileName", filename),
-				zap.Int("parserType", t.ParserType))
+				slog.String("fileName", filename),
+				slog.Int("parserType", t.ParserType))
 		}
 	}
 
@@ -158,13 +158,13 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *za
 		fp = &parser.JsonFileParser{
 			Cfg: *jsonParserConfig,
 
-			Logger: logger.Named("JsonFileParser"),
+			Logger: logger,
 		}
 	} else if regexParserConfig != nil {
 		fp = &parser.RegexFileParser{
 			Cfg: *regexParserConfig,
 
-			Logger: logger.Named("RegexFileParser"),
+			Logger: logger,
 		}
 	}
 
@@ -176,7 +176,7 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *za
 	}, nil
 }
 
-func ReadFileConfig(cfg *config.Config, logger *zap.Logger) ([]IndexedFileConfig, error) {
+func ReadFileConfig(cfg *config.Config, logger *slog.Logger) ([]IndexedFileConfig, error) {
 	fileTypes := cfg.FileTypes
 	files := cfg.Files
 	indexedFiles := make([]IndexedFileConfig, 0, len(fileTypes))
@@ -187,7 +187,7 @@ func ReadFileConfig(cfg *config.Config, logger *zap.Logger) ([]IndexedFileConfig
 		fileCfg, ok := files[v.Name]
 		if !ok {
 			logger.Error("Failed to find config for file. This file will be ignored.",
-				zap.String("fileName", v.Name))
+				slog.String("fileName", v.Name))
 			continue
 		}
 		fileTypeCfgs := make([]config.FileTypeConfig, 0, len(fileCfg.Filetypes))
@@ -195,8 +195,8 @@ func ReadFileConfig(cfg *config.Config, logger *zap.Logger) ([]IndexedFileConfig
 			ftc, ok := fileTypes[ftn]
 			if !ok {
 				logger.Error("Failed to find fileType when configuring filen. This file will be indexed but may be incorrectly configured.",
-					zap.String("fileType", ftn),
-					zap.String("fileName", v.Name))
+					slog.String("fileType", ftn),
+					slog.String("fileName", v.Name))
 				continue
 			}
 			fileTypeCfgs = append(fileTypeCfgs, ftc)
@@ -204,8 +204,8 @@ func ReadFileConfig(cfg *config.Config, logger *zap.Logger) ([]IndexedFileConfig
 		ifc, err := mergeConfigs(v.Name, fileTypeCfgs, logger)
 		if err != nil {
 			logger.Error("Failed to merge configuration for file. This file will be ignored",
-				zap.String("fileName", v.Name),
-				zap.Error(err))
+				slog.String("fileName", v.Name),
+				slog.Any("error", err))
 		}
 		indexedFiles = append(indexedFiles, *ifc)
 	}

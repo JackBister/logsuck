@@ -18,18 +18,18 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 )
 
 type SqliteConfigRepository struct {
 	db      *sql.DB
 	changes chan struct{}
 
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 type SqliteConfigRepositoryParams struct {
@@ -38,7 +38,7 @@ type SqliteConfigRepositoryParams struct {
 	Cfg               *Config
 	Db                *sql.DB
 	ForceStaticConfig bool `name:"forceStaticConfig"`
-	Logger            *zap.Logger
+	Logger            *slog.Logger
 }
 
 func NewSqliteConfigRepository(p SqliteConfigRepositoryParams) (ConfigRepository, error) {

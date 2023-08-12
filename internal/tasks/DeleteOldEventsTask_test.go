@@ -17,12 +17,12 @@ package tasks
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
-	"go.uber.org/zap"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -32,7 +32,7 @@ func TestDeleteOldEventsTaskInvalidMinAgeDoesNotDelete(t *testing.T) {
 	task := &DeleteOldEventsTask{
 		Repo: repo,
 
-		Logger: zap.NewNop(),
+		Logger: slog.Default()(),
 	}
 
 	repo.AddBatch([]events.Event{
@@ -66,7 +66,7 @@ func TestDeleteOldEventsDeletesOldEvents(t *testing.T) {
 	repo := createRepo(t)
 	task := &DeleteOldEventsTask{
 		Repo:   repo,
-		Logger: zap.NewNop()}
+		Logger: slog.Default()()}
 
 	repo.AddBatch([]events.Event{
 		{
@@ -112,7 +112,7 @@ func createRepo(t *testing.T) events.Repository {
 		Cfg: &config.Config{
 			SQLite: &config.SqliteConfig{},
 		},
-		Logger: zap.NewNop(),
+		Logger: slog.Default()(),
 	})
 	if err != nil {
 		t.Fatalf("got error when creating events repo: %v", err)

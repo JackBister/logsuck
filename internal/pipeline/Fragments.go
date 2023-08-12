@@ -16,22 +16,22 @@ package pipeline
 
 import (
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
 
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/parser"
-	"go.uber.org/zap"
 )
 
-func compileMultipleFrags(frags []string, logger *zap.Logger) []*regexp.Regexp {
+func compileMultipleFrags(frags []string, logger *slog.Logger) []*regexp.Regexp {
 	ret := make([]*regexp.Regexp, 0, len(frags))
 	for _, frag := range frags {
 		compiled, err := compileFrag(frag)
 		if err != nil {
 			logger.Warn("failed to compile fragment, fragment will not be included",
-				zap.String("fragment", frag),
-				zap.Error(err))
+				slog.String("fragment", frag),
+				slog.Any("error", err))
 		} else {
 			ret = append(ret, compiled)
 		}
@@ -39,7 +39,7 @@ func compileMultipleFrags(frags []string, logger *zap.Logger) []*regexp.Regexp {
 	return ret
 }
 
-func compileKeys(m map[string]struct{}, logger *zap.Logger) []*regexp.Regexp {
+func compileKeys(m map[string]struct{}, logger *slog.Logger) []*regexp.Regexp {
 	return compileMultipleFrags(getKeys(m), logger)
 }
 
@@ -51,7 +51,7 @@ func getKeys(fragments map[string]struct{}) []string {
 	return ret
 }
 
-func compileFieldValues(m map[string][]string, logger *zap.Logger) map[string][]*regexp.Regexp {
+func compileFieldValues(m map[string][]string, logger *slog.Logger) map[string][]*regexp.Regexp {
 	ret := make(map[string][]*regexp.Regexp, len(m))
 	for key, values := range m {
 		compiledValues := make([]*regexp.Regexp, len(values))
@@ -59,8 +59,8 @@ func compileFieldValues(m map[string][]string, logger *zap.Logger) map[string][]
 			compiled, err := compileFrag(value)
 			if err != nil {
 				logger.Warn("failed to compile fieldValue, fieldValue will not be included",
-					zap.String("fieldValue", value),
-					zap.Error(err))
+					slog.String("fieldValue", value),
+					slog.Any("error", err))
 			} else {
 				compiledValues[i] = compiled
 			}

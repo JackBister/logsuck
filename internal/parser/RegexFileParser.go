@@ -15,9 +15,8 @@
 package parser
 
 import (
+	"log/slog"
 	"regexp"
-
-	"go.uber.org/zap"
 )
 
 type RegexParserConfig struct {
@@ -29,7 +28,7 @@ type RegexParserConfig struct {
 type RegexFileParser struct {
 	Cfg RegexParserConfig
 
-	Logger *zap.Logger
+	Logger *slog.Logger
 }
 
 func (r *RegexFileParser) CanSplit(b []byte) bool {
@@ -56,7 +55,7 @@ func (r *RegexFileParser) Extract(s string) (*ExtractResult, error) {
 				ret[match[1]] = match[2]
 			} else {
 				r.Logger.Warn("Malformed field extractor': If there are any unnamed capture groups in the regex, there must be exactly two capture groups",
-					zap.Stringer("fieldExtractor", rex))
+					slog.Any("fieldExtractor", rex))
 			}
 		}
 	}

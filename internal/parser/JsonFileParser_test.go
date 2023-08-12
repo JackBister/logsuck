@@ -15,19 +15,17 @@
 package parser
 
 import (
+	"log/slog"
 	"regexp"
 	"testing"
-
-	"go.uber.org/zap"
 )
 
 func TestJsonFileParserExtract(t *testing.T) {
-	l, _ := zap.NewDevelopment()
 	p := JsonFileParser{
 		Cfg: JsonParserConfig{
 			EventDelimiter: regexp.MustCompile("\n"),
 		},
-		Logger: l,
+		Logger: slog.Default(),
 	}
 
 	r, _ := p.Extract(`

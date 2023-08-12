@@ -17,9 +17,8 @@ package parser
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"regexp"
-
-	"go.uber.org/zap"
 )
 
 type JsonParserConfig struct {
@@ -31,7 +30,7 @@ type JsonParserConfig struct {
 type JsonFileParser struct {
 	Cfg JsonParserConfig
 
-	Logger *zap.Logger
+	Logger *slog.Logger
 }
 
 func (p *JsonFileParser) CanSplit(b []byte) bool {

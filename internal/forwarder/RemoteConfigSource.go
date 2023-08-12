@@ -16,13 +16,13 @@ package forwarder
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/rpc"
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 )
 
 type RemoteConfigSource struct {
@@ -34,14 +34,14 @@ type RemoteConfigSource struct {
 
 	ticker *time.Ticker
 
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 type RemoteConfigSourceParams struct {
 	dig.In
 
 	Cfg    *config.Config
-	Logger *zap.Logger
+	Logger *slog.Logger
 }
 
 func NewRemoteConfigSource(p RemoteConfigSourceParams) config.ConfigSource {
@@ -96,7 +96,7 @@ func (r *RemoteConfigSource) refresh() {
 		resp, err := r.client.Get(r.cfg.Forwarder.RecipientAddress + "/v1/config")
 		if err != nil {
 			r.logger.Error("got error when getting remote config",
-				zap.Error(err))
+				slog.Any("error", err))
 			return
 		}
 		defer resp.Body.Close()
@@ -104,14 +104,14 @@ func (r *RemoteConfigSource) refresh() {
 		err = json.NewDecoder(resp.Body).Decode(&cfgResp)
 		if err != nil {
 			r.logger.Error("got error when getting remote config: error when decoding JSON",
-				zap.Error(err))
+				slog.Any("error", err))
 			return
 		}
 
 		cfg, err := config.FromJSON(cfgResp.Config, r.logger)
 		if err != nil {
 			r.logger.Error("got error when getting remote config: error when converting config from JSON",
-				zap.Error(err))
+				slog.Any("error", err))
 			return
 		}
 		r.cached = &config.ConfigResponse{

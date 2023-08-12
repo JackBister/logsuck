@@ -17,22 +17,22 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/search"
-	"go.uber.org/zap"
 )
 
 type DeleteOldEventsTask struct {
 	Repo events.Repository
 
-	Logger *zap.Logger
+	Logger *slog.Logger
 }
 
-func NewDeleteOldEventsTask(repo events.Repository, logger *zap.Logger) Task {
+func NewDeleteOldEventsTask(repo events.Repository, logger *slog.Logger) Task {
 	return &DeleteOldEventsTask{
 		Repo:   repo,
 		Logger: logger,
@@ -61,14 +61,14 @@ func (t *DeleteOldEventsTask) Run(cfg map[string]any, ctx context.Context) {
 	d, err := parseDuration(minAgeStr)
 	if err != nil {
 		t.Logger.Error("Failed to parse minAgeStr. Will not do anything.",
-			zap.String("minAgeStr", minAgeStr))
+			slog.String("minAgeStr", minAgeStr))
 		return
 	}
 	endTime := time.Now().Add(-d)
 	eventsChan := t.Repo.FilterStream(&search.Search{}, nil, &endTime)
 	for events := range eventsChan {
 		t.Logger.Info("Got events to delete",
-			zap.Int("numEvents", len(events)))
+			slog.Int("numEvents", len(events)))
 		ids := make([]int64, len(events))
 		for i, evt := range events {
 			ids[i] = evt.Id
@@ -76,8 +76,8 @@ func (t *DeleteOldEventsTask) Run(cfg map[string]any, ctx context.Context) {
 		err := t.Repo.DeleteBatch(ids)
 		if err != nil {
 			t.Logger.Error("Failed to delete events",
-				zap.Int("numEvents", len(ids)),
-				zap.Error(err))
+				slog.Int("numEvents", len(ids)),
+				slog.Any("error", err))
 		}
 	}
 }

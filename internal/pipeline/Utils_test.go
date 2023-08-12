@@ -16,6 +16,7 @@ package pipeline
 
 import (
 	"database/sql"
+	"log/slog"
 	"regexp"
 	"testing"
 	"time"
@@ -23,7 +24,6 @@ import (
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/parser"
-	"go.uber.org/zap"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -94,7 +94,7 @@ func newInMemRepo(t *testing.T) events.Repository {
 		Cfg: &config.Config{
 			SQLite: &config.SqliteConfig{},
 		},
-		Logger: zap.NewNop(),
+		Logger: slog.Default()(),
 	})
 	if err != nil {
 		t.Fatalf("newInMemRepo got error when creating events repo: %v", err)

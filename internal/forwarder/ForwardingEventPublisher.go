@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/jackbister/logsuck/internal/parser"
 	"github.com/jackbister/logsuck/internal/rpc"
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 )
 
 const forwardChunkSize = 1000
@@ -38,14 +38,14 @@ type forwardingEventPublisher struct {
 	accumulated []events.RawEvent
 	adder       chan events.RawEvent
 
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 type ForwardingEventPublisherParams struct {
 	dig.In
 
 	Cfg    *config.Config
-	Logger *zap.Logger
+	Logger *slog.Logger
 }
 
 func ForwardingEventPublisher(p ForwardingEventPublisherParams) events.EventPublisher {
@@ -70,7 +70,7 @@ func ForwardingEventPublisher(p ForwardingEventPublisherParams) events.EventPubl
 					err := ep.forward()
 					if err != nil {
 						p.Logger.Error("error when adding events",
-							zap.Error(err))
+							slog.Any("error", err))
 						lastErrorTime = time.Now()
 					}
 					ep.dropExcessEvents()
@@ -82,7 +82,7 @@ func ForwardingEventPublisher(p ForwardingEventPublisherParams) events.EventPubl
 					err := ep.forward()
 					if err != nil {
 						p.Logger.Error("error when adding events",
-							zap.Error(err))
+							slog.Any("error", err))
 						lastErrorTime = time.Now()
 					}
 					ep.dropExcessEvents()
@@ -130,8 +130,8 @@ func (ep *forwardingEventPublisher) forward() error {
 			return fmt.Errorf("failed to forward events: got non-200 statusCode=%v, body='%v'. Events will be buffered", resp.StatusCode, bodyString)
 		}
 		ep.logger.Info("finished forwarding events",
-			zap.Int("numEvents", len(evts)),
-			zap.Stringer("duration", time.Now().Sub(startTime)))
+			slog.Int("numEvents", len(evts)),
+			slog.Duration("duration", time.Now().Sub(startTime)))
 		ep.accumulated = ep.accumulated[chunkSize:]
 	}
 	return nil
@@ -140,15 +140,15 @@ func (ep *forwardingEventPublisher) forward() error {
 func (ep *forwardingEventPublisher) dropExcessEvents() {
 	if len(ep.accumulated) > ep.cfg.Forwarder.MaxBufferedEvents {
 		ep.logger.Error("number of buffered events exceeded maxBufferedEvents, will drop events to keep buffer size down.",
-			zap.Int("maxBufferedEvents", ep.cfg.Forwarder.MaxBufferedEvents))
+			slog.Int("maxBufferedEvents", ep.cfg.Forwarder.MaxBufferedEvents))
 		numOver := len(ep.accumulated) - ep.cfg.Forwarder.MaxBufferedEvents
 		ep.accumulated = ep.accumulated[numOver:] // TODO: Is the GC actually able to free the memory of ep.accumulated[:numOver] here? I'm assuming it will if the slice is reallocated later due to appending?
 	} else if quota := float64(len(ep.accumulated)) / float64(ep.cfg.Forwarder.MaxBufferedEvents); quota > 0.7 {
 		ep.logger.Warn("number of buffered events is nearing maxBufferedEvents. If maxBufferedEvents is exceeded events will be lost. "+
 			"This may indicate a connection problem or the recipient instance is not running.",
-			zap.Float64("percentageFull", quota*100),
-			zap.Int("accumulatedEvents", len(ep.accumulated)),
-			zap.Int("maxBufferedEvents", ep.cfg.Forwarder.MaxBufferedEvents))
+			slog.Float64("percentageFull", quota*100),
+			slog.Int("accumulatedEvents", len(ep.accumulated)),
+			slog.Int("maxBufferedEvents", ep.cfg.Forwarder.MaxBufferedEvents))
 	}
 }
 

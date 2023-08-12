@@ -17,6 +17,7 @@ package dependencyinjection
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 
 	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/events"
@@ -26,10 +27,9 @@ import (
 	"github.com/jackbister/logsuck/internal/tasks"
 	"github.com/jackbister/logsuck/internal/web"
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 )
 
-func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logger *zap.Logger) (*dig.Container, error) {
+func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logger *slog.Logger) (*dig.Container, error) {
 	c := dig.New()
 	err := provideBasics(c, forceStaticConfig, cfg, logger)
 	if err != nil {
@@ -70,8 +70,8 @@ func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logg
 	return c, nil
 }
 
-func provideBasics(c *dig.Container, forceStaticConfig bool, cfg *config.Config, logger *zap.Logger) error {
-	err := c.Provide(func() *zap.Logger {
+func provideBasics(c *dig.Container, forceStaticConfig bool, cfg *config.Config, logger *slog.Logger) error {
+	err := c.Provide(func() *slog.Logger {
 		return logger
 	})
 	if err != nil {
@@ -162,7 +162,7 @@ func providePublisher(c *dig.Container) error {
 	})
 }
 
-func provideConfigSource(c *dig.Container, logger *zap.Logger) error {
+func provideConfigSource(c *dig.Container, logger *slog.Logger) error {
 	return c.Invoke(func(p struct {
 		dig.In
 
@@ -200,7 +200,7 @@ func provideConfigSource(c *dig.Container, logger *zap.Logger) error {
 	})
 }
 
-func provideTasks(c *dig.Container, logger *zap.Logger) error {
+func provideTasks(c *dig.Container, logger *slog.Logger) error {
 	err := c.Provide(tasks.NewDeleteOldEventsTask, dig.Group("tasks"))
 	if err != nil {
 		return err
@@ -212,7 +212,7 @@ func provideTasks(c *dig.Container, logger *zap.Logger) error {
 	return nil
 }
 
-func provideEnumProviders(c *dig.Container, logger *zap.Logger) error {
+func provideEnumProviders(c *dig.Container, logger *slog.Logger) error {
 	err := c.Provide(tasks.NewTaskEnumProvider, dig.Group("enumProviders"))
 	if err != nil {
 		return err
