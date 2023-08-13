@@ -162,7 +162,7 @@ func setup(t *testing.T, fieldValues map[string]string) (input chan PipelineStep
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
 
-		Logger: slog.Default()(),
+		Logger: slog.Default(),
 	}
 	pipe, input, output := newPipe()
 

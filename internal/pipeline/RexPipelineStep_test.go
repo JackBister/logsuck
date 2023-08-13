@@ -34,7 +34,7 @@ func TestRexPipelineStep(t *testing.T) {
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
 
-		Logger: slog.Default()(),
+		Logger: slog.Default(),
 	}
 	pipe, input, output := newPipe()
 
@@ -69,7 +69,7 @@ func TestRexPipelineStep_MultipleExtractions(t *testing.T) {
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
 
-		Logger: slog.Default()(),
+		Logger: slog.Default(),
 	}
 	pipe, input, output := newPipe()
 
@@ -107,7 +107,7 @@ func TestRexPipelineStep_ExtractedField(t *testing.T) {
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
 
-		Logger: slog.Default()(),
+		Logger: slog.Default(),
 	}
 	pipe, input, output := newPipe()
 
@@ -146,7 +146,7 @@ func TestRexPipelineStep_Source(t *testing.T) {
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
 
-		Logger: slog.Default()(),
+		Logger: slog.Default(),
 	}
 	pipe, input, output := newPipe()
 
@@ -183,7 +183,7 @@ func TestRexPipelineStep_Host(t *testing.T) {
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
 
-		Logger: slog.Default()(),
+		Logger: slog.Default(),
 	}
 	pipe, input, output := newPipe()
 

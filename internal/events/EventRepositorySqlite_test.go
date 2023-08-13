@@ -150,7 +150,7 @@ func createRepoWithCfg(t *testing.T, cfg *config.SqliteConfig) Repository {
 		Cfg: &config.Config{
 			SQLite: cfg,
 		},
-		Logger: slog.Default()(),
+		Logger: slog.Default(),
 	})
 	if err != nil {
 		t.Fatalf("got error when creating events repo: %v", err)

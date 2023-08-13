@@ -94,7 +94,7 @@ func newInMemRepo(t *testing.T) events.Repository {
 		Cfg: &config.Config{
 			SQLite: &config.SqliteConfig{},
 		},
-		Logger: slog.Default()(),
+		Logger: slog.Default(),
 	})
 	if err != nil {
 		t.Fatalf("newInMemRepo got error when creating events repo: %v", err)

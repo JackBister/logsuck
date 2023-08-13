@@ -33,7 +33,7 @@ func TestSearchPipelineStep(t *testing.T) {
 		ConfigSource: newConfigSource(),
 		EventsRepo:   repo,
 
-		Logger: slog.Default()(),
+		Logger: slog.Default(),
 	}
 	pipe, input, output := newPipe()
 	close(input)
