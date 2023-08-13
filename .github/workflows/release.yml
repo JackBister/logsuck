@@ -27,7 +27,7 @@ jobs:
         run: VERSIONNAME_DOTS=${GITHUB_REF##*/} && echo "VERSIONNAME_DOTS=$VERSIONNAME_DOTS" >> $GITHUB_ENV && VERSIONNAME=$(echo $VERSIONNAME_DOTS | sed 's/\./_/g') && echo "VERSIONNAME=$VERSIONNAME" >> $GITHUB_ENV
 
       - name: Setup
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v4
         with:
           go-version: ^1.21
         id: go
