@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -122,7 +122,7 @@ func (ep *forwardingEventPublisher) forward() error {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode/100 != 2 {
-			bodyBytes, err := ioutil.ReadAll(resp.Body)
+			bodyBytes, err := io.ReadAll(resp.Body)
 			bodyString := ""
 			if err == nil {
 				bodyString = string(bodyBytes)
@@ -131,7 +131,7 @@ func (ep *forwardingEventPublisher) forward() error {
 		}
 		ep.logger.Info("finished forwarding events",
 			slog.Int("numEvents", len(evts)),
-			slog.Duration("duration", time.Now().Sub(startTime)))
+			slog.Duration("duration", time.Since(startTime)))
 		ep.accumulated = ep.accumulated[chunkSize:]
 	}
 	return nil

@@ -17,8 +17,8 @@ package web
 import (
 	"embed"
 	"fmt"
+	"io"
 	"io/fs"
-	"io/ioutil"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -317,7 +317,7 @@ func parseTemplate(fs http.FileSystem) (*template.Template, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open template.html: %w", err)
 	}
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read data from template.html: %ww", err)
 	}

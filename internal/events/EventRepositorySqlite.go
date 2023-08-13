@@ -154,7 +154,7 @@ func (repo *sqliteRepository) addBatchTrueBatch(events []Event) error {
 	}
 	repo.logger.Info("added events",
 		slog.Int("numEvents", len(events)),
-		slog.Duration("duration", time.Now().Sub(startTime)))
+		slog.Duration("duration", time.Since(startTime)))
 	return nil
 }
 
@@ -199,7 +199,7 @@ func (repo *sqliteRepository) addBatchOneByOne(events []Event) error {
 	}
 	repo.logger.Info("added events",
 		slog.Int("numEvents", len(events)),
-		slog.Duration("duration", time.Now().Sub(startTime)))
+		slog.Duration("duration", time.Since(startTime)))
 	return nil
 }
 
