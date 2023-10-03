@@ -18,7 +18,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 type wherePipelineStep struct {
@@ -74,12 +75,12 @@ func (s *wherePipelineStep) Name() string {
 	return "where"
 }
 
-func (r *wherePipelineStep) InputType() PipelinePipeType {
-	return PipelinePipeTypePropagate
+func (r *wherePipelineStep) InputType() api.PipelinePipeType {
+	return api.PipelinePipeTypePropagate
 }
 
-func (r *wherePipelineStep) OutputType() PipelinePipeType {
-	return PipelinePipeTypePropagate
+func (r *wherePipelineStep) OutputType() api.PipelinePipeType {
+	return api.PipelinePipeTypePropagate
 }
 
 func compileWhereStep(input string, options map[string]string) (pipelineStep, error) {

@@ -16,17 +16,12 @@ package parser
 
 import (
 	"log/slog"
-	"regexp"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
 )
 
-type RegexParserConfig struct {
-	EventDelimiter  *regexp.Regexp
-	FieldExtractors []*regexp.Regexp
-	TimeField       string
-}
-
 type RegexFileParser struct {
-	Cfg RegexParserConfig
+	Cfg config.RegexParserConfig
 
 	Logger *slog.Logger
 }

@@ -24,11 +24,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackbister/logsuck/internal/events"
+	internalEvents "github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+
 	"github.com/fsnotify/fsnotify"
+	"github.com/google/uuid"
 )
 
 // FileWatcherCommand is a command that can be sent to a FileWatcher to tell it to perform various actions
@@ -81,7 +83,7 @@ type FileWatcher struct {
 	hostName string
 
 	commands       chan FileWatcherCommand
-	eventPublisher events.EventPublisher
+	eventPublisher internalEvents.EventPublisher
 	file           *os.File
 
 	currentSourceId string
@@ -98,7 +100,7 @@ func NewGlobWatcher(
 	fileConfig indexedfiles.IndexedFileConfig,
 	glob string,
 	hostName string,
-	eventPublisher events.EventPublisher,
+	eventPublisher internalEvents.EventPublisher,
 	ctx context.Context,
 
 	logger *slog.Logger,
@@ -223,7 +225,7 @@ func NewFileWatcher(
 	fileConfig indexedfiles.IndexedFileConfig,
 	filename string,
 	hostName string,
-	eventPublisher events.EventPublisher,
+	eventPublisher internalEvents.EventPublisher,
 	ctx context.Context,
 	logger *slog.Logger,
 ) (*FileWatcher, error) {

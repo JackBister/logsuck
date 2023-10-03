@@ -17,7 +17,7 @@ package events
 import (
 	"time"
 
-	"github.com/jackbister/logsuck/internal/search"
+	"github.com/jackbister/logsuck/pkg/logsuck/search"
 )
 
 type SortMode = int

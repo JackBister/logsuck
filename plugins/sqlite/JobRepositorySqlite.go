@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jobs
+package sqlite
 
 import (
 	"database/sql"
@@ -21,15 +21,16 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/events"
-	"github.com/jackbister/logsuck/internal/pipeline"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	"github.com/jackbister/logsuck/pkg/logsuck/jobs"
+	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
-type sqliteRepository struct {
+type sqliteJobRepository struct {
 	db *sql.DB
 }
 
-func SqliteRepository(db *sql.DB) (Repository, error) {
+func NewSqliteJobRepository(db *sql.DB) (jobs.Repository, error) {
 	_, err := db.Exec("CREATE TABLE IF NOT EXISTS Jobs (id INTEGER NOT NULL PRIMARY KEY, state INTEGER NOT NULL, query TEXT NOT NULL, start_time DATETIME, end_time DATETIME, sort_mode INTEGER NOT NULL, output_type INTEGER NOT NULL, column_order_json TEXT NOT NULL);")
 	if err != nil {
 		return nil, fmt.Errorf("error when creating Jobs table: %w", err)
@@ -46,12 +47,12 @@ func SqliteRepository(db *sql.DB) (Repository, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error when creating JobFieldValues table: %w", err)
 	}
-	return &sqliteRepository{
+	return &sqliteJobRepository{
 		db: db,
 	}, nil
 }
 
-func (repo *sqliteRepository) AddResults(id int64, events []events.EventIdAndTimestamp) error {
+func (repo *sqliteJobRepository) AddResults(id int64, events []events.EventIdAndTimestamp) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -71,7 +72,7 @@ func (repo *sqliteRepository) AddResults(id int64, events []events.EventIdAndTim
 	return nil
 }
 
-func (repo *sqliteRepository) AddTableResults(id int64, tableRows []TableRow) error {
+func (repo *sqliteJobRepository) AddTableResults(id int64, tableRows []jobs.TableRow) error {
 	if len(tableRows) == 0 {
 		return nil
 	}
@@ -95,7 +96,7 @@ func (repo *sqliteRepository) AddTableResults(id int64, tableRows []TableRow) er
 	return nil
 }
 
-func (repo *sqliteRepository) AddFieldStats(id int64, fields []FieldStats) error {
+func (repo *sqliteJobRepository) AddFieldStats(id int64, fields []jobs.FieldStats) error {
 	idString := strconv.FormatInt(id, 10)
 	stmt := "INSERT INTO JobFieldValues (job_id, key, value, occurrences) VALUES "
 	for i, f := range fields {
@@ -112,7 +113,7 @@ func (repo *sqliteRepository) AddFieldStats(id int64, fields []FieldStats) error
 	return nil
 }
 
-func (repo *sqliteRepository) Get(id int64) (*Job, error) {
+func (repo *sqliteJobRepository) Get(id int64) (*jobs.Job, error) {
 	res, err := repo.db.Query("SELECT id, state, query, start_time, end_time, sort_mode, output_type, column_order_json FROM Jobs WHERE id=?;", id)
 	if err != nil {
 		return nil, fmt.Errorf("error getting job with jobId=%v: %w", id, err)
@@ -121,7 +122,7 @@ func (repo *sqliteRepository) Get(id int64) (*Job, error) {
 	if !res.Next() {
 		return nil, fmt.Errorf("jobId=%v not found", id)
 	}
-	var job Job
+	var job jobs.Job
 	var columnOrderJson string
 	err = res.Scan(&job.Id, &job.State, &job.Query, &job.StartTime, &job.EndTime, &job.SortMode, &job.OutputType, &columnOrderJson)
 	if err != nil {
@@ -134,7 +135,7 @@ func (repo *sqliteRepository) Get(id int64) (*Job, error) {
 	return &job, nil
 }
 
-func (repo *sqliteRepository) GetResults(jobId int64, skip int, take int) ([]int64, error) {
+func (repo *sqliteJobRepository) GetResults(jobId int64, skip int, take int) ([]int64, error) {
 	res, err := repo.db.Query("SELECT event_id FROM JobResults WHERE job_id=? ORDER BY timestamp DESC LIMIT ? OFFSET ?;", jobId, take, skip)
 	if err != nil {
 		return nil, fmt.Errorf("error when getting results for jobId=%v, skip=%v, take=%v: %w", jobId, skip, take, err)
@@ -152,13 +153,13 @@ func (repo *sqliteRepository) GetResults(jobId int64, skip int, take int) ([]int
 	return ids, nil
 }
 
-func (repo *sqliteRepository) GetTableResults(id int64, skip int, take int) ([]TableRow, error) {
+func (repo *sqliteJobRepository) GetTableResults(id int64, skip int, take int) ([]jobs.TableRow, error) {
 	res, err := repo.db.Query("SELECT row_number, row_json FROM JobTableResults WHERE job_id=? ORDER BY row_number LIMIT ? OFFSET ?", id, take, skip)
 	if err != nil {
 		return nil, fmt.Errorf("error when getting table results for jobId=%v, skip=%v, take=%v: %w", id, skip, take, err)
 	}
 	defer res.Close()
-	ret := make([]TableRow, 0, take+1)
+	ret := make([]jobs.TableRow, 0, take+1)
 	for res.Next() {
 		var rowNumber int
 		var rowJson string
@@ -171,7 +172,7 @@ func (repo *sqliteRepository) GetTableResults(id int64, skip int, take int) ([]T
 		if err != nil {
 			return nil, fmt.Errorf("error unmarshalling table row when getting table results for jobId=%v, skip=%v, take=%v: %w", id, skip, take, err)
 		}
-		ret = append(ret, TableRow{
+		ret = append(ret, jobs.TableRow{
 			RowNumber: rowNumber,
 			Values:    values,
 		})
@@ -179,7 +180,7 @@ func (repo *sqliteRepository) GetTableResults(id int64, skip int, take int) ([]T
 	return ret, nil
 }
 
-func (repo *sqliteRepository) GetFieldOccurences(id int64) (map[string]int, error) {
+func (repo *sqliteJobRepository) GetFieldOccurences(id int64) (map[string]int, error) {
 	res, err := repo.db.Query("SELECT key, COUNT(1) FROM JobFieldValues WHERE job_id=? GROUP BY key;", id)
 	if err != nil {
 		return nil, fmt.Errorf("error when getting field occurrences for jobId=%v: %w", id, err)
@@ -198,7 +199,7 @@ func (repo *sqliteRepository) GetFieldOccurences(id int64) (map[string]int, erro
 	return m, nil
 }
 
-func (repo *sqliteRepository) GetFieldValues(id int64, fieldName string) (map[string]int, error) {
+func (repo *sqliteJobRepository) GetFieldValues(id int64, fieldName string) (map[string]int, error) {
 	res, err := repo.db.Query("SELECT value, occurrences FROM JobFieldValues WHERE job_id=? AND key=?;", id, fieldName)
 	if err != nil {
 		return nil, fmt.Errorf("error when getting field values for jobId=%v and fieldName=%v: %w", id, fieldName, err)
@@ -217,7 +218,7 @@ func (repo *sqliteRepository) GetFieldValues(id int64, fieldName string) (map[st
 	return m, nil
 }
 
-func (repo *sqliteRepository) GetNumMatchedEvents(id int64) (int64, error) {
+func (repo *sqliteJobRepository) GetNumMatchedEvents(id int64) (int64, error) {
 	job, err := repo.Get(id)
 	if err != nil {
 		return 0, fmt.Errorf("error when getting number of matched events for jobId=%v: %w", id, err)
@@ -242,13 +243,13 @@ func (repo *sqliteRepository) GetNumMatchedEvents(id int64) (int64, error) {
 	return count, nil
 }
 
-func (repo *sqliteRepository) Insert(query string, startTime, endTime *time.Time, sortMode events.SortMode, outputType pipeline.PipelinePipeType, columnOrder []string) (*int64, error) {
+func (repo *sqliteJobRepository) Insert(query string, startTime, endTime *time.Time, sortMode events.SortMode, outputType pipeline.PipelinePipeType, columnOrder []string) (*int64, error) {
 	columnOrderJson, err := json.Marshal(columnOrder)
 	if err != nil {
 		return nil, fmt.Errorf("error when inserting new job: error marshaling columnOrder: %w", err)
 	}
 	res, err := repo.db.Exec("INSERT INTO Jobs (state, query, start_time, end_time, sort_mode, output_type, column_order_json) VALUES(?, ?, ?, ?, ?, ?, ?);",
-		JobStateRunning, query, startTime, endTime, sortMode, outputType, columnOrderJson)
+		jobs.JobStateRunning, query, startTime, endTime, sortMode, outputType, columnOrderJson)
 	if err != nil {
 		return nil, fmt.Errorf("error when inserting new job: %w", err)
 	}
@@ -260,7 +261,7 @@ func (repo *sqliteRepository) Insert(query string, startTime, endTime *time.Time
 	return &id, nil
 }
 
-func (repo *sqliteRepository) UpdateState(id int64, state JobState) error {
+func (repo *sqliteJobRepository) UpdateState(id int64, state jobs.JobState) error {
 	_, err := repo.db.Exec("UPDATE Jobs SET state=? WHERE id=?;", state, id)
 	if err != nil {
 		return fmt.Errorf("error when updating jobId=%v to state=%v: %w", id, state, err)

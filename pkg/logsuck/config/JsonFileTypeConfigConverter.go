@@ -1,17 +1,3 @@
-// Copyright 2023 Jack Bister
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package config
 
 import (
@@ -19,28 +5,10 @@ import (
 	"log/slog"
 	"regexp"
 	"time"
-
-	"github.com/jackbister/logsuck/internal/parser"
 )
-
-type ParserType = int
-
-const (
-	ParserTypeRegex ParserType = 1
-	ParserTypeJSON  ParserType = 2
-)
-
-type FileTypeConfig struct {
-	Name         string
-	TimeLayout   string
-	ReadInterval time.Duration
-	ParserType   ParserType
-
-	JSON  *parser.JsonParserConfig
-	Regex *parser.RegexParserConfig
-}
 
 const defaultEventDelimiter = "\n"
+const defaultReadInterval = 1 * time.Second
 const defaultTimeField = "_time"
 
 var defaultEventDelimiterRegexp = regexp.MustCompile(defaultEventDelimiter)
@@ -49,7 +17,7 @@ var defaultFieldExtractors = []*regexp.Regexp{
 	regexp.MustCompile("^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d\\.\\d\\d\\d\\d\\d\\d)"),
 }
 
-var defaultRegexParserConfig = parser.RegexParserConfig{
+var defaultRegexParserConfig = RegexParserConfig{
 	EventDelimiter:  defaultEventDelimiterRegexp,
 	FieldExtractors: defaultFieldExtractors,
 	TimeField:       defaultTimeField,
@@ -77,8 +45,8 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *slog.Log
 		}
 
 		var parserType ParserType
-		var jsonParserConfig *parser.JsonParserConfig
-		var regexParserConfig *parser.RegexParserConfig
+		var jsonParserConfig *JsonParserConfig
+		var regexParserConfig *RegexParserConfig
 		if ft.Parser == nil {
 			logger.Info("will use default parser config for fileType",
 				slog.String("fileType", ft.Name))
@@ -99,7 +67,7 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *slog.Log
 					slog.Any("error", err))
 			}
 
-			jsonParserConfig = &parser.JsonParserConfig{
+			jsonParserConfig = &JsonParserConfig{
 				EventDelimiter: eventDelimiter,
 				TimeField:      ft.Parser.JsonConfig.TimeField,
 			}
@@ -141,7 +109,7 @@ func FileTypeConfigFromJSON(jsonFileTypes []jsonFileTypeConfig, logger *slog.Log
 					slog.String("defaultTimeField", defaultTimeField))
 			}
 
-			regexParserConfig = &parser.RegexParserConfig{
+			regexParserConfig = &RegexParserConfig{
 				EventDelimiter:  eventDelimiter,
 				FieldExtractors: fe,
 				TimeField:       timeField,

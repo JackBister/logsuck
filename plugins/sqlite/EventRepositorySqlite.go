@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package events
+package sqlite
 
 import (
 	"context"
@@ -24,8 +24,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/search"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	"github.com/jackbister/logsuck/pkg/logsuck/search"
+
 	"go.uber.org/dig"
 )
 
@@ -35,7 +37,7 @@ const expectedConstraintViolationForDuplicates = "UNIQUE constraint failed: Even
 const expectedErrorWhenDatabaseIsEmpty = "sql: Scan error on column index 0, name \"MAX(id)\": converting NULL to int is unsupported"
 const filterStreamPageSize = 1000
 
-type sqliteRepository struct {
+type sqliteEventRepository struct {
 	db *sql.DB
 
 	cfg *config.SqliteConfig
@@ -51,7 +53,7 @@ type SqliteEventRepositoryParams struct {
 	Logger *slog.Logger
 }
 
-func SqliteRepository(p SqliteEventRepositoryParams) (Repository, error) {
+func NewSqliteEventRepository(p SqliteEventRepositoryParams) (events.Repository, error) {
 	_, err := p.Db.Exec("CREATE TABLE IF NOT EXISTS Events (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, host TEXT NOT NULL, source TEXT NOT NULL, source_id TEXT NOT NULL, timestamp DATETIME NOT NULL, offset BIGINT NOT NULL, UNIQUE(host, source, timestamp, offset));")
 	if err != nil {
 		return nil, fmt.Errorf("error creating events table: %w", err)
@@ -65,14 +67,14 @@ func SqliteRepository(p SqliteEventRepositoryParams) (Repository, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating eventraws table: %w", err)
 	}
-	return &sqliteRepository{
+	return &sqliteEventRepository{
 		db:     p.Db,
 		cfg:    p.Cfg.SQLite,
 		logger: p.Logger,
 	}, nil
 }
 
-func (repo *sqliteRepository) AddBatch(events []Event) error {
+func (repo *sqliteEventRepository) AddBatch(events []events.Event) error {
 	if repo.cfg.TrueBatch {
 		return repo.addBatchTrueBatch(events)
 	} else {
@@ -89,7 +91,7 @@ const rsbBaseLen = len(rsbBase)
 const rsbPerEvt = "(?, ?, ?)"
 const rsbPerEvtLen = len(rsbPerEvt)
 
-func (repo *sqliteRepository) addBatchTrueBatch(events []Event) error {
+func (repo *sqliteEventRepository) addBatchTrueBatch(events []events.Event) error {
 	startTime := time.Now()
 	var eventSb strings.Builder
 	var rawSb strings.Builder
@@ -158,7 +160,7 @@ func (repo *sqliteRepository) addBatchTrueBatch(events []Event) error {
 	return nil
 }
 
-func (repo *sqliteRepository) addBatchOneByOne(events []Event) error {
+func (repo *sqliteEventRepository) addBatchOneByOne(events []events.Event) error {
 	startTime := time.Now()
 	ret := make([]int64, len(events))
 	tx, err := repo.db.BeginTx(context.TODO(), nil)
@@ -211,7 +213,7 @@ var delSbPerEvtLen = 3 // "?, " except for the last one which is just ?. So the 
 var delSbSuffix = ")"
 var delSbSuffixLen = len(delSbSuffix)
 
-func (repo *sqliteRepository) DeleteBatch(ids []int64) error {
+func (repo *sqliteEventRepository) DeleteBatch(ids []int64) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -264,9 +266,9 @@ func (repo *sqliteRepository) DeleteBatch(ids []int64) error {
 	return nil
 }
 
-func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime, searchEndTime *time.Time) <-chan []EventWithId {
+func (repo *sqliteEventRepository) FilterStream(srch *search.Search, searchStartTime, searchEndTime *time.Time) <-chan []events.EventWithId {
 	startTime := time.Now()
-	ret := make(chan []EventWithId)
+	ret := make(chan []events.EventWithId)
 	go func() {
 		defer close(ret)
 		res, err := repo.db.Query("SELECT MAX(id) FROM Events;")
@@ -356,10 +358,10 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 				repo.logger.Error("error when getting filtered events in FilterStream", slog.Any("error", err))
 				return
 			}
-			evts := make([]EventWithId, 0, filterStreamPageSize)
+			evts := make([]events.EventWithId, 0, filterStreamPageSize)
 			eventsInPage := 0
 			for res.Next() {
-				var evt EventWithId
+				var evt events.EventWithId
 				err := res.Scan(&evt.Id, &evt.Host, &evt.Source, &evt.SourceId, &evt.Timestamp, &evt.Raw)
 				if err != nil {
 					repo.logger.Warn("error when scanning result in FilterStream", slog.Any("error", err))
@@ -382,8 +384,8 @@ func (repo *sqliteRepository) FilterStream(srch *search.Search, searchStartTime,
 	return ret
 }
 
-func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventWithId, error) {
-	ret := make([]EventWithId, 0, len(ids))
+func (repo *sqliteEventRepository) GetByIds(ids []int64, sortMode events.SortMode) ([]events.EventWithId, error) {
+	ret := make([]events.EventWithId, 0, len(ids))
 
 	// TODO: I'm PRETTY sure this code is garbage
 	stmt := "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.id IN ("
@@ -396,7 +398,7 @@ func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventW
 	}
 	stmt += ")"
 
-	if sortMode == SortModeTimestampDesc {
+	if sortMode == events.SortModeTimestampDesc {
 		stmt += " ORDER BY e.timestamp DESC;"
 	} else {
 		stmt += ";"
@@ -410,7 +412,7 @@ func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventW
 
 	idx := 0
 	for res.Next() {
-		ret = append(ret, EventWithId{})
+		ret = append(ret, events.EventWithId{})
 		err = res.Scan(&ret[idx].Id, &ret[idx].Host, &ret[idx].Source, &ret[idx].SourceId, &ret[idx].Timestamp, &ret[idx].Raw)
 		if err != nil {
 			return nil, fmt.Errorf("error when scanning row in GetByIds: %w", err)
@@ -418,7 +420,7 @@ func (repo *sqliteRepository) GetByIds(ids []int64, sortMode SortMode) ([]EventW
 		idx++
 	}
 
-	if sortMode == SortModePreserveArgOrder {
+	if sortMode == events.SortModePreserveArgOrder {
 		m := make(map[int64]int, len(ids))
 		for i, id := range ids {
 			m[id] = i
@@ -435,10 +437,10 @@ const surroundingBaseSQL = "SELECT source_id, offset FROM Events WHERE id=?"
 const surroundingUpSQL = "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.source_id=? AND e.offset<=? ORDER BY e.offset DESC LIMIT ?"
 const surroundingDownSQL = "SELECT id, host, source, source_id, timestamp, raw FROM (SELECT e.id, e.host, e.source, e.source_id, e.timestamp, e.offset, r.raw FROM Events e INNER JOIN EventRaws r ON r.rowid = e.id WHERE e.source_id=? AND e.offset>? ORDER BY e.offset ASC LIMIT ?) ORDER BY offset DESC"
 
-func (repo *sqliteRepository) GetSurroundingEvents(id int64, count int) ([]EventWithId, error) {
+func (repo *sqliteEventRepository) GetSurroundingEvents(id int64, count int) ([]events.EventWithId, error) {
 	row := repo.db.QueryRow(surroundingBaseSQL, id)
 	if row == nil {
-		return []EventWithId{}, nil
+		return []events.EventWithId{}, nil
 	}
 	if row.Err() != nil {
 		return nil, fmt.Errorf("got error when getting source_id and offset for eventId=%v: %w", id, row.Err())
@@ -460,14 +462,14 @@ func (repo *sqliteRepository) GetSurroundingEvents(id int64, count int) ([]Event
 	return append(downRows, upRows...), nil
 }
 
-func queryAndScan(db *sql.DB, query string, sourceId string, baseOffset int, count int) ([]EventWithId, error) {
-	ret := make([]EventWithId, 0, count)
+func queryAndScan(db *sql.DB, query string, sourceId string, baseOffset int, count int) ([]events.EventWithId, error) {
+	ret := make([]events.EventWithId, 0, count)
 	rows, err := db.Query(query, sourceId, baseOffset, count)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		var evt EventWithId
+		var evt events.EventWithId
 		err := rows.Scan(&evt.Id, &evt.Host, &evt.Source, &evt.SourceId, &evt.Timestamp, &evt.Raw)
 		if err != nil {
 			return nil, err

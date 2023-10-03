@@ -20,6 +20,9 @@ import (
 	"regexp"
 
 	"github.com/jackbister/logsuck/internal/parser"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 type rexPipelineStep struct {
@@ -50,7 +53,7 @@ func (r *rexPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, params
 					continue // Maybe this should be logged or put in some kind of metrics
 				}
 				p := parser.RegexFileParser{
-					Cfg: parser.RegexParserConfig{
+					Cfg: config.RegexParserConfig{
 						EventDelimiter: regexp.MustCompile("\n"),
 						FieldExtractors: []*regexp.Regexp{
 							&r.extractor,
@@ -74,12 +77,12 @@ func (r *rexPipelineStep) Name() string {
 	return "rex"
 }
 
-func (r *rexPipelineStep) InputType() PipelinePipeType {
-	return PipelinePipeTypeEvents
+func (r *rexPipelineStep) InputType() api.PipelinePipeType {
+	return api.PipelinePipeTypeEvents
 }
 
-func (r *rexPipelineStep) OutputType() PipelinePipeType {
-	return PipelinePipeTypeEvents
+func (r *rexPipelineStep) OutputType() api.PipelinePipeType {
+	return api.PipelinePipeTypeEvents
 }
 
 func compileRexStep(input string, options map[string]string) (pipelineStep, error) {

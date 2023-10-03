@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package events
+package sqlite
 
 import (
 	"database/sql"
@@ -20,9 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
-
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
 )
 
 func TestAddBatchTrueBatch(t *testing.T) {
@@ -31,7 +30,7 @@ func TestAddBatchTrueBatch(t *testing.T) {
 		TrueBatch:    true,
 	})
 
-	repo.AddBatch([]Event{
+	repo.AddBatch([]events.Event{
 		{
 			Raw:       "2021-02-01 00:00:00 log event",
 			Timestamp: time.Date(2021, 2, 1, 0, 0, 0, 0, time.UTC),
@@ -41,7 +40,7 @@ func TestAddBatchTrueBatch(t *testing.T) {
 		},
 	})
 
-	evts, err := repo.GetByIds([]int64{1}, SortModeNone)
+	evts, err := repo.GetByIds([]int64{1}, events.SortModeNone)
 	if err != nil {
 		t.Fatalf("got error when retrieving event: %v", err)
 	}
@@ -56,7 +55,7 @@ func TestAddBatchOneByOne(t *testing.T) {
 		TrueBatch:    false,
 	})
 
-	repo.AddBatch([]Event{
+	repo.AddBatch([]events.Event{
 		{
 			Raw:       "2021-02-01 00:00:00 log event",
 			Timestamp: time.Date(2021, 2, 1, 0, 0, 0, 0, time.UTC),
@@ -66,7 +65,7 @@ func TestAddBatchOneByOne(t *testing.T) {
 		},
 	})
 
-	evts, err := repo.GetByIds([]int64{1}, SortModeNone)
+	evts, err := repo.GetByIds([]int64{1}, events.SortModeNone)
 	if err != nil {
 		t.Fatalf("got error when retrieving event: %v", err)
 	}
@@ -78,7 +77,7 @@ func TestAddBatchOneByOne(t *testing.T) {
 func TestDeleteEmptyList(t *testing.T) {
 	repo := createRepo(t)
 
-	repo.AddBatch([]Event{
+	repo.AddBatch([]events.Event{
 		{
 			Raw:       "2022-01-27 00:00:00 my event",
 			Timestamp: time.Date(2022, 1, 27, 0, 0, 0, 0, time.UTC),
@@ -92,7 +91,7 @@ func TestDeleteEmptyList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("got error when deleting empty list of eventIds: %v", err)
 	}
-	evts, err := repo.GetByIds([]int64{1}, SortModeNone)
+	evts, err := repo.GetByIds([]int64{1}, events.SortModeNone)
 	if err != nil {
 		t.Fatalf("got error when getting events after deleting empty list: %v", err)
 	}
@@ -104,7 +103,7 @@ func TestDeleteEmptyList(t *testing.T) {
 func TestDeleteOneEvent(t *testing.T) {
 	repo := createRepo(t)
 
-	repo.AddBatch([]Event{
+	repo.AddBatch([]events.Event{
 		{
 			Raw:       "2022-01-27 00:00:00 my event",
 			Timestamp: time.Date(2022, 1, 27, 0, 0, 0, 0, time.UTC),
@@ -113,7 +112,7 @@ func TestDeleteOneEvent(t *testing.T) {
 			Offset:    0,
 		},
 	})
-	evts, err := repo.GetByIds([]int64{1}, SortModeNone)
+	evts, err := repo.GetByIds([]int64{1}, events.SortModeNone)
 	if err != nil {
 		t.Fatalf("got error when getting events after deleting empty list: %v", err)
 	}
@@ -124,7 +123,7 @@ func TestDeleteOneEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("got error when deleting eventId: %v", err)
 	}
-	evts, err = repo.GetByIds([]int64{1}, SortModeNone)
+	evts, err = repo.GetByIds([]int64{1}, events.SortModeNone)
 	if err != nil {
 		t.Fatalf("got error when getting events after deleting empty list: %v", err)
 	}
@@ -133,19 +132,19 @@ func TestDeleteOneEvent(t *testing.T) {
 	}
 }
 
-func createRepo(t *testing.T) Repository {
+func createRepo(t *testing.T) events.Repository {
 	return createRepoWithCfg(t, &config.SqliteConfig{
 		DatabaseFile: ":memory:",
 		TrueBatch:    true,
 	})
 }
 
-func createRepoWithCfg(t *testing.T, cfg *config.SqliteConfig) Repository {
+func createRepoWithCfg(t *testing.T, cfg *config.SqliteConfig) events.Repository {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatalf("got error when creating in-memory SQLite database: %v", err)
 	}
-	repo, err := SqliteRepository(SqliteEventRepositoryParams{
+	repo, err := NewSqliteEventRepository(SqliteEventRepositoryParams{
 		Db: db,
 		Cfg: &config.Config{
 			SQLite: cfg,

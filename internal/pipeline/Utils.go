@@ -17,8 +17,8 @@ package pipeline
 import (
 	"path/filepath"
 
-	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
 )
 
 func getSourceToIndexedFileConfig(evts []events.EventWithId, indexedFileConfigs []indexedfiles.IndexedFileConfig) map[string]*indexedfiles.IndexedFileConfig {

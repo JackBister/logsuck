@@ -21,9 +21,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/parser"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 type surroundingPipelineStep struct {
@@ -82,12 +84,12 @@ func (s *surroundingPipelineStep) Name() string {
 	return "surrounding"
 }
 
-func (r *surroundingPipelineStep) InputType() PipelinePipeType {
-	return PipelinePipeTypeNone
+func (r *surroundingPipelineStep) InputType() api.PipelinePipeType {
+	return api.PipelinePipeTypeNone
 }
 
-func (r *surroundingPipelineStep) OutputType() PipelinePipeType {
-	return PipelinePipeTypeEvents
+func (r *surroundingPipelineStep) OutputType() api.PipelinePipeType {
+	return api.PipelinePipeTypeEvents
 }
 
 func (r *surroundingPipelineStep) SortMode() events.SortMode {

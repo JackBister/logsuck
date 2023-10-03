@@ -19,8 +19,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
 )
 
 // IndexedFileConfig contains configuration for a specific file which will be indexed
@@ -41,8 +41,8 @@ var defaultReadInterval = 1 * time.Second
 var defaultTimeLayout = "2006/01/02 15:04:05"
 
 func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *slog.Logger) (*IndexedFileConfig, error) {
-	var jsonParserConfig *parser.JsonParserConfig
-	var regexParserConfig *parser.RegexParserConfig
+	var jsonParserConfig *config.JsonParserConfig
+	var regexParserConfig *config.RegexParserConfig
 	timeLayout := ""
 	var readInterval *time.Duration
 	for _, t := range fileTypes {
@@ -70,7 +70,7 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *sl
 
 		if t.JSON != nil {
 			if jsonParserConfig == nil {
-				jsonParserConfig = &parser.JsonParserConfig{}
+				jsonParserConfig = &config.JsonParserConfig{}
 			}
 			if regexParserConfig != nil {
 				if t.Name == "DEFAULT" {
@@ -104,7 +104,7 @@ func mergeConfigs(filename string, fileTypes []config.FileTypeConfig, logger *sl
 			}
 		} else if t.Regex != nil {
 			if regexParserConfig == nil {
-				regexParserConfig = &parser.RegexParserConfig{}
+				regexParserConfig = &config.RegexParserConfig{}
 			}
 			if jsonParserConfig != nil {
 				if t.Name == "DEFAULT" {

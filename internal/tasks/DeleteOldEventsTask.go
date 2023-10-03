@@ -22,8 +22,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/events"
-	"github.com/jackbister/logsuck/internal/search"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	"github.com/jackbister/logsuck/pkg/logsuck/search"
 )
 
 type DeleteOldEventsTask struct {

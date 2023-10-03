@@ -21,23 +21,24 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/jackbister/logsuck/internal/config"
+	internalConfig "github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/dependencyinjection"
-	"github.com/jackbister/logsuck/internal/events"
+	internalEvents "github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/files"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/recipient"
 	"github.com/jackbister/logsuck/internal/tasks"
 	"github.com/jackbister/logsuck/internal/web"
-	"go.uber.org/dig"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+
+	"go.uber.org/dig"
 )
 
 var versionString string // This must be set using -ldflags "-X main.versionString=<version>" when building for --version to work
 
 func main() {
-	cmdFlags := config.ParseCommandLine()
+	cmdFlags := internalConfig.ParseCommandLine()
 
 	if cmdFlags.PrintVersion {
 		if versionString == "" {
@@ -80,7 +81,7 @@ func main() {
 
 		Ctx               context.Context
 		ConfigSource      config.ConfigSource
-		Publisher         events.EventPublisher
+		Publisher         internalEvents.EventPublisher
 		StaticConfig      *config.Config
 		RecipientEndpoint *recipient.RecipientEndpoint
 		TaskManager       *tasks.TaskManager
@@ -142,7 +143,7 @@ func main() {
 	select {}
 }
 
-func reloadFileWatchers(logger *slog.Logger, watchers *map[string]*files.GlobWatcher, indexedFiles []indexedfiles.IndexedFileConfig, staticConfig *config.Config, cfg *config.Config, publisher events.EventPublisher, ctx context.Context) {
+func reloadFileWatchers(logger *slog.Logger, watchers *map[string]*files.GlobWatcher, indexedFiles []indexedfiles.IndexedFileConfig, staticConfig *config.Config, cfg *config.Config, publisher internalEvents.EventPublisher, ctx context.Context) {
 	logger.Info("reloading file watchers", slog.Int("newIndexedFilesLen", len(indexedFiles)), slog.Int("oldIndexedFilesLen", len(*watchers)))
 	indexedFilesMap := map[string]indexedfiles.IndexedFileConfig{}
 	for _, cfg := range indexedFiles {

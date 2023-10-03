@@ -17,7 +17,7 @@ package web
 import (
 	"fmt"
 
-	"github.com/jackbister/logsuck/internal/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
 )
 
 type EnumProvider interface {

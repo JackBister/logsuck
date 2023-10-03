@@ -16,16 +16,19 @@ package dependencyinjection
 
 import (
 	"context"
-	"database/sql"
 	"log/slog"
 
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
+	internalEvents "github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/forwarder"
 	"github.com/jackbister/logsuck/internal/jobs"
 	"github.com/jackbister/logsuck/internal/recipient"
 	"github.com/jackbister/logsuck/internal/tasks"
 	"github.com/jackbister/logsuck/internal/web"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+
+	"github.com/jackbister/logsuck/plugins/sqlite"
+
 	"go.uber.org/dig"
 )
 
@@ -35,10 +38,12 @@ func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logg
 	if err != nil {
 		return nil, err
 	}
-	err = provideSqlite(c)
+
+	err = sqlite.Plugin.Provide(c, logger)
 	if err != nil {
 		return nil, err
 	}
+
 	err = providePublisher(c)
 	if err != nil {
 		return nil, err
@@ -96,55 +101,6 @@ func provideBasics(c *dig.Container, forceStaticConfig bool, cfg *config.Config,
 	return nil
 }
 
-func provideSqlite(c *dig.Container) error {
-	err := c.Provide(func() string {
-		return "sqlite3"
-	}, dig.Name("sqlDriver"))
-	if err != nil {
-		return err
-	}
-	err = c.Provide(func(cfg *config.Config) string {
-		additionalSqliteParameters := "?_journal_mode=WAL"
-		if cfg.SQLite.DatabaseFile == ":memory:" {
-			// cache=shared breaks DeleteOldEventsTask. But not having it breaks everything in :memory: mode.
-			// So we set cache=shared for :memory: mode and assume people will not need to delete old tasks in that mode.
-			additionalSqliteParameters += "&cache=shared"
-		}
-		return "file:" + cfg.SQLite.DatabaseFile + additionalSqliteParameters
-	}, dig.Name("sqlDataSourceName"))
-	if err != nil {
-		return err
-	}
-	err = c.Provide(func(p struct {
-		dig.In
-
-		DriverName     string `name:"sqlDriver"`
-		DataSourceName string `name:"sqlDataSourceName"`
-	}) (*sql.DB, error) {
-		db, err := sql.Open(p.DriverName, p.DataSourceName)
-		if err != nil {
-			return nil, err
-		}
-		return db, nil
-	})
-	if err != nil {
-		return err
-	}
-	err = c.Provide(config.NewSqliteConfigRepository)
-	if err != nil {
-		return err
-	}
-	err = c.Provide(events.SqliteRepository)
-	if err != nil {
-		return err
-	}
-	err = c.Provide(jobs.SqliteRepository)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func providePublisher(c *dig.Container) error {
 	return c.Invoke(func(cfg *config.Config) error {
 		if cfg.Forwarder.Enabled {
@@ -153,7 +109,7 @@ func providePublisher(c *dig.Container) error {
 				return err
 			}
 		} else {
-			err := c.Provide(events.BatchedRepositoryPublisher)
+			err := c.Provide(internalEvents.BatchedRepositoryPublisher)
 			if err != nil {
 				return err
 			}

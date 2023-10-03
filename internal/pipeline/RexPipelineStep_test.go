@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
 )
 
 func TestRexPipelineStep(t *testing.T) {

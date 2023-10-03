@@ -20,8 +20,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/parser"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
 )
 
 func compileMultipleFrags(frags []string, logger *slog.Logger) []*regexp.Regexp {

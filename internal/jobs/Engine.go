@@ -21,9 +21,13 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
-	"github.com/jackbister/logsuck/internal/pipeline"
+	internalPipeline "github.com/jackbister/logsuck/internal/pipeline"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	api "github.com/jackbister/logsuck/pkg/logsuck/jobs"
+	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"
+
 	"go.uber.org/dig"
 )
 
@@ -31,7 +35,7 @@ type Engine struct {
 	cancels      map[int64]func()
 	configSource config.ConfigSource
 	eventRepo    events.Repository
-	jobRepo      Repository
+	jobRepo      api.Repository
 
 	logger *slog.Logger
 }
@@ -41,7 +45,7 @@ type EngineParams struct {
 
 	ConfigSource config.ConfigSource
 	EventRepo    events.Repository
-	JobRepo      Repository
+	JobRepo      api.Repository
 	Logger       *slog.Logger
 }
 
@@ -57,7 +61,7 @@ func NewEngine(p EngineParams) *Engine {
 }
 
 func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, error) {
-	pl, err := pipeline.CompilePipeline(query, startTime, endTime)
+	pl, err := internalPipeline.CompilePipeline(query, startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile search query: %w", err)
 	}
@@ -81,7 +85,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 		// TODO: This should probably be batched
 		results := pl.Execute(
 			ctx,
-			pipeline.PipelineParameters{
+			internalPipeline.PipelineParameters{
 				ConfigSource: e.configSource,
 				EventsRepo:   e.eventRepo,
 
@@ -122,9 +126,9 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 				} else if outputType == pipeline.PipelinePipeTypeTable {
 					tableRows := res.TableRows
 					if len(tableRows) > 0 {
-						rows := make([]TableRow, 0, len(tableRows))
+						rows := make([]api.TableRow, 0, len(tableRows))
 						for _, r := range tableRows {
-							rows = append(rows, TableRow{
+							rows = append(rows, api.TableRow{
 								RowNumber: rowNumber,
 								Values:    r,
 							})
@@ -153,11 +157,11 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 			}
 		}
 		e.cancels[*id] = nil
-		var state JobState
+		var state api.JobState
 		if wasCancelled {
-			state = JobStateAborted
+			state = api.JobStateAborted
 		} else {
-			state = JobStateFinished
+			state = api.JobStateFinished
 		}
 		err = e.jobRepo.UpdateState(*id, state)
 		if err != nil {
@@ -181,9 +185,9 @@ func (e *Engine) Abort(jobId int64) error {
 		logger.Error("Got error when verifying that job is aborted or finished. The job is in an unknown state.")
 		return errors.New("job does not appear to be running, but the state in the repository could not be verified")
 	}
-	if job.State == JobStateRunning {
+	if job.State == api.JobStateRunning {
 		logger.Error("job has no entry in the cancels map, but state is running. Will set state to aborted. This may signify that there is a bug and the job may actually still be running.")
-		err = e.jobRepo.UpdateState(jobId, JobStateAborted)
+		err = e.jobRepo.UpdateState(jobId, api.JobStateAborted)
 		if err != nil {
 			return errors.New("job does not appear to be running, but the state in the repository could not be set to aborted")
 		}
@@ -191,7 +195,7 @@ func (e *Engine) Abort(jobId int64) error {
 	return nil
 }
 
-func gatherFieldStats(evts []events.EventWithExtractedFields) []FieldStats {
+func gatherFieldStats(evts []events.EventWithExtractedFields) []api.FieldStats {
 	m := map[string]map[string]int{}
 	size := 0
 	for _, evt := range evts {
@@ -208,10 +212,10 @@ func gatherFieldStats(evts []events.EventWithExtractedFields) []FieldStats {
 		}
 	}
 
-	ret := make([]FieldStats, 0, size)
+	ret := make([]api.FieldStats, 0, size)
 	for k, vm := range m {
 		for v, o := range vm {
-			ret = append(ret, FieldStats{
+			ret = append(ret, api.FieldStats{
 				Key:         k,
 				Value:       v,
 				Occurrences: o,
@@ -221,7 +225,7 @@ func gatherFieldStats(evts []events.EventWithExtractedFields) []FieldStats {
 	return ret
 }
 
-func gatherFieldStatsFromTable(rows []map[string]string) []FieldStats {
+func gatherFieldStatsFromTable(rows []map[string]string) []api.FieldStats {
 	m := map[string]map[string]int{}
 	size := 0
 	for _, row := range rows {
@@ -238,10 +242,10 @@ func gatherFieldStatsFromTable(rows []map[string]string) []FieldStats {
 		}
 	}
 
-	ret := make([]FieldStats, 0, size)
+	ret := make([]api.FieldStats, 0, size)
 	for k, vm := range m {
 		for v, o := range vm {
-			ret = append(ret, FieldStats{
+			ret = append(ret, api.FieldStats{
 				Key:         k,
 				Value:       v,
 				Occurrences: o,

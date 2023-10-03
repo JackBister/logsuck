@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 type tablePipelineStep struct {
@@ -57,12 +59,12 @@ func (s *tablePipelineStep) Name() string {
 	return "table"
 }
 
-func (r *tablePipelineStep) InputType() PipelinePipeType {
-	return PipelinePipeTypeEvents
+func (r *tablePipelineStep) InputType() api.PipelinePipeType {
+	return api.PipelinePipeTypeEvents
 }
 
-func (r *tablePipelineStep) OutputType() PipelinePipeType {
-	return PipelinePipeTypeTable
+func (r *tablePipelineStep) OutputType() api.PipelinePipeType {
+	return api.PipelinePipeTypeTable
 }
 
 func compileTableStep(input string, options map[string]string) (pipelineStep, error) {

@@ -17,7 +17,29 @@ package parser
 import (
 	"errors"
 	"fmt"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/search"
 )
+
+func Parse(searchString string) (*search.Search, error) {
+	res, err := ParseSearch(searchString)
+	if err != nil {
+		return nil, fmt.Errorf("error while parsing: %w", err)
+	}
+
+	ret := search.Search{
+		Fragments:    res.Fragments,
+		NotFragments: res.NotFragments,
+		Fields:       res.Fields,
+		NotFields:    res.NotFields,
+		Sources:      res.Sources,
+		NotSources:   res.NotSources,
+		Hosts:        res.Hosts,
+		NotHosts:     res.NotHosts,
+	}
+
+	return &ret, nil
+}
 
 type parser struct {
 	tokens []token

@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
 )
 
 func TestSearchPipelineStep(t *testing.T) {

@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackbister/logsuck/internal/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
 )
 
 func addConfigEndpoints(g *gin.RouterGroup, wi *webImpl) {

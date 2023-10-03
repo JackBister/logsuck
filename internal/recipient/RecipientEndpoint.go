@@ -23,11 +23,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/parser"
 	"github.com/jackbister/logsuck/internal/rpc"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+
 	"go.uber.org/dig"
 )
 

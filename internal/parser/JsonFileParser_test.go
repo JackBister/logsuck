@@ -18,11 +18,13 @@ import (
 	"log/slog"
 	"regexp"
 	"testing"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
 )
 
 func TestJsonFileParserExtract(t *testing.T) {
 	p := JsonFileParser{
-		Cfg: JsonParserConfig{
+		Cfg: config.JsonParserConfig{
 			EventDelimiter: regexp.MustCompile("\n"),
 		},
 		Logger: slog.Default(),

@@ -20,19 +20,11 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/parser"
-)
 
-type PipelinePipeType int
-
-const (
-	PipelinePipeTypeNone   PipelinePipeType = 0
-	PipelinePipeTypeEvents PipelinePipeType = 1
-	PipelinePipeTypeTable  PipelinePipeType = 2
-
-	PipelinePipeTypePropagate PipelinePipeType = 999
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 type Pipeline struct {
@@ -63,9 +55,9 @@ const pipeBufferSize = 100
 
 type pipelinePipe struct {
 	input      <-chan PipelineStepResult
-	inputType  PipelinePipeType
+	inputType  api.PipelinePipeType
 	output     chan<- PipelineStepResult
-	outputType PipelinePipeType
+	outputType api.PipelinePipeType
 }
 
 type pipelineStep interface {
@@ -74,8 +66,8 @@ type pipelineStep interface {
 	// Returns the name of the operator that created this step, for example "rex"
 	Name() string
 
-	InputType() PipelinePipeType
-	OutputType() PipelinePipeType
+	InputType() api.PipelinePipeType
+	OutputType() api.PipelinePipeType
 }
 
 type pipelineStepWithSortMode interface {
@@ -124,7 +116,7 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 
 	lastGeneratorIndex := 0
 	for i, compiled := range compiledSteps {
-		if compiled.InputType() == PipelinePipeTypeNone {
+		if compiled.InputType() == api.PipelinePipeTypeNone {
 			lastGeneratorIndex = i
 		}
 	}
@@ -132,18 +124,18 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 
 	outputType := compiledSteps[0].OutputType()
 	for i, compiled := range compiledSteps {
-		if (compiled.InputType() == PipelinePipeTypePropagate || compiled.OutputType() == PipelinePipeTypePropagate) && compiled.InputType() != compiled.OutputType() {
+		if (compiled.InputType() == api.PipelinePipeTypePropagate || compiled.OutputType() == api.PipelinePipeTypePropagate) && compiled.InputType() != compiled.OutputType() {
 			return nil, fmt.Errorf("failed to compile pipeline: mismatching input/output type for propagating step. input=%v, output=%v. This is a bug", compiled.InputType(), compiled.OutputType())
 		}
-		if compiled.OutputType() != PipelinePipeTypePropagate {
+		if compiled.OutputType() != api.PipelinePipeTypePropagate {
 			outputType = compiled.OutputType()
 		}
 		if i == len(compiledSteps)-1 {
-			if outputType != PipelinePipeTypeEvents && outputType != PipelinePipeTypeTable {
+			if outputType != api.PipelinePipeTypeEvents && outputType != api.PipelinePipeTypeTable {
 				return nil, fmt.Errorf("failed to compile pipeline: invalid output type for last step: %v", compiled.Name())
 			}
 		} else {
-			if outputType != compiledSteps[i+1].InputType() && compiledSteps[i+1].InputType() != PipelinePipeTypePropagate {
+			if outputType != compiledSteps[i+1].InputType() && compiledSteps[i+1].InputType() != api.PipelinePipeTypePropagate {
 				return nil, fmt.Errorf("failed to compile pipeline: output type for step %v does not match input type for step %v", compiled.Name(), compiledSteps[i+1].Name())
 			}
 		}
@@ -155,7 +147,7 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 	pipes := make([]pipelinePipe, len(compiledSteps))
 	for i := 0; i < len(compiledSteps); i++ {
 		currentOutputType := compiledSteps[i].OutputType()
-		if currentOutputType == PipelinePipeTypePropagate {
+		if currentOutputType == api.PipelinePipeTypePropagate {
 			currentOutputType = lastOutputType
 		}
 		outputEvents := make(chan PipelineStepResult, pipeBufferSize)
@@ -178,7 +170,7 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 
 func (p *Pipeline) ColumnOrder() ([]string, error) {
 	lastStep := p.steps[len(p.steps)-1]
-	if lastStep.OutputType() != PipelinePipeTypeTable {
+	if lastStep.OutputType() != api.PipelinePipeTypeTable {
 		return []string{}, nil
 	}
 	if t, ok := lastStep.(tableGeneratingPipelineStep); !ok {
@@ -204,10 +196,10 @@ func (p *Pipeline) GetStepNames() []string {
 	return ret
 }
 
-func (p *Pipeline) OutputType() PipelinePipeType {
+func (p *Pipeline) OutputType() api.PipelinePipeType {
 	outputType := p.steps[0].OutputType()
 	for _, s := range p.steps {
-		if s.OutputType() != PipelinePipeTypePropagate {
+		if s.OutputType() != api.PipelinePipeTypePropagate {
 			outputType = s.OutputType()
 		}
 	}

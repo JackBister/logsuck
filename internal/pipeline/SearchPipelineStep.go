@@ -21,9 +21,12 @@ import (
 	"time"
 
 	"github.com/araddon/dateparse"
-	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
-	"github.com/jackbister/logsuck/internal/search"
+	"github.com/jackbister/logsuck/internal/parser"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
+	"github.com/jackbister/logsuck/pkg/logsuck/search"
 )
 
 type searchPipelineStep struct {
@@ -94,12 +97,12 @@ func (s *searchPipelineStep) Name() string {
 	return "search"
 }
 
-func (r *searchPipelineStep) InputType() PipelinePipeType {
-	return PipelinePipeTypeNone
+func (r *searchPipelineStep) InputType() api.PipelinePipeType {
+	return api.PipelinePipeTypeNone
 }
 
-func (r *searchPipelineStep) OutputType() PipelinePipeType {
-	return PipelinePipeTypeEvents
+func (r *searchPipelineStep) OutputType() api.PipelinePipeType {
+	return api.PipelinePipeTypeEvents
 }
 
 func compileSearchStep(input string, options map[string]string) (pipelineStep, error) {
@@ -119,7 +122,7 @@ func compileSearchStep(input string, options map[string]string) (pipelineStep, e
 		endTime = &endTimeParsed
 	}
 
-	srch, err := search.Parse(input)
+	srch, err := parser.Parse(input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create search: %w", err)
 	}

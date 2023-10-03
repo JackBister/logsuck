@@ -23,7 +23,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
 )
 
 type FlagStringArray []string
@@ -81,26 +81,26 @@ func ParseCommandLine() *CommandLineFlags {
 	return &ret
 }
 
-func (c *CommandLineFlags) ToConfig(logger *slog.Logger) *Config {
-	staticConfig := Config{
+func (c *CommandLineFlags) ToConfig(logger *slog.Logger) *config.Config {
+	staticConfig := config.Config{
 		HostType: "DEFAULT",
 
-		Forwarder: &ForwarderConfig{
+		Forwarder: &config.ForwarderConfig{
 			Enabled:            false,
 			MaxBufferedEvents:  5000,
 			ConfigPollInterval: 1 * time.Minute,
 		},
 
-		Recipient: &RecipientConfig{
+		Recipient: &config.RecipientConfig{
 			Enabled: false,
 		},
 
-		SQLite: &SqliteConfig{
+		SQLite: &config.SqliteConfig{
 			DatabaseFile: "logsuck.db",
 			TrueBatch:    true,
 		},
 
-		Web: &WebConfig{
+		Web: &config.WebConfig{
 			Enabled:          true,
 			Address:          ":8080",
 			UsePackagedFiles: true,
@@ -108,13 +108,13 @@ func (c *CommandLineFlags) ToConfig(logger *slog.Logger) *Config {
 	}
 	cfgFile, err := os.Open(c.CfgFile)
 	if err == nil {
-		var jsonCfg JsonConfig
+		var jsonCfg config.JsonConfig
 		err = json.NewDecoder(cfgFile).Decode(&jsonCfg)
 		if err != nil {
 			logger.Error("error decoding json from config file", slog.String("fileName", c.CfgFile), slog.Any("error", err))
 			os.Exit(1)
 		}
-		newCfg, err := FromJSON(jsonCfg, logger)
+		newCfg, err := config.FromJSON(jsonCfg, logger)
 		if err != nil {
 			logger.Error("error parsing configuration from config file", slog.String("fileName", c.CfgFile), slog.Any("error", err))
 			os.Exit(1)
@@ -150,31 +150,31 @@ func (c *CommandLineFlags) ToConfig(logger *slog.Logger) *Config {
 			staticConfig.Recipient.Address = c.Recipient
 		}
 
-		var jsonParserConfig *parser.JsonParserConfig
-		var regexParserConfig *parser.RegexParserConfig
-		var parserType ParserType
+		var jsonParserConfig *config.JsonParserConfig
+		var regexParserConfig *config.RegexParserConfig
+		var parserType config.ParserType
 		if c.JsonParser {
-			parserType = ParserTypeJSON
-			jsonParserConfig = &parser.JsonParserConfig{
+			parserType = config.ParserTypeJSON
+			jsonParserConfig = &config.JsonParserConfig{
 				EventDelimiter: regexp.MustCompile(c.EventDelimiter),
 				TimeField:      c.TimeField,
 			}
 		} else {
-			parserType = ParserTypeRegex
+			parserType = config.ParserTypeRegex
 			fieldExtractors := make([]*regexp.Regexp, len(c.FieldExtractors))
 			if len(c.FieldExtractors) > 0 {
 				for i, fe := range c.FieldExtractors {
 					fieldExtractors[i] = regexp.MustCompile(fe)
 				}
 			}
-			regexParserConfig = &parser.RegexParserConfig{
+			regexParserConfig = &config.RegexParserConfig{
 				EventDelimiter:  regexp.MustCompile(c.EventDelimiter),
 				FieldExtractors: fieldExtractors,
 				TimeField:       c.TimeField,
 			}
 		}
 
-		staticConfig.FileTypes = map[string]FileTypeConfig{
+		staticConfig.FileTypes = map[string]config.FileTypeConfig{
 			"DEFAULT": {
 				Name:         "DEFAULT",
 				TimeLayout:   c.TimeLayout,
@@ -185,17 +185,17 @@ func (c *CommandLineFlags) ToConfig(logger *slog.Logger) *Config {
 			},
 		}
 
-		files := map[string]FileConfig{}
-		hostFiles := make([]HostFileConfig, len(flag.Args()))
+		files := map[string]config.FileConfig{}
+		hostFiles := make([]config.HostFileConfig, len(flag.Args()))
 		for i, file := range flag.Args() {
-			files[file] = FileConfig{
+			files[file] = config.FileConfig{
 				Filename:  file,
 				Filetypes: []string{"DEFAULT"},
 			}
-			hostFiles[i] = HostFileConfig{Name: file}
+			hostFiles[i] = config.HostFileConfig{Name: file}
 		}
 		staticConfig.Files = files
-		staticConfig.HostTypes = map[string]HostTypeConfig{
+		staticConfig.HostTypes = map[string]config.HostTypeConfig{
 			"DEFAULT": {
 				Files: hostFiles,
 			},

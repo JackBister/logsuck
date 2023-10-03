@@ -21,11 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
-	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/jackbister/logsuck/plugins/sqlite"
 )
 
 type TestConfigSource struct {
@@ -53,7 +52,7 @@ func newConfigSource() config.ConfigSource {
 					TimeLayout:   "2006/01/02 15:04:05",
 					ReadInterval: 1 * time.Second,
 					ParserType:   config.ParserTypeRegex,
-					Regex: &parser.RegexParserConfig{
+					Regex: &config.RegexParserConfig{
 						EventDelimiter: regexp.MustCompile("\n"),
 						FieldExtractors: []*regexp.Regexp{
 							regexp.MustCompile("(\\w+)=(\\w+)"),
@@ -89,7 +88,7 @@ func newInMemRepo(t *testing.T) events.Repository {
 	if err != nil {
 		t.Fatalf("newInMemRepo got error when creating in-memory SQLite database: %v", err)
 	}
-	repo, err := events.SqliteRepository(events.SqliteEventRepositoryParams{
+	repo, err := sqlite.NewSqliteEventRepository(sqlite.SqliteEventRepositoryParams{
 		Db: db,
 		Cfg: &config.Config{
 			SQLite: &config.SqliteConfig{},

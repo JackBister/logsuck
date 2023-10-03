@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package sqlite
 
 import (
 	"database/sql"
@@ -21,6 +21,8 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
 
 	"go.uber.org/dig"
 )
@@ -35,13 +37,13 @@ type SqliteConfigRepository struct {
 type SqliteConfigRepositoryParams struct {
 	dig.In
 
-	Cfg               *Config
+	Cfg               *config.Config
 	Db                *sql.DB
 	ForceStaticConfig bool `name:"forceStaticConfig"`
 	Logger            *slog.Logger
 }
 
-func NewSqliteConfigRepository(p SqliteConfigRepositoryParams) (ConfigRepository, error) {
+func NewSqliteConfigRepository(p SqliteConfigRepositoryParams) (config.ConfigRepository, error) {
 	_, err := p.Db.Exec("CREATE TABLE IF NOT EXISTS Config (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, config_json TEXT, modified DATETIME)")
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: %w", err)
@@ -75,7 +77,7 @@ func (s *SqliteConfigRepository) Changes() <-chan struct{} {
 	return s.changes
 }
 
-func (s *SqliteConfigRepository) Get() (*ConfigResponse, error) {
+func (s *SqliteConfigRepository) Get() (*config.ConfigResponse, error) {
 	row := s.db.QueryRow("SELECT config_json, modified FROM Config ORDER BY modified DESC LIMIT 1")
 	if row == nil {
 		return nil, fmt.Errorf("failed to get config_json row from Config table, got nil row")
@@ -86,22 +88,22 @@ func (s *SqliteConfigRepository) Get() (*ConfigResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("got error when scanning config_json: %w", err)
 	}
-	var jsonCfg JsonConfig
+	var jsonCfg config.JsonConfig
 	err = json.NewDecoder(strings.NewReader(jsonString)).Decode(&jsonCfg)
 	if err != nil {
 		return nil, fmt.Errorf("got error when decoding config_json: %w", err)
 	}
-	cfg, err := FromJSON(jsonCfg, s.logger)
+	cfg, err := config.FromJSON(jsonCfg, s.logger)
 	if err != nil {
 		return nil, fmt.Errorf("got error when converting JSON config: %w", err)
 	}
-	return &ConfigResponse{
+	return &config.ConfigResponse{
 		Cfg:      *cfg,
 		Modified: modified,
 	}, nil
 }
 
-func (s *SqliteConfigRepository) Upsert(c *Config) error {
+func (s *SqliteConfigRepository) Upsert(c *config.Config) error {
 	err := s.upsertInternal(c)
 	if err != nil {
 		return err
@@ -110,8 +112,8 @@ func (s *SqliteConfigRepository) Upsert(c *Config) error {
 	return nil
 }
 
-func (s *SqliteConfigRepository) upsertInternal(c *Config) error {
-	jsonString, err := ToJSON(c)
+func (s *SqliteConfigRepository) upsertInternal(c *config.Config) error {
+	jsonString, err := config.ToJSON(c)
 	if err != nil {
 		return fmt.Errorf("failed to serialize config: %w", err)
 	}

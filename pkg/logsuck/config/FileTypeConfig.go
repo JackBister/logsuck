@@ -12,28 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rpc
+package config
 
 import (
+	"regexp"
 	"time"
-
-	"github.com/jackbister/logsuck/pkg/logsuck/config"
 )
 
-type RawEvent struct {
-	Raw      string
-	Host     string
-	Source   string
-	SourceId string
-	Offset   int64
+type ParserType = int
+
+const (
+	ParserTypeRegex ParserType = 1
+	ParserTypeJSON  ParserType = 2
+)
+
+type FileTypeConfig struct {
+	Name         string
+	TimeLayout   string
+	ReadInterval time.Duration
+	ParserType   ParserType
+
+	JSON  *JsonParserConfig
+	Regex *RegexParserConfig
 }
 
-type ReceiveEventsRequest struct {
-	HostType string
-	Events   []RawEvent
+type JsonParserConfig struct {
+	EventDelimiter *regexp.Regexp
+
+	TimeField string
 }
 
-type ConfigResponse struct {
-	Modified *time.Time
-	Config   config.JsonConfig
+type RegexParserConfig struct {
+	EventDelimiter  *regexp.Regexp
+	FieldExtractors []*regexp.Regexp
+	TimeField       string
 }

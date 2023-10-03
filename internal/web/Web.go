@@ -28,11 +28,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/indexedfiles"
-	"github.com/jackbister/logsuck/internal/jobs"
+	internalJobs "github.com/jackbister/logsuck/internal/jobs"
 	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/jobs"
+
 	"go.uber.org/dig"
 )
 
@@ -46,7 +49,7 @@ type webImpl struct {
 	staticConfig  *config.Config
 	eventRepo     events.Repository
 	jobRepo       jobs.Repository
-	jobEngine     *jobs.Engine
+	jobEngine     *internalJobs.Engine
 	enumProviders map[string]EnumProvider
 
 	logger *slog.Logger
@@ -69,7 +72,7 @@ type WebParams struct {
 	StaticConfig *config.Config
 	EventRepo    events.Repository
 	JobRepo      jobs.Repository
-	JobEngine    *jobs.Engine
+	JobEngine    *internalJobs.Engine
 	Logger       *slog.Logger
 
 	EnumProviders []EnumProvider `group:"enumProviders"`
@@ -133,8 +136,8 @@ func (wi webImpl) Serve() error {
 
 	r.GET("/config", func(c *gin.Context) {
 		tpl.Execute(c.Writer, gin.H{
-			"scriptSrc": "config.js",
-			"styleSrc":  "config.css",
+			"scriptSrc": "logsuck.js",
+			"styleSrc":  "logsuck.css",
 		})
 		c.Status(200)
 	})

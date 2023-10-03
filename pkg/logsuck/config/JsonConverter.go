@@ -134,7 +134,7 @@ var defaultConfig = Config{
 	},
 
 	SQLite: &SqliteConfig{
-		DatabaseFile: "logsuck.db",
+		DatabaseFile: "db",
 		TrueBatch:    true,
 	},
 

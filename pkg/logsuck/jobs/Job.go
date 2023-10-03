@@ -17,8 +17,9 @@ package jobs
 import (
 	"time"
 
-	"github.com/jackbister/logsuck/internal/events"
-	"github.com/jackbister/logsuck/internal/pipeline"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 type JobState int32

@@ -18,17 +18,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"regexp"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
 )
 
-type JsonParserConfig struct {
-	EventDelimiter *regexp.Regexp
-
-	TimeField string
-}
-
 type JsonFileParser struct {
-	Cfg JsonParserConfig
+	Cfg config.JsonParserConfig
 
 	Logger *slog.Logger
 }

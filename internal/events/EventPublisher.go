@@ -19,20 +19,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
 	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+
 	"go.uber.org/dig"
 )
 
 type EventPublisher interface {
-	PublishEvent(evt RawEvent, timeLayout string, fileParser parser.FileParser)
+	PublishEvent(evt events.RawEvent, timeLayout string, fileParser parser.FileParser)
 }
 
 type batchedRepositoryPublisher struct {
 	cfg  *config.Config
-	repo Repository
+	repo events.Repository
 
-	adder chan Event
+	adder chan events.Event
 
 	logger *slog.Logger
 }
@@ -41,15 +43,15 @@ type BatchedRepositoryPublisherParams struct {
 	dig.In
 
 	Cfg    *config.Config
-	Repo   Repository
+	Repo   events.Repository
 	Logger *slog.Logger
 }
 
 func BatchedRepositoryPublisher(p BatchedRepositoryPublisherParams) EventPublisher {
-	adder := make(chan Event, 5000)
+	adder := make(chan events.Event, 5000)
 
 	go func() {
-		accumulated := make([]Event, 0, 5000)
+		accumulated := make([]events.Event, 0, 5000)
 		timeout := time.After(1 * time.Second)
 		for {
 			select {
@@ -85,8 +87,8 @@ func BatchedRepositoryPublisher(p BatchedRepositoryPublisherParams) EventPublish
 	}
 }
 
-func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout string, fileParser parser.FileParser) {
-	processed := Event{
+func (ep *batchedRepositoryPublisher) PublishEvent(evt events.RawEvent, timeLayout string, fileParser parser.FileParser) {
+	processed := events.Event{
 		Raw:      evt.Raw,
 		Host:     ep.cfg.HostName,
 		SourceId: evt.SourceId,
@@ -117,7 +119,7 @@ func (ep *batchedRepositoryPublisher) PublishEvent(evt RawEvent, timeLayout stri
 
 type repositoryPublisher struct {
 	cfg        *config.Config
-	repository Repository
+	repository events.Repository
 }
 
 type nopEventPublisher struct {
@@ -127,4 +129,4 @@ func NopEventPublisher() EventPublisher {
 	return &nopEventPublisher{}
 }
 
-func (ep *nopEventPublisher) PublishEvent(_ RawEvent, _ string, _ parser.FileParser) {}
+func (ep *nopEventPublisher) PublishEvent(_ events.RawEvent, _ string, _ parser.FileParser) {}

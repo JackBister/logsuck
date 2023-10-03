@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/jackbister/logsuck/plugins/sqlite"
 )
 
 func TestDeleteOldEventsTaskInvalidMinAgeDoesNotDelete(t *testing.T) {
@@ -107,7 +107,7 @@ func createRepo(t *testing.T) events.Repository {
 	if err != nil {
 		t.Fatalf("got error when creating in-memory SQLite database: %v", err)
 	}
-	repo, err := events.SqliteRepository(events.SqliteEventRepositoryParams{
+	repo, err := sqlite.NewSqliteEventRepository(sqlite.SqliteEventRepositoryParams{
 		Db: db,
 		Cfg: &config.Config{
 			SQLite: &config.SqliteConfig{},
