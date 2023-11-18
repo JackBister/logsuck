@@ -22,18 +22,15 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/internal/web"
+
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	"github.com/jackbister/logsuck/pkg/logsuck/tasks"
 	"go.uber.org/dig"
 )
 
 type TaskContext struct {
 	EventsRepo events.Repository
-}
-
-type Task interface {
-	Name() string
-	Run(cfg map[string]any, ctx context.Context)
 }
 
 type TaskState int
@@ -76,7 +73,7 @@ func (te *TaskEnumProvider) Values() ([]string, error) {
 type TaskManager struct {
 	cfg         *config.TasksConfig
 	taskContext TaskContext
-	tasks       map[string]Task
+	tasks       map[string]tasks.Task
 	taskData    sync.Map //<string, TaskData>
 	ctx         context.Context
 
@@ -91,7 +88,7 @@ type TaskManagerParams struct {
 	CfgSource  config.ConfigSource
 	Logger     *slog.Logger
 
-	Tasks []Task `group:"tasks"`
+	Tasks []tasks.Task `group:"tasks"`
 }
 
 func NewTaskManager(p TaskManagerParams) (*TaskManager, error) {
@@ -105,7 +102,7 @@ func NewTaskManager(p TaskManagerParams) (*TaskManager, error) {
 		taskContext: TaskContext{
 			EventsRepo: p.EventsRepo,
 		},
-		tasks:    map[string]Task{},
+		tasks:    map[string]tasks.Task{},
 		taskData: sync.Map{},
 		ctx:      p.Ctx,
 
@@ -151,7 +148,7 @@ func (tm *TaskManager) ScheduleTask(name string) error {
 	logger := tm.logger.With(slog.String("taskName", name))
 	logger.Info("scheduling task",
 		slog.Duration("interval", td.interval))
-	go func(t Task, td TaskData) {
+	go func(t tasks.Task, td TaskData) {
 		ticker := time.NewTicker(td.interval)
 		defer ticker.Stop()
 

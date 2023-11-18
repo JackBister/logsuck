@@ -24,6 +24,7 @@ import (
 
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
 	"github.com/jackbister/logsuck/pkg/logsuck/search"
+	"github.com/jackbister/logsuck/pkg/logsuck/tasks"
 )
 
 type DeleteOldEventsTask struct {
@@ -32,7 +33,7 @@ type DeleteOldEventsTask struct {
 	Logger *slog.Logger
 }
 
-func NewDeleteOldEventsTask(repo events.Repository, logger *slog.Logger) Task {
+func NewDeleteOldEventsTask(repo events.Repository, logger *slog.Logger) tasks.Task {
 	return &DeleteOldEventsTask{
 		Repo:   repo,
 		Logger: logger,

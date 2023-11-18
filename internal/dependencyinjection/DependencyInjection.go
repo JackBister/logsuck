@@ -22,12 +22,13 @@ import (
 	"github.com/jackbister/logsuck/internal/forwarder"
 	"github.com/jackbister/logsuck/internal/jobs"
 	"github.com/jackbister/logsuck/internal/recipient"
-	"github.com/jackbister/logsuck/internal/tasks"
+	internalTasks "github.com/jackbister/logsuck/internal/tasks"
 	"github.com/jackbister/logsuck/internal/web"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
 
 	"github.com/jackbister/logsuck/plugins/sqlite"
+	"github.com/jackbister/logsuck/plugins/tasks"
 
 	"go.uber.org/dig"
 )
@@ -40,6 +41,10 @@ func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logg
 	}
 
 	err = sqlite.Plugin.Provide(c, logger)
+	if err != nil {
+		return nil, err
+	}
+	err = tasks.Plugin.Provide(c, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -157,11 +162,7 @@ func provideConfigSource(c *dig.Container, logger *slog.Logger) error {
 }
 
 func provideTasks(c *dig.Container, logger *slog.Logger) error {
-	err := c.Provide(tasks.NewDeleteOldEventsTask, dig.Group("tasks"))
-	if err != nil {
-		return err
-	}
-	err = c.Provide(tasks.NewTaskManager)
+	err := c.Provide(internalTasks.NewTaskManager)
 	if err != nil {
 		return err
 	}
@@ -169,7 +170,7 @@ func provideTasks(c *dig.Container, logger *slog.Logger) error {
 }
 
 func provideEnumProviders(c *dig.Container, logger *slog.Logger) error {
-	err := c.Provide(tasks.NewTaskEnumProvider, dig.Group("enumProviders"))
+	err := c.Provide(internalTasks.NewTaskEnumProvider, dig.Group("enumProviders"))
 	if err != nil {
 		return err
 	}
