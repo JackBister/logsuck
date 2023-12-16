@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pipeline
+package steps
 
 import (
 	"context"
@@ -25,19 +25,19 @@ import (
 	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
-type rexPipelineStep struct {
+type RexPipelineStep struct {
 	extractor regexp.Regexp
 	field     string
 }
 
-func (r *rexPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, params PipelineParameters) {
-	defer close(pipe.output)
+func (r *RexPipelineStep) Execute(ctx context.Context, pipe api.PipelinePipe, params api.PipelineParameters) {
+	defer close(pipe.Output)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case res, ok := <-pipe.input:
+		case res, ok := <-pipe.Input:
 			if !ok {
 				return
 			}
@@ -68,24 +68,24 @@ func (r *rexPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, params
 					evt.Fields[k] = v
 				}
 			}
-			pipe.output <- res
+			pipe.Output <- res
 		}
 	}
 }
 
-func (r *rexPipelineStep) Name() string {
+func (r *RexPipelineStep) Name() string {
 	return "rex"
 }
 
-func (r *rexPipelineStep) InputType() api.PipelinePipeType {
+func (r *RexPipelineStep) InputType() api.PipelinePipeType {
 	return api.PipelinePipeTypeEvents
 }
 
-func (r *rexPipelineStep) OutputType() api.PipelinePipeType {
+func (r *RexPipelineStep) OutputType() api.PipelinePipeType {
 	return api.PipelinePipeTypeEvents
 }
 
-func compileRexStep(input string, options map[string]string) (pipelineStep, error) {
+func compileRexStep(input string, options map[string]string) (api.PipelineStep, error) {
 	field, ok := options["field"]
 	if !ok {
 		field = "_raw"
@@ -96,7 +96,7 @@ func compileRexStep(input string, options map[string]string) (pipelineStep, erro
 		return nil, fmt.Errorf("failed to compile rex: %w", err)
 	}
 
-	return &rexPipelineStep{
+	return &RexPipelineStep{
 		extractor: *regex,
 		field:     field,
 	}, nil

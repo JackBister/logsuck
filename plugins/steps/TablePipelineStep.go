@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pipeline
+package steps
 
 import (
 	"context"
@@ -26,14 +26,14 @@ type tablePipelineStep struct {
 	fields []string
 }
 
-func (s *tablePipelineStep) Execute(ctx context.Context, pipe pipelinePipe, params PipelineParameters) {
-	defer close(pipe.output)
+func (s *tablePipelineStep) Execute(ctx context.Context, pipe api.PipelinePipe, params api.PipelineParameters) {
+	defer close(pipe.Output)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case res, ok := <-pipe.input:
+		case res, ok := <-pipe.Input:
 			if !ok {
 				return
 			}
@@ -46,7 +46,7 @@ func (s *tablePipelineStep) Execute(ctx context.Context, pipe pipelinePipe, para
 				ret = append(ret, m)
 			}
 			res.TableRows = ret
-			pipe.output <- res
+			pipe.Output <- res
 		}
 	}
 }
@@ -67,7 +67,7 @@ func (r *tablePipelineStep) OutputType() api.PipelinePipeType {
 	return api.PipelinePipeTypeTable
 }
 
-func compileTableStep(input string, options map[string]string) (pipelineStep, error) {
+func compileTableStep(input string, options map[string]string) (api.PipelineStep, error) {
 	fields := strings.Split(input, ",")
 	trimmedFields := make([]string, 0, len(fields))
 	for _, f := range fields {

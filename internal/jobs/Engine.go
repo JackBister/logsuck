@@ -32,10 +32,11 @@ import (
 )
 
 type Engine struct {
-	cancels      map[int64]func()
-	configSource config.ConfigSource
-	eventRepo    events.Repository
-	jobRepo      api.Repository
+	cancels          map[int64]func()
+	configSource     config.ConfigSource
+	eventRepo        events.Repository
+	jobRepo          api.Repository
+	pipelineCompiler internalPipeline.PipelineCompiler
 
 	logger *slog.Logger
 }
@@ -43,25 +44,27 @@ type Engine struct {
 type EngineParams struct {
 	dig.In
 
-	ConfigSource config.ConfigSource
-	EventRepo    events.Repository
-	JobRepo      api.Repository
-	Logger       *slog.Logger
+	ConfigSource     config.ConfigSource
+	EventRepo        events.Repository
+	JobRepo          api.Repository
+	PipelineCompiler internalPipeline.PipelineCompiler
+	Logger           *slog.Logger
 }
 
 func NewEngine(p EngineParams) *Engine {
 	return &Engine{
-		cancels:      map[int64]func(){},
-		configSource: p.ConfigSource,
-		eventRepo:    p.EventRepo,
-		jobRepo:      p.JobRepo,
+		cancels:          map[int64]func(){},
+		configSource:     p.ConfigSource,
+		eventRepo:        p.EventRepo,
+		jobRepo:          p.JobRepo,
+		pipelineCompiler: p.PipelineCompiler,
 
 		logger: p.Logger,
 	}
 }
 
 func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, error) {
-	pl, err := internalPipeline.CompilePipeline(query, startTime, endTime)
+	pl, err := e.pipelineCompiler.Compile(query, startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile search query: %w", err)
 	}
@@ -85,7 +88,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 		// TODO: This should probably be batched
 		results := pl.Execute(
 			ctx,
-			internalPipeline.PipelineParameters{
+			pipeline.PipelineParameters{
 				ConfigSource: e.configSource,
 				EventsRepo:   e.eventRepo,
 

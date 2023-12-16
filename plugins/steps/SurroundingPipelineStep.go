@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pipeline
+package steps
 
 import (
 	"context"
@@ -28,13 +28,13 @@ import (
 	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
-type surroundingPipelineStep struct {
+type SurroundingPipelineStep struct {
 	eventId int64
 	count   int
 }
 
-func (s *surroundingPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, params PipelineParameters) {
-	defer close(pipe.output)
+func (s *SurroundingPipelineStep) Execute(ctx context.Context, pipe api.PipelinePipe, params api.PipelineParameters) {
+	defer close(pipe.Output)
 
 	evts, err := params.EventsRepo.GetSurroundingEvents(s.eventId, s.count)
 	if err != nil {
@@ -75,28 +75,28 @@ func (s *surroundingPipelineStep) Execute(ctx context.Context, pipe pipelinePipe
 			Fields:    evtFields,
 		}
 	}
-	pipe.output <- PipelineStepResult{
+	pipe.Output <- api.PipelineStepResult{
 		Events: retEvts,
 	}
 }
 
-func (s *surroundingPipelineStep) Name() string {
+func (s *SurroundingPipelineStep) Name() string {
 	return "surrounding"
 }
 
-func (r *surroundingPipelineStep) InputType() api.PipelinePipeType {
+func (r *SurroundingPipelineStep) InputType() api.PipelinePipeType {
 	return api.PipelinePipeTypeNone
 }
 
-func (r *surroundingPipelineStep) OutputType() api.PipelinePipeType {
+func (r *SurroundingPipelineStep) OutputType() api.PipelinePipeType {
 	return api.PipelinePipeTypeEvents
 }
 
-func (r *surroundingPipelineStep) SortMode() events.SortMode {
+func (r *SurroundingPipelineStep) SortMode() events.SortMode {
 	return events.SortModePreserveArgOrder
 }
 
-func compileSurroundingStep(input string, options map[string]string) (pipelineStep, error) {
+func compileSurroundingStep(input string, options map[string]string) (api.PipelineStep, error) {
 	eventIdString, ok := options["eventId"]
 	if !ok {
 		return nil, fmt.Errorf("failed to compile surrounding: eventId must be provided")
@@ -115,7 +115,7 @@ func compileSurroundingStep(input string, options map[string]string) (pipelineSt
 			return nil, fmt.Errorf("failed to compile surrounding: failed to parse count as integer: %w", err)
 		}
 	}
-	return &surroundingPipelineStep{
+	return &SurroundingPipelineStep{
 		eventId: eventId,
 		count:   count,
 	}, nil

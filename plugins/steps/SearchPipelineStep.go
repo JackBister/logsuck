@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pipeline
+package steps
 
 import (
 	"context"
@@ -29,13 +29,13 @@ import (
 	"github.com/jackbister/logsuck/pkg/logsuck/search"
 )
 
-type searchPipelineStep struct {
-	srch               *search.Search
-	startTime, endTime *time.Time
+type SearchPipelineStep struct {
+	Search             *search.Search
+	StartTime, EndTime *time.Time
 }
 
-func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, params PipelineParameters) {
-	defer close(pipe.output)
+func (s *SearchPipelineStep) Execute(ctx context.Context, pipe api.PipelinePipe, params api.PipelineParameters) {
+	defer close(pipe.Output)
 
 	cfg, err := params.ConfigSource.Get()
 	if err != nil {
@@ -44,11 +44,11 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 		return
 	}
 
-	inputEvents := params.EventsRepo.FilterStream(s.srch, s.startTime, s.endTime)
-	compiledFrags := compileKeys(s.srch.Fragments, params.Logger)
-	compiledNotFrags := compileKeys(s.srch.NotFragments, params.Logger)
-	compiledFields := compileFieldValues(s.srch.Fields, params.Logger)
-	compiledNotFields := compileFieldValues(s.srch.NotFields, params.Logger)
+	inputEvents := params.EventsRepo.FilterStream(s.Search, s.StartTime, s.EndTime)
+	compiledFrags := compileKeys(s.Search.Fragments, params.Logger)
+	compiledNotFrags := compileKeys(s.Search.NotFragments, params.Logger)
+	compiledFields := compileFieldValues(s.Search.Fields, params.Logger)
+	compiledNotFields := compileFieldValues(s.Search.NotFields, params.Logger)
 
 	for {
 		select {
@@ -86,26 +86,26 @@ func (s *searchPipelineStep) Execute(ctx context.Context, pipe pipelinePipe, par
 					})
 				}
 			}
-			pipe.output <- PipelineStepResult{
+			pipe.Output <- api.PipelineStepResult{
 				Events: retEvts,
 			}
 		}
 	}
 }
 
-func (s *searchPipelineStep) Name() string {
+func (s *SearchPipelineStep) Name() string {
 	return "search"
 }
 
-func (r *searchPipelineStep) InputType() api.PipelinePipeType {
+func (r *SearchPipelineStep) InputType() api.PipelinePipeType {
 	return api.PipelinePipeTypeNone
 }
 
-func (r *searchPipelineStep) OutputType() api.PipelinePipeType {
+func (r *SearchPipelineStep) OutputType() api.PipelinePipeType {
 	return api.PipelinePipeTypeEvents
 }
 
-func compileSearchStep(input string, options map[string]string) (pipelineStep, error) {
+func compileSearchStep(input string, options map[string]string) (api.PipelineStep, error) {
 	var startTime, endTime *time.Time
 	if t, ok := options["startTime"]; ok {
 		startTimeParsed, err := dateparse.ParseStrict(t)
@@ -126,9 +126,9 @@ func compileSearchStep(input string, options map[string]string) (pipelineStep, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to create search: %w", err)
 	}
-	return &searchPipelineStep{
-		srch:      srch,
-		startTime: startTime,
-		endTime:   endTime,
+	return &SearchPipelineStep{
+		Search:    srch,
+		StartTime: startTime,
+		EndTime:   endTime,
 	}, nil
 }

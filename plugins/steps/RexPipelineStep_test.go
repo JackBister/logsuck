@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pipeline
+package steps
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 func TestRexPipelineStep(t *testing.T) {
@@ -30,7 +31,7 @@ func TestRexPipelineStep(t *testing.T) {
 		t.Fatalf("TestRexPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	params := PipelineParameters{
+	params := api.PipelineParameters{
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
 
@@ -40,7 +41,7 @@ func TestRexPipelineStep(t *testing.T) {
 
 	go rps.Execute(context.Background(), pipe, params)
 
-	input <- PipelineStepResult{
+	input <- api.PipelineStepResult{
 		Events: []events.EventWithExtractedFields{
 			{
 				Id:        1,
@@ -65,7 +66,7 @@ func TestRexPipelineStep_MultipleExtractions(t *testing.T) {
 		t.Fatalf("TestRexPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	params := PipelineParameters{
+	params := api.PipelineParameters{
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
 
@@ -75,7 +76,7 @@ func TestRexPipelineStep_MultipleExtractions(t *testing.T) {
 
 	go rps.Execute(context.Background(), pipe, params)
 
-	input <- PipelineStepResult{
+	input <- api.PipelineStepResult{
 		Events: []events.EventWithExtractedFields{
 			{
 				Id:        1,
@@ -103,7 +104,7 @@ func TestRexPipelineStep_ExtractedField(t *testing.T) {
 		t.Fatalf("TestRexPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	params := PipelineParameters{
+	params := api.PipelineParameters{
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
 
@@ -113,7 +114,7 @@ func TestRexPipelineStep_ExtractedField(t *testing.T) {
 
 	go rps.Execute(context.Background(), pipe, params)
 
-	input <- PipelineStepResult{
+	input <- api.PipelineStepResult{
 		Events: []events.EventWithExtractedFields{
 			{
 				Id: 1,
@@ -142,7 +143,7 @@ func TestRexPipelineStep_Source(t *testing.T) {
 		t.Fatalf("TestRexPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	params := PipelineParameters{
+	params := api.PipelineParameters{
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
 
@@ -152,7 +153,7 @@ func TestRexPipelineStep_Source(t *testing.T) {
 
 	go rps.Execute(context.Background(), pipe, params)
 
-	input <- PipelineStepResult{
+	input <- api.PipelineStepResult{
 		Events: []events.EventWithExtractedFields{
 			{
 				Id:        1,
@@ -179,7 +180,7 @@ func TestRexPipelineStep_Host(t *testing.T) {
 		t.Fatalf("TestRexPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	params := PipelineParameters{
+	params := api.PipelineParameters{
 		ConfigSource: &config.NullConfigSource{},
 		EventsRepo:   repo,
 
@@ -189,7 +190,7 @@ func TestRexPipelineStep_Host(t *testing.T) {
 
 	go rps.Execute(context.Background(), pipe, params)
 
-	input <- PipelineStepResult{
+	input <- api.PipelineStepResult{
 		Events: []events.EventWithExtractedFields{
 			{
 				Id:        1,
@@ -208,7 +209,7 @@ func TestRexPipelineStep_Host(t *testing.T) {
 	verifyField(t, evt, "hostid", "123")
 }
 
-func verifyEvt(t *testing.T, output chan PipelineStepResult) events.EventWithExtractedFields {
+func verifyEvt(t *testing.T, output chan api.PipelineStepResult) events.EventWithExtractedFields {
 	result, ok := <-output
 	if !ok {
 		t.Fatal("TestRexPipelineStep got unexpected !ok when receiving output")

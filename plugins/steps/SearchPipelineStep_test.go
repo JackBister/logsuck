@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pipeline
+package steps
 
 import (
 	"context"
@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 func TestSearchPipelineStep(t *testing.T) {
@@ -29,7 +30,7 @@ func TestSearchPipelineStep(t *testing.T) {
 		t.Fatalf("TestSearchPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	params := PipelineParameters{
+	params := api.PipelineParameters{
 		ConfigSource: newConfigSource(),
 		EventsRepo:   repo,
 

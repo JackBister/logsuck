@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pipeline
+package steps
 
 import (
 	"context"
@@ -22,18 +22,18 @@ import (
 	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
-type wherePipelineStep struct {
+type WherePipelineStep struct {
 	fieldValues map[string]string
 }
 
-func (s *wherePipelineStep) Execute(ctx context.Context, pipe pipelinePipe, params PipelineParameters) {
-	defer close(pipe.output)
+func (s *WherePipelineStep) Execute(ctx context.Context, pipe api.PipelinePipe, params api.PipelineParameters) {
+	defer close(pipe.Output)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case res, ok := <-pipe.input:
+		case res, ok := <-pipe.Input:
 			if !ok {
 				return
 			}
@@ -66,25 +66,25 @@ func (s *wherePipelineStep) Execute(ctx context.Context, pipe pipelinePipe, para
 				}
 			}
 			res.TableRows = retTableRows
-			pipe.output <- res
+			pipe.Output <- res
 		}
 	}
 }
 
-func (s *wherePipelineStep) Name() string {
+func (s *WherePipelineStep) Name() string {
 	return "where"
 }
 
-func (r *wherePipelineStep) InputType() api.PipelinePipeType {
+func (r *WherePipelineStep) InputType() api.PipelinePipeType {
 	return api.PipelinePipeTypePropagate
 }
 
-func (r *wherePipelineStep) OutputType() api.PipelinePipeType {
+func (r *WherePipelineStep) OutputType() api.PipelinePipeType {
 	return api.PipelinePipeTypePropagate
 }
 
-func compileWhereStep(input string, options map[string]string) (pipelineStep, error) {
-	return &wherePipelineStep{
+func compileWhereStep(input string, options map[string]string) (api.PipelineStep, error) {
+	return &WherePipelineStep{
 		fieldValues: options,
 	}, nil
 }

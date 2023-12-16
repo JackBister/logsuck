@@ -12,6 +12,7 @@ import (
 )
 
 var Plugin = logsuck.Plugin{
+	Name: "@logsuck/sqlite",
 	Provide: func(c *dig.Container, logger *slog.Logger) error {
 		err := c.Provide(func() string {
 			return "sqlite3"

@@ -8,6 +8,7 @@ import (
 )
 
 var Plugin = logsuck.Plugin{
+	Name: "@logsuck/tasks",
 	Provide: func(c *dig.Container, logger *slog.Logger) error {
 		err := c.Provide(NewDeleteOldEventsTask, dig.Group("tasks"))
 		if err != nil {

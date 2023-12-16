@@ -20,10 +20,11 @@ import (
 
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
 	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
+	"github.com/jackbister/logsuck/plugins/steps"
 )
 
 func TestIgnoresPreviousStepsOptimization(t *testing.T) {
-	p, err := CompilePipeline("| search \"abc\" | search \"def\"", nil, nil)
+	p, err := newTestPipelineCompiler().Compile("| search \"abc\" | search \"def\"", nil, nil)
 	if err != nil {
 		t.Fatalf("got error when compiling pipeline: %v", err)
 		return
@@ -32,20 +33,20 @@ func TestIgnoresPreviousStepsOptimization(t *testing.T) {
 		t.Fatalf("unexpected number of steps in pipeline, expected=%v, got=%v", 1, len(p.steps))
 		return
 	}
-	sps, ok := p.steps[0].(*searchPipelineStep)
+	sps, ok := p.steps[0].(*steps.SearchPipelineStep)
 	if !ok {
 		t.Fatalf("unexpected step type for step 0 in pipeline, expected=searchPipelineStep, got=%v", reflect.TypeOf(p.steps[0]).Name())
 		return
 	}
-	_, ok = sps.srch.Fragments["def"]
+	_, ok = sps.Search.Fragments["def"]
 	if !ok {
-		t.Fatalf("expected step 0 to contain the fragment \"def\", have=%v", sps.srch.Fragments)
+		t.Fatalf("expected step 0 to contain the fragment \"def\", have=%v", sps.Search.Fragments)
 		return
 	}
 }
 
 func TestColumnOrder_OutputTypeNotTable(t *testing.T) {
-	p, _ := CompilePipeline("", nil, nil)
+	p, _ := newTestPipelineCompiler().Compile("", nil, nil)
 	columnOrder, err := p.ColumnOrder()
 	if err != nil {
 		t.Error("got error when getting column order for 'everything' pipeline", err)
@@ -59,7 +60,7 @@ func TestColumnOrder_OutputTypeNotTable(t *testing.T) {
 }
 
 func TestColumnOrder_OutputTypeTable(t *testing.T) {
-	p, _ := CompilePipeline("| table \"host, source, _time\"", nil, nil)
+	p, _ := newTestPipelineCompiler().Compile("| table \"host, source, _time\"", nil, nil)
 	columnOrder, err := p.ColumnOrder()
 	if err != nil {
 		t.Error("got error when getting column order for pipeline with table step", err)
@@ -76,28 +77,28 @@ func TestColumnOrder_OutputTypeTable(t *testing.T) {
 }
 
 func TestSortMode_EverythingPipeline(t *testing.T) {
-	p, _ := CompilePipeline("", nil, nil)
+	p, _ := newTestPipelineCompiler().Compile("", nil, nil)
 	if p.SortMode() != events.SortModeTimestampDesc {
 		t.Error("unexpected sortMode, expected SortModeTimestampDesc for 'everything' pipeline", p.SortMode())
 	}
 }
 
 func TestSortMode_SurroundingPipeline(t *testing.T) {
-	p, _ := CompilePipeline("| surrounding eventId=1", nil, nil)
+	p, _ := newTestPipelineCompiler().Compile("| surrounding eventId=1", nil, nil)
 	if p.SortMode() != events.SortModePreserveArgOrder {
 		t.Error("unexpected sortMode, expected SortModePreserveArgOrder for surrounding pipeline", p.SortMode())
 	}
 }
 
 func TestTypePropagation_Events(t *testing.T) {
-	p, _ := CompilePipeline("| where x=y", nil, nil)
+	p, _ := newTestPipelineCompiler().Compile("| where x=y", nil, nil)
 	if p.OutputType() != api.PipelinePipeTypeEvents {
 		t.Error("unexpected output type, expected PipelinePipeTypeEvents since the where pipe should propagate the search pipe's output type", p.OutputType())
 	}
 }
 
 func TestTypePropagation_Table(t *testing.T) {
-	p, _ := CompilePipeline("| table \"x\" | where x=y", nil, nil)
+	p, _ := newTestPipelineCompiler().Compile("| table \"x\" | where x=y", nil, nil)
 	if p.OutputType() != api.PipelinePipeTypeTable {
 		t.Error("unexpected output type, expected PipelinePipeTypeTable since the where pipe should propagate the table pipe's output type", p.OutputType())
 	}

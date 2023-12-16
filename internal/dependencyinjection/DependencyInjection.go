@@ -21,14 +21,12 @@ import (
 	internalEvents "github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/forwarder"
 	"github.com/jackbister/logsuck/internal/jobs"
+	"github.com/jackbister/logsuck/internal/pipeline"
 	"github.com/jackbister/logsuck/internal/recipient"
 	internalTasks "github.com/jackbister/logsuck/internal/tasks"
 	"github.com/jackbister/logsuck/internal/web"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
-
-	"github.com/jackbister/logsuck/plugins/sqlite"
-	"github.com/jackbister/logsuck/plugins/tasks"
 
 	"go.uber.org/dig"
 )
@@ -40,13 +38,12 @@ func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logg
 		return nil, err
 	}
 
-	err = sqlite.Plugin.Provide(c, logger)
-	if err != nil {
-		return nil, err
-	}
-	err = tasks.Plugin.Provide(c, logger)
-	if err != nil {
-		return nil, err
+	for _, p := range usedPlugins {
+		logger.Info("Loading plugin", slog.String("pluginName", p.Name))
+		err = p.Provide(c, logger)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = providePublisher(c)
@@ -54,6 +51,10 @@ func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logg
 		return nil, err
 	}
 	err = provideConfigSource(c, logger)
+	if err != nil {
+		return nil, err
+	}
+	err = providePipelines(c, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -159,6 +160,14 @@ func provideConfigSource(c *dig.Container, logger *slog.Logger) error {
 		}
 		return nil
 	})
+}
+
+func providePipelines(c *dig.Container, logger *slog.Logger) error {
+	err := c.Provide(pipeline.NewPipelineCompiler)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func provideTasks(c *dig.Container, logger *slog.Logger) error {
