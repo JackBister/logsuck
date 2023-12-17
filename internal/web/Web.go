@@ -136,8 +136,8 @@ func (wi webImpl) Serve() error {
 
 	r.GET("/config", func(c *gin.Context) {
 		tpl.Execute(c.Writer, gin.H{
-			"scriptSrc": "logsuck.js",
-			"styleSrc":  "logsuck.css",
+			"scriptSrc": "config.js",
+			"styleSrc":  "config.css",
 		})
 		c.Status(200)
 	})

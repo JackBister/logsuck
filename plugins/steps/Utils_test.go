@@ -25,7 +25,7 @@ import (
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
 	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 
-	"github.com/jackbister/logsuck/plugins/sqlite"
+	"github.com/jackbister/logsuck/plugins/sqlite_events"
 )
 
 type TestConfigSource struct {
@@ -89,7 +89,7 @@ func newInMemRepo(t *testing.T) events.Repository {
 	if err != nil {
 		t.Fatalf("newInMemRepo got error when creating in-memory SQLite database: %v", err)
 	}
-	repo, err := sqlite.NewSqliteEventRepository(sqlite.SqliteEventRepositoryParams{
+	repo, err := sqlite_events.NewSqliteEventRepository(sqlite_events.SqliteEventRepositoryParams{
 		Db: db,
 		Cfg: &config.Config{
 			SQLite: &config.SqliteConfig{},

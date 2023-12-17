@@ -1,4 +1,4 @@
-package sqlite
+package sqlite_events
 
 import (
 	"log/slog"
@@ -10,13 +10,9 @@ import (
 )
 
 var Plugin = logsuck.Plugin{
-	Name: "@logsuck/sqlite",
+	Name: "@logsuck/sqlite_events",
 	Provide: func(c *dig.Container, logger *slog.Logger) error {
-		err := c.Provide(NewSqliteConfigRepository)
-		if err != nil {
-			return err
-		}
-		err = c.Provide(NewSqliteJobRepository)
+		err := c.Provide(NewSqliteEventRepository)
 		if err != nil {
 			return err
 		}
