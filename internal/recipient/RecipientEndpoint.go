@@ -26,6 +26,7 @@ import (
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	"github.com/jackbister/logsuck/internal/parser"
 	"github.com/jackbister/logsuck/internal/rpc"
+	"github.com/jackbister/logsuck/internal/util"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
@@ -55,7 +56,9 @@ func NewRecipientEndpoint(p RecipientEndpointParams) *RecipientEndpoint {
 }
 
 func (er *RecipientEndpoint) Serve() error {
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(util.NewGinSlogger(slog.LevelInfo, *er.logger))
 	r.SetTrustedProxies(nil)
 
 	r.GET("/v1/config", func(c *gin.Context) {

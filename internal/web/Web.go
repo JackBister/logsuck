@@ -31,6 +31,7 @@ import (
 	"github.com/jackbister/logsuck/internal/indexedfiles"
 	internalJobs "github.com/jackbister/logsuck/internal/jobs"
 	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/internal/util"
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
@@ -107,7 +108,10 @@ func (wi webImpl) Serve() error {
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	r := gin.Default()
+
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(util.NewGinSlogger(slog.LevelInfo, *wi.logger))
 	r.SetTrustedProxies(nil)
 
 	var filesys http.FileSystem
