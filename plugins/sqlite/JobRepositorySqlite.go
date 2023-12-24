@@ -99,14 +99,19 @@ func (repo *sqliteJobRepository) AddTableResults(id int64, tableRows []jobs.Tabl
 func (repo *sqliteJobRepository) AddFieldStats(id int64, fields []jobs.FieldStats) error {
 	idString := strconv.FormatInt(id, 10)
 	stmt := "INSERT INTO JobFieldValues (job_id, key, value, occurrences) VALUES "
+	args := make([]any, len(fields)*4)
 	for i, f := range fields {
-		stmt += "(" + idString + ", '" + f.Key + "', '" + f.Value + "', " + strconv.Itoa(f.Occurrences) + ")"
+		stmt += "(?, ?, ?, ?)"
+		args[i*4] = idString
+		args[i*4+1] = f.Key
+		args[i*4+2] = f.Value
+		args[i*4+3] = strconv.Itoa(f.Occurrences)
 		if i != len(fields)-1 {
 			stmt += ", "
 		}
 	}
 	stmt += " ON CONFLICT (job_id, key, value) DO UPDATE SET occurrences = occurrences + excluded.occurrences;"
-	_, err := repo.db.Exec(stmt)
+	_, err := repo.db.Exec(stmt, args...)
 	if err != nil {
 		return fmt.Errorf("error when adding stats to jobId=%v: %w", id, err)
 	}
