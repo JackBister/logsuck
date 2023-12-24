@@ -49,7 +49,7 @@ type PostgresEventRepositoryParams struct {
 }
 
 func NewPostgresEventRepository(p PostgresEventRepositoryParams) (events.Repository, error) {
-	_, err := p.Conn.Exec(context.TODO(), "CREATE TABLE IF NOT EXISTS Events (id BIGSERIAL NOT NULL PRIMARY KEY, host TEXT NOT NULL, source TEXT NOT NULL, source_id TEXT NOT NULL, timestamp Timestamp NOT NULL, \"offset\" BIGINT NOT NULL, UNIQUE(host, source, timestamp, \"offset\"));")
+	_, err := p.Conn.Exec(context.TODO(), "CREATE TABLE IF NOT EXISTS Events (id BIGSERIAL NOT NULL PRIMARY KEY, host TEXT NOT NULL, source TEXT NOT NULL, source_id TEXT NOT NULL, timestamp timestamptz NOT NULL, \"offset\" BIGINT NOT NULL, UNIQUE(host, source, timestamp, \"offset\"));")
 	if err != nil {
 		return nil, fmt.Errorf("error creating events table: %w", err)
 	}
@@ -58,11 +58,11 @@ func NewPostgresEventRepository(p PostgresEventRepositoryParams) (events.Reposit
 		return nil, fmt.Errorf("error creating events timestamp index: %w", err)
 	}
 
-	_, err = p.Conn.Exec(context.TODO(), "CREATE TABLE IF NOT EXISTS EventRaws (event_id BIGINT NOT NULL PRIMARY KEY, raw TEXT);")
+	_, err = p.Conn.Exec(context.TODO(), "CREATE TABLE IF NOT EXISTS EventRaws (event_id BIGINT NOT NULL PRIMARY KEY, raw TEXT, source TEXT, host TEXT);")
 	if err != nil {
 		return nil, fmt.Errorf("error creating eventraws table: %w", err)
 	}
-	_, err = p.Conn.Exec(context.TODO(), "CREATE INDEX IF NOT EXISTS IX_EventRaws_Raw ON EventRaws USING GIN(to_tsvector('english', raw));")
+	_, err = p.Conn.Exec(context.TODO(), "CREATE INDEX IF NOT EXISTS IX_EventRaws_Raw ON EventRaws USING GIN(to_tsvector('simple', raw));")
 	if err != nil {
 		return nil, fmt.Errorf("error creating eventraws index: %w", err)
 	}
@@ -98,7 +98,7 @@ func (repo *postgresEventRepository) AddBatch(events []events.Event) error {
 			tx.Rollback(context.TODO())
 			return fmt.Errorf("error executing add statement: %w", err)
 		}
-		_, err = tx.Exec(context.TODO(), "INSERT INTO EventRaws (event_id, raw) VALUES ($1, $2);", id, evt.Raw)
+		_, err = tx.Exec(context.TODO(), "INSERT INTO EventRaws (event_id, raw, source, host) VALUES ($1, $2, $3, $4);", id, evt.Raw, evt.Source, evt.Host)
 		if err != nil {
 			tx.Rollback(context.TODO())
 			return fmt.Errorf("error executing add raw statement: %w", err)
@@ -189,10 +189,10 @@ func (repo *postgresEventRepository) FilterStream(srch *search.Search, searchSta
 		for {
 			stmt := "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.event_id = e.id WHERE e.id <= " + strconv.FormatInt(maxID, 10)
 			if searchStartTime != nil {
-				stmt += " AND e.timestamp >= '" + searchStartTime.String() + "'"
+				stmt += " AND e.timestamp >= '" + searchStartTime.Format(time.RFC3339Nano) + "'"
 			}
 			if searchEndTime != nil {
-				stmt += " AND e.timestamp <= '" + searchEndTime.String() + "'"
+				stmt += " AND e.timestamp <= '" + searchEndTime.Format(time.RFC3339Nano) + "'"
 			}
 			if lastTimestamp != "" {
 				stmt += " AND e.timestamp < '" + lastTimestamp + "'"
@@ -230,20 +230,16 @@ func (repo *postgresEventRepository) FilterStream(srch *search.Search, searchSta
 			}
 			nots["raw"] = rawNots
 
-			matchString := ""
-			for k, v := range includes {
-				for _, s := range v {
-					matchString += k + ":" + s + " "
-				}
-			}
-			for k, v := range nots {
-				for _, s := range v {
-					matchString += "NOT " + k + ":" + s + " "
-				}
+			matchStrings := map[string]string{
+				"raw":    CreateMatchString(includes["raw"], nots["raw"]),
+				"host":   CreateMatchString(includes["host"], nots["host"]),
+				"source": CreateMatchString(includes["source"], nots["source"]),
 			}
 
-			if len(matchString) > 0 {
-				stmt += " AND EventRaws MATCH '" + matchString + "'"
+			for k, v := range matchStrings {
+				if len(v) > 0 {
+					stmt += " AND to_tsvector('simple', r." + k + ") @@ to_tsquery('simple', '" + v + "')"
+				}
 			}
 			stmt += " ORDER BY e.timestamp DESC LIMIT " + strconv.Itoa(filterStreamPageSize)
 			repo.logger.Info("executing SQL statement", slog.String("stmt", stmt))
@@ -264,7 +260,7 @@ func (repo *postgresEventRepository) FilterStream(srch *search.Search, searchSta
 					evts = append(evts, evt)
 				}
 				eventsInPage++
-				lastTimestamp = evt.Timestamp.String()
+				lastTimestamp = evt.Timestamp.Format(time.RFC3339Nano)
 			}
 			ret <- evts
 			if eventsInPage < filterStreamPageSize {
@@ -278,9 +274,31 @@ func (repo *postgresEventRepository) FilterStream(srch *search.Search, searchSta
 	return ret
 }
 
-func (repo *postgresEventRepository) GetByIds(ids []int64, sortMode events.SortMode) ([]events.EventWithId, error) {
-	ret := make([]events.EventWithId, 0, len(ids))
+func CreateMatchString(includes, nots []string) string {
+	matchString := ""
+	for i, s := range includes {
+		matchString += strings.ReplaceAll(s, "*", ":*")
+		if i != len(includes)-1 {
+			matchString += " & "
+		}
+	}
+	if len(matchString) > 0 && len(nots) > 0 {
+		matchString += "& "
+	}
+	for i, s := range nots {
+		matchString += "! " + strings.ReplaceAll(s, "*", ":*")
+		if i != len(nots)-1 {
+			matchString += " & "
+		}
+	}
+	return matchString
+}
 
+func (repo *postgresEventRepository) GetByIds(ids []int64, sortMode events.SortMode) ([]events.EventWithId, error) {
+	if len(ids) == 0 {
+		return []events.EventWithId{}, nil
+	}
+	ret := make([]events.EventWithId, 0, len(ids))
 	// TODO: I'm PRETTY sure this code is garbage
 	stmt := "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.event_id = e.id WHERE e.id IN ("
 	for i, id := range ids {

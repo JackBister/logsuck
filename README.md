@@ -157,7 +157,7 @@ This part of the query may contain any combination of the following:
 
 A fragment is the Logsuck term for an unquoted or quoted string which should be searched for among the log events. For example, if you search for `"hello world"` only events containing the string "hello world" (case insensitive) will be matched.
 
-If you specify multiple fragments without any surrounding quotes, they will be matched independently of their order in the event. For example, `hello world` will match both events containing "hello world" and strings containing "world hello".
+If you specify multiple fragments without any surrounding quotes, they will be matched independently of their order in the event. For example, `hello world` will match both events containing "hello world" and events containing "world hello".
 
 You can use `*` as a wildcard character in fragments. For example, searching for `ab*` will match the strings "abc", "abcd", etc.
 
