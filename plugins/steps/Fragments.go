@@ -72,7 +72,7 @@ func compileFieldValues(m map[string][]string, logger *slog.Logger) map[string][
 }
 
 func compileFrag(frag string) (*regexp.Regexp, error) {
-	pre := "(^|\\W)"
+	pre := "(?i)(^|\\W)"
 	if strings.HasPrefix(frag, "*") {
 		pre = ""
 	}
