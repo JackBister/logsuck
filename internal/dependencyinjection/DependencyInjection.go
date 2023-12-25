@@ -18,6 +18,7 @@ import (
 	"context"
 	"log/slog"
 
+	internalConfig "github.com/jackbister/logsuck/internal/config"
 	internalEvents "github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/forwarder"
 	"github.com/jackbister/logsuck/internal/jobs"
@@ -27,6 +28,7 @@ import (
 	"github.com/jackbister/logsuck/internal/web"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/tasks"
 
 	"go.uber.org/dig"
 )
@@ -38,12 +40,33 @@ func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logg
 		return nil, err
 	}
 
+	pluginSchemas := map[string]any{}
 	for _, p := range usedPlugins {
 		logger.Info("Loading plugin", slog.String("pluginName", p.Name))
 		err = p.Provide(c, logger)
 		if err != nil {
 			return nil, err
 		}
+		if p.JsonSchema != nil {
+			schema, err := p.JsonSchema()
+			if err != nil {
+				return nil, err
+			}
+			pluginSchemas[p.Name] = schema
+		}
+	}
+	err = c.Provide(func(p struct {
+		dig.In
+		Tasks []tasks.Task `group:"tasks"`
+	}) (map[string]any, error) {
+		taskSchemas := map[string]any{}
+		for _, t := range p.Tasks {
+			taskSchemas[t.Name()] = t.ConfigSchema()
+		}
+		return internalConfig.CreateSchema(pluginSchemas, taskSchemas)
+	}, dig.Name("configSchema"))
+	if err != nil {
+		return nil, err
 	}
 
 	err = providePublisher(c)

@@ -1,58 +1,32 @@
 {
+  "$id": "https://github.com/jackbister/logsuck/internal/config/logsuck-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/jackbister/logsuck/logsuck-config.schema.json",
-  "title": "Logsuck Config",
-  "description": "Configuration for logsuck",
-  "type": "object",
   "additionalProperties": false,
+  "description": "Configuration for logsuck",
   "properties": {
     "$schema": {
       "description": "A string containing the URL to this schema. Most likely \"https://github.com/jackbister/logsuck/logsuck-config.schema.json\", or \"./logsuck-config.schema.json\" if developing logsuck.",
       "type": "string"
     },
-    "forceStaticConfig": {
-      "description": "If enabled, the JSON configuration file will be used instead of the configuration saved in the database. This means that you cannot alter configuration at runtime and must instead update the JSON file and restart logsuck. Has no effect in forwarder mode. Default false.",
-      "type": "boolean",
-      "autoform": {
-        "readonly": true
-      }
-    },
     "fileTypes": {
       "description": "A fileType combines configuration related to a type of file. For example you may have certain config that is only applicable to access logs, in which case you might name a fileType \"access_log\" and put access log specific config there. The special fileType \"DEFAULT\" is applied to all files. In a forwarder/recipient setup this only needs to be configured on the recipient host.",
-      "type": "array",
       "items": {
-        "type": "object",
         "additionalProperties": false,
         "properties": {
           "name": {
             "description": "The name of this file type. Must be unique.",
             "type": "string"
           },
-          "timeLayout": {
-            "description": "The layout of the _time field which will be extracted from this file. If no _time field is extracted or it doesn't match this layout, the time when the event was read will be used as the timestamp for that event. There are also the special timelayouts \"UNIX\", \"UNIX_MILLIS\", and \"UNIX_DECIMAL_NANOS\". \"UNIX\" expects the _time field to contain the number of seconds since the Unix epoch, \"UNIX_MILLIS\" expects it to contain the number of milliseconds since the Unix epoch, and UNIX_DECIMAL_NANOS expects it to contain a string of the form \"<UNIX>.<NANOS>\" where \"<UNIX>\" is the number of seconds since the Unix epoch and \"<NANOS>\" is the number of elapsed nanoseconds in that second. Default '2006/01/02 15:04:05'.",
-            "type": "string"
-          },
-          "readInterval": {
-            "description": "The duration between checking the file for updates. A low value will make the events searchable sooner at the cost of using more CPU and doing more disk reads. Default '1s'.",
-            "type": "string"
-          },
           "parser": {
-            "type": "object",
             "properties": {
-              "type": {
-                "description": "The name of the parser to use for this file. Default 'Regex'. Regex uses regular expressions to delimit events and extract values from them.",
-                "type": "string",
-                "enum": ["JSON", "Regex"]
-              },
               "jsonConfig": {
-                "description": "Configuration specific to the JSON parser",
-                "type": "object",
                 "autoform": {
                   "conditional": {
                     "key": "type",
                     "value": "JSON"
                   }
                 },
+                "description": "Configuration specific to the JSON parser",
                 "properties": {
                   "eventDelimiter": {
                     "description": "A regex specifying the delimiter between events. For example, if the file contains one event per row this should be '\\n'. Default '\\n'.",
@@ -62,44 +36,62 @@
                     "description": "Which field in the JSON object representing an event should be considered the timestamp of the event and placed in the _time field. Default 'ts'.",
                     "type": "string"
                   }
-                }
+                },
+                "type": "object"
               },
               "regexConfig": {
-                "description": "Configuration specific to the Regex parser",
-                "type": "object",
                 "autoform": {
                   "conditional": {
                     "key": "type",
                     "value": "Regex"
                   }
                 },
+                "description": "Configuration specific to the Regex parser",
                 "properties": {
                   "eventDelimiter": {
                     "description": "A regex specifying the delimiter between events. For example, if the file contains one event per row this should be '\\n'. Default '\\n'.",
                     "type": "string"
                   },
+                  "fieldExtractors": {
+                    "description": "Regular expressions which will be used to extract field values from events.\nCan be given in two variants:\n1. An expression containing any number of named capture groups. The names of the capture groups will be used as the field names and the captured strings will be used as the values.\n2. An expression with two unnamed capture groups. The first capture group will be used as the field name and the second group as the value.\nIf a field with the name '_time' is extracted and matches the given timelayout, it will be used as the timestamp of the event. Otherwise the time the event was read will be used.\nMultiple extractors can be specified by using the fieldextractor flag multiple times. Defaults \"(\\w+)=(\\w+)\" and \"(?P\u003c_time\u003e\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d\\.\\d\\d\\d\\d\\d\\d)\")",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "timeField": {
                     "description": "The name of the extracted field which should be considered the timestamp of the event and placed in the _time field. Default '_time'.",
                     "type": "string"
-                  },
-                  "fieldExtractors": {
-                    "description": "Regular expressions which will be used to extract field values from events.\nCan be given in two variants:\n1. An expression containing any number of named capture groups. The names of the capture groups will be used as the field names and the captured strings will be used as the values.\n2. An expression with two unnamed capture groups. The first capture group will be used as the field name and the second group as the value.\nIf a field with the name '_time' is extracted and matches the given timelayout, it will be used as the timestamp of the event. Otherwise the time the event was read will be used.\nMultiple extractors can be specified by using the fieldextractor flag multiple times. Defaults \"(\\w+)=(\\w+)\" and \"(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d\\.\\d\\d\\d\\d\\d\\d)\")",
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
                   }
-                }
+                },
+                "type": "object"
+              },
+              "type": {
+                "description": "The name of the parser to use for this file. Default 'Regex'. Regex uses regular expressions to delimit events and extract values from them.",
+                "enum": [
+                  "JSON",
+                  "Regex"
+                ],
+                "type": "string"
               }
-            }
+            },
+            "type": "object"
+          },
+          "readInterval": {
+            "description": "The duration between checking the file for updates. A low value will make the events searchable sooner at the cost of using more CPU and doing more disk reads. Default '1s'.",
+            "type": "string"
+          },
+          "timeLayout": {
+            "description": "The layout of the _time field which will be extracted from this file. If no _time field is extracted or it doesn't match this layout, the time when the event was read will be used as the timestamp for that event. There are also the special timelayouts \"UNIX\", \"UNIX_MILLIS\", and \"UNIX_DECIMAL_NANOS\". \"UNIX\" expects the _time field to contain the number of seconds since the Unix epoch, \"UNIX_MILLIS\" expects it to contain the number of milliseconds since the Unix epoch, and UNIX_DECIMAL_NANOS expects it to contain a string of the form \"\u003cUNIX\u003e.\u003cNANOS\u003e\" where \"\u003cUNIX\u003e\" is the number of seconds since the Unix epoch and \"\u003cNANOS\u003e\" is the number of elapsed nanoseconds in that second. Default '2006/01/02 15:04:05'.",
+            "type": "string"
           }
-        }
-      }
+        },
+        "type": "object"
+      },
+      "type": "array"
     },
     "files": {
-      "type": "array",
       "items": {
-        "type": "object",
         "additionalProperties": false,
         "properties": {
           "fileName": {
@@ -107,78 +99,37 @@
             "type": "string"
           },
           "fileTypes": {
-            "type": "array",
             "items": {
-              "type": "string",
               "autoform": {
                 "dynamicEnum": "fileTypes"
-              }
-            }
-          }
-        }
-      }
-    },
-    "hostTypes": {
-      "description": "A hostType contains configuration related to a type of host. For example your web server hosts may have different configuration than your database server hosts. The special hostType \"DEFAULT\" is applied to all hosts. In a forwarder/recipient setup this only needs to be configured on the recipient host.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "description": "The name of the host type. Must be unique.",
-            "type": "string"
-          },
-          "files": {
-            "description": "The files which should be indexed.",
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "fileName": {
-                  "description": "The name of the file. This can also be a glob pattern such as \"log-*.txt\".",
-                  "type": "string",
-                  "autoform": {
-                    "dynamicEnum": "files"
-                  }
-                }
               },
-              "required": ["fileName"]
-            }
-          }
-        }
-      }
-    },
-    "host": {
-      "description": "Configuration related to the current host machine.",
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "description": "The name of the host running this instance of logsuck. If empty or unset, logsuck will attempt to retrieve the hostname from the operating system.",
-          "type": "string",
-          "autoform": {
-            "readonly": true
+              "type": "string"
+            },
+            "type": "array"
           }
         },
-        "type": {
-          "description": "The type of this host. Must be a key of the \"hostTypes\" object. This will define what files will be read by this instance of logsuck.",
-          "type": "string",
-          "autoform": {
-            "dynamicEnum": "hostTypes",
-            "readonly": true
-          }
-        }
-      }
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "forceStaticConfig": {
+      "autoform": {
+        "readonly": true
+      },
+      "description": "If enabled, the JSON configuration file will be used instead of the configuration saved in the database. This means that you cannot alter configuration at runtime and must instead update the JSON file and restart logsuck. Has no effect in forwarder mode. Default false.",
+      "type": "boolean"
     },
     "forwarder": {
-      "description": "Configuration for running in forwarder mode, where events will be pushed to a recipient instance of logsuck instead of being saved locally.",
-      "type": "object",
       "additionalProperties": false,
       "autoform": {
         "readonly": true
       },
+      "description": "Configuration for running in forwarder mode, where events will be pushed to a recipient instance of logsuck instead of being saved locally.",
       "properties": {
+        "configPollInterval": {
+          "description": "How often the forwarder should poll for configuration updates from the recipient. Must be a string like '1m', '15s', etc. Default '1m'.",
+          "type": "string"
+        },
         "enabled": {
           "description": "Whether forwarding mode should be enabled or not. Default false.",
           "type": "boolean"
@@ -190,121 +141,208 @@
         "recipientAddress": {
           "description": "The URL where the recipient instance is running. Default 'localhost:8081'.",
           "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "host": {
+      "additionalProperties": false,
+      "description": "Configuration related to the current host machine.",
+      "properties": {
+        "name": {
+          "autoform": {
+            "readonly": true
+          },
+          "description": "The name of the host running this instance of logsuck. If empty or unset, logsuck will attempt to retrieve the hostname from the operating system.",
+          "type": "string"
         },
-        "configPollInterval": {
-          "description": "How often the forwarder should poll for configuration updates from the recipient. Must be a string like '1m', '15s', etc. Default '1m'.",
+        "type": {
+          "autoform": {
+            "dynamicEnum": "hostTypes",
+            "readonly": true
+          },
+          "description": "The type of this host. Must be a key of the \"hostTypes\" object. This will define what files will be read by this instance of logsuck.",
           "type": "string"
         }
-      }
+      },
+      "type": "object"
+    },
+    "hostTypes": {
+      "description": "A hostType contains configuration related to a type of host. For example your web server hosts may have different configuration than your database server hosts. The special hostType \"DEFAULT\" is applied to all hosts. In a forwarder/recipient setup this only needs to be configured on the recipient host.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "description": "The files which should be indexed.",
+            "items": {
+              "properties": {
+                "fileName": {
+                  "autoform": {
+                    "dynamicEnum": "files"
+                  },
+                  "description": "The name of the file. This can also be a glob pattern such as \"log-*.txt\".",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "fileName"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "The name of the host type. Must be unique.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "plugins": {
+      "autoform": {
+        "displayAsArray": true
+      },
+      "properties": {
+        "@logsuck/sqlite_common": {
+          "$id": "https://github.com/jackbister/logsuck/plugins/sqlite_common/sqlite_common.schema.json",
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "autoform": {
+            "readonly": true
+          },
+          "description": "Configuration for @sqlite_common Logsuck plugin",
+          "properties": {
+            "fileName": {
+              "description": "The file name which will be used for the SQLite database. Default 'logsuck.db'.",
+              "type": "string"
+            }
+          },
+          "title": "@sqlite_common",
+          "type": "object"
+        },
+        "@logsuck/sqlite_events": {
+          "$id": "https://github.com/jackbister/logsuck/plugins/sqlite_events/sqlite_events.schema.json",
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "autoform": {
+            "readonly": true
+          },
+          "description": "Configuration for @sqlite_events Logsuck plugin",
+          "properties": {
+            "trueBatch": {
+              "description": "Whether Logsuck should use 'true batch' mode or not. True batch is significantly faster at saving events on average, but is slower at handling duplicates and relies on SQLite behavior which may not be guaranteed. Default true.",
+              "type": "boolean"
+            }
+          },
+          "title": "@sqlite_events",
+          "type": "object"
+        }
+      },
+      "type": "object"
     },
     "recipient": {
-      "description": "Configuration for running in recipient mode, where events will be rececived from other logsuck instances in forwarder mode instead of reading directly from the log files.",
-      "type": "object",
       "additionalProperties": false,
       "autoform": {
         "readonly": true
       },
+      "description": "Configuration for running in recipient mode, where events will be rececived from other logsuck instances in forwarder mode instead of reading directly from the log files.",
       "properties": {
-        "enabled": {
-          "description": "Whether recipient mode should be enabled or not. Default false.",
-          "type": "boolean"
-        },
         "address": {
           "description": "The addreess where the API endpoints that the forwarders will communicate with should be exposed. Default ':8081'.",
           "type": "string"
-        }
-      }
-    },
-    "sqlite": {
-      "description": "Configuration for the SQLite database where logsuck will store its data. In a forwarder/recipient setup this only needs to be configured on the recipient host.",
-      "type": "object",
-      "additionalProperties": false,
-      "autoform": {
-        "readonly": true
-      },
-      "properties": {
-        "fileName": {
-          "description": "The file name which will be used for the SQLite database. Default 'logsuck.db'.",
-          "type": "string"
         },
-        "trueBatch": {
-          "description": "Whether Logsuck should use 'true batch' mode or not. True batch is significantly faster at saving events on average, but is slower at handling duplicates and relies on SQLite behavior which may not be guaranteed. Default true.",
+        "enabled": {
+          "description": "Whether recipient mode should be enabled or not. Default false.",
           "type": "boolean"
         }
-      }
+      },
+      "type": "object"
     },
     "tasks": {
-      "description": "Configuration for tasks, which run periodically and perform maintenance tasks like removing old events. If there is no configuration for a task it will never run.",
-      "type": "object",
-      "additionalProperties": false,
+      "autoform": {
+        "displayAsArray": true
+      },
       "properties": {
-        "tasks": {
-          "description": "An array of configurations for each task.",
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "description": "The name of the task.",
-                "type": "string",
-                "autoform": {
-                  "dynamicEnum": "tasks"
+        "@logsuck/DeleteOldEventsTask": {
+          "properties": {
+            "config": {
+              "properties": {
+                "minAge": {
+                  "type": "string"
                 }
               },
-              "enabled": {
-                "description": "Whether the task should run or not.",
-                "type": "boolean"
-              },
-              "interval": {
-                "description": "How often the task should run.",
-                "type": "string"
-              },
-              "config": {
-                "description": "A key-value map from string to string of task-specific configuration. Check the documentation for a specific task to see which properties are available.",
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "key": {
-                      "type": "string"
-                    },
-                    "value": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
+              "type": "object"
             },
-            "required": ["name", "enabled", "interval"]
-          }
+            "enabled": {
+              "type": "boolean"
+            },
+            "interval": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         }
-      }
+      },
+      "type": "object"
     },
     "web": {
-      "description": "Configuration for the web GUI used to access logsuck. In a forwarder/recipient setup this only needs to be configured on the recipient host.",
-      "type": "object",
       "additionalProperties": false,
+      "description": "Configuration for the web GUI used to access logsuck. In a forwarder/recipient setup this only needs to be configured on the recipient host.",
       "properties": {
-        "enabled": {
-          "description": "Whether the web server should run. Defaults to true unless the configuration specifies that this logsuck instance should run in forwarder mode.",
-          "type": "boolean",
-          "autoform": {
-            "readonly": true
-          }
-        },
         "address": {
           "description": "The address where the web server will be exposed. Default ':8080'.",
           "type": "string"
         },
-        "usePackagedFiles": {
-          "description": "If true, all static files will be served using the files that are bundled into the executable. If false, the normal filesystem will be used (which means the directory './internal/web/static/dist' must exist in the working directory). This is mostly useful when developing. Default true.",
-          "type": "boolean"
-        },
         "debugMode": {
           "description": "Enables debug mode in the web server, which may enable features such as extra logging. Default false.",
           "type": "boolean"
+        },
+        "enabled": {
+          "autoform": {
+            "readonly": true
+          },
+          "description": "Whether the web server should run. Defaults to true unless the configuration specifies that this logsuck instance should run in forwarder mode.",
+          "type": "boolean"
+        },
+        "usePackagedFiles": {
+          "description": "If true, all static files will be served using the files that are bundled into the executable. If false, the normal filesystem will be used (which means the directory './internal/web/static/dist' must exist in the working directory). This is mostly useful when developing. Default true.",
+          "type": "boolean"
         }
-      }
+      },
+      "type": "object"
     }
-  }
+  },
+  "tasks": {
+    "tasks": {
+      "autoform": {
+        "displayAsArray": true
+      },
+      "properties": {
+        "@logsuck/DeleteOldEventsTask": {
+          "properties": {
+            "config": {
+              "properties": {
+                "minAge": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "interval": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "title": "Logsuck Config",
+  "type": "object"
 }

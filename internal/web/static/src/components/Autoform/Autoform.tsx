@@ -34,7 +34,7 @@ import {
   FormikProps,
   FormikValues,
 } from "formik";
-import { Component, h, RenderableProps } from "preact";
+import { Component, RenderableProps, h } from "preact";
 
 export type FormFieldType =
   | "ARRAY"
@@ -79,6 +79,8 @@ export interface NumberFormField extends FormFieldBase {
 export interface ObjectFormField extends FormFieldBase {
   type: "OBJECT";
   fields: FormField[];
+
+  displayAsArray: boolean;
 }
 
 export interface StringFormField extends FormFieldBase {
@@ -202,6 +204,7 @@ export function jsonSchemaToFormSpec(
         name,
         fields: [],
         readonly: metadata.readonly,
+        displayAsArray: metadata.displayAsArray,
         conditional: metadata.conditional,
       } as ObjectFormField;
     }
@@ -217,6 +220,7 @@ export function jsonSchemaToFormSpec(
       name,
       fields,
       readonly: metadata.readonly,
+      displayAsArray: metadata.displayAsArray,
       conditional: metadata.conditional,
     } as ObjectFormField;
   } else {
@@ -227,9 +231,10 @@ export function jsonSchemaToFormSpec(
 interface AutoformFieldProps {
   level?: number;
   path: string;
-  readonly?: boolean;
   spec: FormField;
 
+  displayHeading?: boolean;
+  readonly?: boolean;
   dynamicEnums?: { [key: string]: string[] };
   formikProps: FormikProps<any>;
 }
@@ -242,6 +247,9 @@ const getPath = (o: any, s: string): any => {
   const a = s.split(".");
   for (let i = 0, n = a.length; i < n; ++i) {
     const k = a[i];
+    if (o === null) {
+      return {};
+    }
     if (k in o) {
       o = o[k];
     } else {
@@ -491,28 +499,70 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
         )}
         {this.props.spec.type === "OBJECT" && (
           <Stack>
-            {this.props.spec.fields.map((f, i) => {
-              if (f.conditional) {
-                const currentValue = getPath(
-                  this.props.formikProps.values,
-                  this.props.path + "." + f.conditional.key
-                );
-                if (currentValue !== f.conditional.value) {
-                  return null;
+            {this.props.displayHeading && (
+              <Heading level={this.props.level}>
+                {this.props.spec.displayName || this.props.spec.name}
+              </Heading>
+            )}
+            {this.props.spec.displayAsArray && (
+              <Accordion variant="contained" multiple={true}>
+                {this.props.spec.fields.map((f, i) => {
+                  if (f.conditional) {
+                    const currentValue = getPath(
+                      this.props.formikProps.values,
+                      this.props.path + "." + f.conditional.key
+                    );
+                    if (currentValue !== f.conditional.value) {
+                      return null;
+                    }
+                  }
+                  return (
+                    <Accordion.Item value={f.name}>
+                      <Accordion.Control>
+                        {f.displayName || f.name}
+                      </Accordion.Control>
+                      <Accordion.Panel>
+                        <AutoformField
+                          key={i}
+                          level={(this.props.level || 0) + 1}
+                          path={`${this.props.path}.${f.name}`}
+                          readonly={
+                            this.props.readonly || this.props.spec.readonly
+                          }
+                          spec={f}
+                          displayHeading={false}
+                          dynamicEnums={this.props.dynamicEnums}
+                          formikProps={this.props.formikProps}
+                        ></AutoformField>
+                      </Accordion.Panel>
+                    </Accordion.Item>
+                  );
+                })}
+              </Accordion>
+            )}
+            {!this.props.spec.displayAsArray &&
+              this.props.spec.fields.map((f, i) => {
+                if (f.conditional) {
+                  const currentValue = getPath(
+                    this.props.formikProps.values,
+                    this.props.path + "." + f.conditional.key
+                  );
+                  if (currentValue !== f.conditional.value) {
+                    return null;
+                  }
                 }
-              }
-              return (
-                <AutoformField
-                  key={i}
-                  level={(this.props.level || 0) + 1}
-                  path={`${this.props.path}.${f.name}`}
-                  readonly={this.props.readonly || this.props.spec.readonly}
-                  spec={f}
-                  dynamicEnums={this.props.dynamicEnums}
-                  formikProps={this.props.formikProps}
-                ></AutoformField>
-              );
-            })}
+                return (
+                  <AutoformField
+                    key={i}
+                    level={(this.props.level || 0) + 1}
+                    path={`${this.props.path}.${f.name}`}
+                    readonly={this.props.readonly || this.props.spec.readonly}
+                    spec={f}
+                    dynamicEnums={this.props.dynamicEnums}
+                    formikProps={this.props.formikProps}
+                  ></AutoformField>
+                );
+              })}
           </Stack>
         )}
         {this.props.spec.type === "BOOLEAN" && (
@@ -636,6 +686,7 @@ export class Autoform<Values extends FormikValues> extends Component<
                   spec={f}
                   level={1}
                   readonly={this.props.readonly}
+                  displayHeading={true}
                   dynamicEnums={this.state.dynamicEnums}
                   formikProps={p}
                 ></AutoformField>

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/plugins/sqlite_common"
 )
 
 type FlagStringArray []string
@@ -47,6 +48,7 @@ type CommandLineFlags struct {
 	HostName          string
 	JsonParser        bool
 	LogType           string
+	PrintJsonSchema   bool
 	PrintVersion      bool
 	Recipient         string
 	TimeField         string
@@ -72,6 +74,7 @@ func ParseCommandLine() *CommandLineFlags {
 	flag.StringVar(&ret.HostName, "hostname", "", "The name of the host running this instance of logsuck. By default, logsuck will attempt to retrieve the hostname from the operating system.")
 	flag.BoolVar(&ret.JsonParser, "json", false, "Parse the given files as JSON instead of using Regex to parse. The fieldexctractor flag will be ignored. Disabled by default.")
 	flag.StringVar(&ret.LogType, "logType", "production", "The type of logger to use. Set it to 'development' to get human readable logging instead of JSON logging")
+	flag.BoolVar(&ret.PrintJsonSchema, "schema", false, "Print configuration schema and quit.")
 	flag.BoolVar(&ret.PrintVersion, "version", false, "Print version info and quit.")
 	flag.StringVar(&ret.Recipient, "recipient", "", "Enables recipient mode and sets the port to expose the recipient on. Recipient mode is off by default.")
 	flag.StringVar(&ret.TimeField, "timefield", "_time", "The name of the field which will contain the timestamp of the event. Default '_time'.")
@@ -95,15 +98,16 @@ func (c *CommandLineFlags) ToConfig(logger *slog.Logger) *config.Config {
 			Enabled: false,
 		},
 
-		SQLite: &config.SqliteConfig{
-			DatabaseFile: "logsuck.db",
-			TrueBatch:    true,
-		},
-
 		Web: &config.WebConfig{
 			Enabled:          true,
 			Address:          ":8080",
 			UsePackagedFiles: true,
+		},
+
+		Plugins: map[string]any{
+			sqlite_common.Plugin.Name: map[string]any{
+				"fileName": "logsuck.db",
+			},
 		},
 	}
 	cfgFile, err := os.Open(c.CfgFile)
@@ -135,7 +139,9 @@ func (c *CommandLineFlags) ToConfig(logger *slog.Logger) *config.Config {
 		}
 
 		if c.DatabaseFile != "" {
-			staticConfig.SQLite.DatabaseFile = c.DatabaseFile
+			staticConfig.Plugins[sqlite_common.Plugin.Name] = map[string]any{
+				"fileName": c.DatabaseFile,
+			}
 		}
 		if c.WebAddr != "" {
 			staticConfig.Web.Address = c.WebAddr

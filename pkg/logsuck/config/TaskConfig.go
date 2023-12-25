@@ -24,7 +24,3 @@ type TaskConfig struct {
 	Interval time.Duration
 	Config   map[string]any
 }
-
-type TasksConfig struct {
-	Tasks map[string]TaskConfig
-}

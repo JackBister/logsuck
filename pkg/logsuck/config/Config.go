@@ -22,12 +22,12 @@ type Config struct {
 	Forwarder *ForwarderConfig
 	Recipient *RecipientConfig
 
-	SQLite *SqliteConfig
-
 	Web *WebConfig
 
 	Files     map[string]FileConfig
 	FileTypes map[string]FileTypeConfig
 	HostTypes map[string]HostTypeConfig
-	Tasks     TasksConfig
+	Tasks     map[string]TaskConfig
+
+	Plugins map[string]any
 }

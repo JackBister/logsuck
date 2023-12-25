@@ -38,11 +38,6 @@ type jsonRecipientConfig struct {
 	Address string `json:"address"`
 }
 
-type jsonSqliteConfig struct {
-	FileName  string `json:"fileName"`
-	TrueBatch *bool  `json:"trueBatch"`
-}
-
 type jsonWebConfig struct {
 	Enabled          *bool  `json:"enabled"`
 	Address          string `json:"address"`
@@ -89,20 +84,10 @@ type jsonHostTypeConfig struct {
 	Files []jsonHostTypeFileConfig `json:"files"`
 }
 
-type jsonTaskConfigItem struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
 type jsonTaskConfig struct {
-	Name     string               `json:"name"`
-	Enabled  bool                 `json:"enabled"`
-	Interval string               `json:"interval"`
-	Config   []jsonTaskConfigItem `json:"config"`
-}
-
-type jsonTasksConfig struct {
-	Tasks []jsonTaskConfig `json:"tasks"`
+	Enabled  bool           `json:"enabled"`
+	Interval string         `json:"interval"`
+	Config   map[string]any `json:"config"`
 }
 
 type JsonConfig struct {
@@ -110,13 +95,14 @@ type JsonConfig struct {
 	Host              *jsonHostConfig      `json:"host"`
 	Forwarder         *jsonForwarderConfig `json:"forwarder"`
 	Recipient         *jsonRecipientConfig `json:"recipient"`
-	Sqlite            *jsonSqliteConfig    `json:"sqlite"`
 	Web               *jsonWebConfig       `json:"web"`
 
-	Files     []jsonFileConfig     `json:"files"`
-	FileTypes []jsonFileTypeConfig `json:"fileTypes"`
-	HostTypes []jsonHostTypeConfig `json:"hostTypes"`
-	Tasks     jsonTasksConfig      `json:"tasks"`
+	Files     []jsonFileConfig          `json:"files"`
+	FileTypes []jsonFileTypeConfig      `json:"fileTypes"`
+	HostTypes []jsonHostTypeConfig      `json:"hostTypes"`
+	Tasks     map[string]jsonTaskConfig `json:"tasks"`
+
+	Plugins map[string]any `json:"plugins"`
 }
 
 var defaultConfig = Config{
@@ -131,11 +117,6 @@ var defaultConfig = Config{
 	Recipient: &RecipientConfig{
 		Enabled: false,
 		Address: ":8081",
-	},
-
-	SQLite: &SqliteConfig{
-		DatabaseFile: "db",
-		TrueBatch:    true,
 	},
 
 	Web: &WebConfig{
@@ -247,27 +228,6 @@ func FromJSON(cfg JsonConfig, logger *slog.Logger) (*Config, error) {
 		}
 	}
 
-	var sqlite *SqliteConfig
-	if cfg.Sqlite == nil {
-		logger.Info("Using default sqlite configuration.")
-		sqlite = defaultConfig.SQLite
-	} else {
-		sqlite = &SqliteConfig{}
-		if cfg.Sqlite.FileName == "" {
-			logger.Info("Using default sqlite filename",
-				slog.String("defaultSqliteFileName", defaultConfig.SQLite.DatabaseFile))
-			sqlite.DatabaseFile = defaultConfig.SQLite.DatabaseFile
-		} else {
-			sqlite.DatabaseFile = cfg.Sqlite.FileName
-		}
-		if cfg.Sqlite.TrueBatch == nil {
-			logger.Info("Using default TrueBatch mode. defaultTrueBatch=true")
-			sqlite.TrueBatch = true
-		} else {
-			sqlite.TrueBatch = *cfg.Sqlite.TrueBatch
-		}
-	}
-
 	var web *WebConfig
 	if cfg.Web == nil {
 		logger.Info("Using default web configuration.")
@@ -323,28 +283,22 @@ func FromJSON(cfg JsonConfig, logger *slog.Logger) (*Config, error) {
 		}
 	}
 
-	tasksConfig := TasksConfig{
-		Tasks: map[string]TaskConfig{},
-	}
-	for _, v := range cfg.Tasks.Tasks {
+	tasksConfig := map[string]TaskConfig{}
+	for k, v := range cfg.Tasks {
 		enabled := v.Enabled
 		intervalDuration, err := time.ParseDuration(v.Interval)
 		if err != nil {
 			logger.Error("got invalid duration when parsing interval for task. This task will be disabled. error",
 				slog.String("interval", v.Interval),
-				slog.String("taskName", v.Name),
+				slog.String("taskName", k),
 				slog.Any("error", err))
 			enabled = false
 		}
-		cfgMap := map[string]any{}
-		for _, kv := range v.Config {
-			cfgMap[kv.Key] = kv.Value
-		}
-		tasksConfig.Tasks[v.Name] = TaskConfig{
-			Name:     v.Name,
+		tasksConfig[k] = TaskConfig{
+			Name:     k,
 			Enabled:  enabled,
 			Interval: intervalDuration,
-			Config:   cfgMap,
+			Config:   v.Config,
 		}
 	}
 
@@ -356,14 +310,14 @@ func FromJSON(cfg JsonConfig, logger *slog.Logger) (*Config, error) {
 		Forwarder: forwarder,
 		Recipient: recipient,
 
-		SQLite: sqlite,
-
 		Web: web,
 
 		Files:     files,
 		FileTypes: fileTypes,
 		HostTypes: hostTypes,
 		Tasks:     tasksConfig,
+
+		Plugins: cfg.Plugins,
 	}, nil
 }
 
@@ -433,21 +387,13 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 			Files: hostTypeFileConfigs,
 		})
 	}
-	tasks := make([]jsonTaskConfig, 0, len(c.Tasks.Tasks))
-	for _, t := range c.Tasks.Tasks {
-		cfgArray := make([]jsonTaskConfigItem, 0, len(t.Config))
-		for k, v := range t.Config {
-			cfgArray = append(cfgArray, jsonTaskConfigItem{
-				Key:   k,
-				Value: v.(string),
-			})
+	tasks := map[string]jsonTaskConfig{}
+	for k, v := range c.Tasks {
+		tasks[k] = jsonTaskConfig{
+			Enabled:  v.Enabled,
+			Interval: v.Interval.String(),
+			Config:   v.Config,
 		}
-		tasks = append(tasks, jsonTaskConfig{
-			Name:     t.Name,
-			Enabled:  t.Enabled,
-			Interval: t.Interval.String(),
-			Config:   cfgArray,
-		})
 	}
 	jsonCfg := JsonConfig{
 		ForceStaticConfig: c.ForceStaticConfig,
@@ -465,10 +411,6 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 			Enabled: &c.Recipient.Enabled,
 			Address: c.Recipient.Address,
 		},
-		Sqlite: &jsonSqliteConfig{
-			FileName:  c.SQLite.DatabaseFile,
-			TrueBatch: &c.SQLite.TrueBatch,
-		},
 		Web: &jsonWebConfig{
 			Enabled:          &c.Web.Enabled,
 			Address:          c.Web.Address,
@@ -478,9 +420,9 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 		Files:     files,
 		FileTypes: fileTypes,
 		HostTypes: hostTypes,
-		Tasks: jsonTasksConfig{
-			Tasks: tasks,
-		},
+		Tasks:     tasks,
+
+		Plugins: c.Plugins,
 	}
 	return &jsonCfg, nil
 }

@@ -35,12 +35,6 @@ type TestConfigSource struct {
 func newConfigSource() config.ConfigSource {
 	return &TestConfigSource{
 		config: config.Config{
-
-			SQLite: &config.SqliteConfig{
-				DatabaseFile: ":memory:",
-				TrueBatch:    true,
-			},
-
 			Files: map[string]config.FileConfig{
 				"my-log.txt": {
 					Filename: "my-log.txt",
@@ -91,8 +85,8 @@ func newInMemRepo(t *testing.T) events.Repository {
 	}
 	repo, err := sqlite_events.NewSqliteEventRepository(sqlite_events.SqliteEventRepositoryParams{
 		Db: db,
-		Cfg: &config.Config{
-			SQLite: &config.SqliteConfig{},
+		Cfg: &sqlite_events.Config{
+			TrueBatch: true,
 		},
 		Logger: slog.Default(),
 	})

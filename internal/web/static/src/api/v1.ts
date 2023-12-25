@@ -17,7 +17,6 @@
 import { LogEvent } from "../models/Event";
 import { TimeSelection } from "../models/TimeSelection";
 import { validateIsoTimestamp } from "../validateIsoTimestamp";
-import { LogsuckConfig } from "./config";
 
 interface RestEvent {
   Id: number;
@@ -163,11 +162,11 @@ export function getFieldValueCounts(
     .then((f: FieldValueCounts) => f);
 }
 
-export function getConfig(): Promise<LogsuckConfig> {
+export function getConfig(): Promise<any> {
   return fetch(`/api/v1/config`).then((r) => r.json());
 }
 
-export function updateConfig(value: LogsuckConfig): Promise<any> {
+export function updateConfig(value: any): Promise<any> {
   return fetch(`/api/v1/config`, {
     method: "POST",
     headers: {
@@ -175,6 +174,10 @@ export function updateConfig(value: LogsuckConfig): Promise<any> {
     },
     body: JSON.stringify(value),
   });
+}
+
+export function getConfigSchema(): Promise<any> {
+  return fetch(`/api/v1/config/schema`).then((r) => r.json());
 }
 
 export function getDynamicEnum(enumName: string): Promise<string[]> {

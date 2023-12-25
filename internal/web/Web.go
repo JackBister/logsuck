@@ -47,6 +47,7 @@ type Web interface {
 type webImpl struct {
 	configSource  config.ConfigSource
 	configRepo    config.ConfigRepository
+	configSchema  map[string]any
 	staticConfig  *config.Config
 	eventRepo     events.Repository
 	jobRepo       jobs.Repository
@@ -70,6 +71,7 @@ type WebParams struct {
 
 	ConfigSource config.ConfigSource
 	ConfigRepo   config.ConfigRepository
+	ConfigSchema map[string]any `name:"configSchema"`
 	StaticConfig *config.Config
 	EventRepo    events.Repository
 	JobRepo      jobs.Repository
@@ -88,6 +90,7 @@ func NewWeb(p WebParams) Web {
 		staticConfig: p.StaticConfig,
 		configSource: p.ConfigSource,
 		configRepo:   p.ConfigRepo,
+		configSchema: p.ConfigSchema,
 		eventRepo:    p.EventRepo,
 		jobRepo:      p.JobRepo,
 		jobEngine:    p.JobEngine,

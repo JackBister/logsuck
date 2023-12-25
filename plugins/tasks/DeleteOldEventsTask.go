@@ -83,6 +83,17 @@ func (t *DeleteOldEventsTask) Run(cfg map[string]any, ctx context.Context) {
 	}
 }
 
+func (t *DeleteOldEventsTask) ConfigSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"minAge": map[string]any{
+				"type": "string",
+			},
+		},
+	}
+}
+
 var durationRegexp = regexp.MustCompile("^(\\d+)(s|m|h|d|M|y)$")
 
 // Unfortunately time.ParseDuration does not support strings like "1d".

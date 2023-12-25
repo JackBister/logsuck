@@ -16,7 +16,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"os"
@@ -51,7 +53,9 @@ func main() {
 
 	var err error
 	var logger *slog.Logger
-	if cmdFlags.LogType == "development" {
+	if cmdFlags.PrintJsonSchema {
+		logger = slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
+	} else if cmdFlags.LogType == "development" {
 		logger = slog.New(slog.NewTextHandler(
 			os.Stdout,
 			&slog.HandlerOptions{
@@ -74,6 +78,25 @@ func main() {
 	if err != nil {
 		logger.Error("failed to create dependency injection context", slog.Any("error", err))
 		return
+	}
+
+	if cmdFlags.PrintJsonSchema {
+		err = c.Invoke(func(p struct {
+			dig.In
+
+			ConfigSchema map[string]any `name:"configSchema"`
+		}) {
+			b, err := json.MarshalIndent(p.ConfigSchema, "", "  ")
+			if err != nil {
+				logger.Error("Failed to marshal config schema", slog.Any("error", err))
+				panic(err)
+			}
+			fmt.Print(string(b))
+			os.Exit(0)
+		})
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	err = c.Invoke(func(p struct {

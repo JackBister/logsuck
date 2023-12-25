@@ -20,14 +20,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackbister/logsuck/pkg/logsuck/config"
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
 )
 
 func TestAddBatchTrueBatch(t *testing.T) {
-	repo := createRepoWithCfg(t, &config.SqliteConfig{
-		DatabaseFile: ":memory:",
-		TrueBatch:    true,
+	repo := createRepoWithCfg(t, &Config{
+		TrueBatch: true,
 	})
 
 	repo.AddBatch([]events.Event{
@@ -50,9 +48,8 @@ func TestAddBatchTrueBatch(t *testing.T) {
 }
 
 func TestAddBatchOneByOne(t *testing.T) {
-	repo := createRepoWithCfg(t, &config.SqliteConfig{
-		DatabaseFile: ":memory:",
-		TrueBatch:    false,
+	repo := createRepoWithCfg(t, &Config{
+		TrueBatch: false,
 	})
 
 	repo.AddBatch([]events.Event{
@@ -133,22 +130,19 @@ func TestDeleteOneEvent(t *testing.T) {
 }
 
 func createRepo(t *testing.T) events.Repository {
-	return createRepoWithCfg(t, &config.SqliteConfig{
-		DatabaseFile: ":memory:",
-		TrueBatch:    true,
+	return createRepoWithCfg(t, &Config{
+		TrueBatch: true,
 	})
 }
 
-func createRepoWithCfg(t *testing.T, cfg *config.SqliteConfig) events.Repository {
+func createRepoWithCfg(t *testing.T, cfg *Config) events.Repository {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatalf("got error when creating in-memory SQLite database: %v", err)
 	}
 	repo, err := NewSqliteEventRepository(SqliteEventRepositoryParams{
-		Db: db,
-		Cfg: &config.Config{
-			SQLite: cfg,
-		},
+		Db:     db,
+		Cfg:    cfg,
 		Logger: slog.Default(),
 	})
 	if err != nil {

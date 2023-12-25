@@ -25,6 +25,9 @@ import (
 func addConfigEndpoints(g *gin.RouterGroup, wi *webImpl) {
 	g = g.Group("config")
 
+	g.GET("/schema", func(ctx *gin.Context) {
+		ctx.JSON(200, wi.configSchema)
+	})
 	g.GET("/enums/:name", func(ctx *gin.Context) {
 		providerName, _ := ctx.Params.Get("name")
 		provider, ok := wi.enumProviders[providerName]
@@ -81,4 +84,5 @@ func addConfigEndpoints(g *gin.RouterGroup, wi *webImpl) {
 		}
 		ctx.String(200, "ok")
 	})
+
 }

@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackbister/logsuck/pkg/logsuck/config"
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
 	"github.com/jackbister/logsuck/pkg/logsuck/search"
 	"github.com/jackc/pgx/v5"
@@ -44,7 +43,6 @@ type PostgresEventRepositoryParams struct {
 	dig.In
 
 	Conn   *pgxpool.Pool
-	Cfg    *config.Config
 	Logger *slog.Logger
 }
 

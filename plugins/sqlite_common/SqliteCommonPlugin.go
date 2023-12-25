@@ -2,6 +2,9 @@ package sqlite_common
 
 import (
 	"database/sql"
+	_ "embed"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 
 	"github.com/jackbister/logsuck/pkg/logsuck"
@@ -11,8 +14,17 @@ import (
 	"go.uber.org/dig"
 )
 
+const pluginName = "@logsuck/sqlite_common"
+
+//go:embed sqlite_common.schema.json
+var schemaString string
+
+type Config struct {
+	FileName string
+}
+
 var Plugin = logsuck.Plugin{
-	Name: "@logsuck/sqlite_common",
+	Name: pluginName,
 	Provide: func(c *dig.Container, logger *slog.Logger) error {
 		err := c.Provide(func() string {
 			return "sqlite3"
@@ -20,14 +32,30 @@ var Plugin = logsuck.Plugin{
 		if err != nil {
 			return err
 		}
-		err = c.Provide(func(cfg *config.Config) string {
+		err = c.Provide(func(cfg *config.Config) *Config {
+			ret := Config{
+				FileName: "logsuck.db",
+			}
+			cfgMap, ok := cfg.Plugins[pluginName].(map[string]any)
+			if !ok {
+				return &ret
+			}
+			if fns, ok := cfgMap["fileName"].(string); ok {
+				ret.FileName = fns
+			}
+			return &ret
+		})
+		if err != nil {
+			return err
+		}
+		err = c.Provide(func(cfg *Config) string {
 			additionalSqliteParameters := "?_journal_mode=WAL"
-			if cfg.SQLite.DatabaseFile == ":memory:" {
+			if cfg.FileName == ":memory:" {
 				// cache=shared breaks DeleteOldEventsTask. But not having it breaks everything in :memory: mode.
 				// So we set cache=shared for :memory: mode and assume people will not need to delete old tasks in that mode.
 				additionalSqliteParameters += "&cache=shared"
 			}
-			return "file:" + cfg.SQLite.DatabaseFile + additionalSqliteParameters
+			return "file:" + cfg.FileName + additionalSqliteParameters
 		}, dig.Name("sqlDataSourceName"))
 		if err != nil {
 			return err
@@ -48,5 +76,13 @@ var Plugin = logsuck.Plugin{
 			return err
 		}
 		return nil
+	},
+	JsonSchema: func() (map[string]any, error) {
+		ret := map[string]any{}
+		err := json.Unmarshal([]byte(schemaString), &ret)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal sqlite_common JSON schema: %w", err)
+		}
+		return ret, nil
 	},
 }

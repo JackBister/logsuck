@@ -71,7 +71,7 @@ func (te *TaskEnumProvider) Values() ([]string, error) {
 }
 
 type TaskManager struct {
-	cfg         *config.TasksConfig
+	cfg         map[string]config.TaskConfig
 	taskContext TaskContext
 	tasks       map[string]tasks.Task
 	taskData    sync.Map //<string, TaskData>
@@ -98,7 +98,7 @@ func NewTaskManager(p TaskManagerParams) (*TaskManager, error) {
 	}
 
 	tm := &TaskManager{
-		cfg: &r.Cfg.Tasks,
+		cfg: r.Cfg.Tasks,
 		taskContext: TaskContext{
 			EventsRepo: p.EventsRepo,
 		},
@@ -123,7 +123,7 @@ func (tm *TaskManager) ScheduleTask(name string) error {
 
 	ctx, cancelFunc := context.WithCancel(tm.ctx)
 	var td TaskData
-	if cfg, ok := tm.cfg.Tasks[name]; ok {
+	if cfg, ok := tm.cfg[name]; ok {
 		td = TaskData{
 			enabled:     cfg.Enabled,
 			interval:    cfg.Interval,
@@ -182,7 +182,7 @@ func (tm *TaskManager) ScheduleTask(name string) error {
 
 func (tm *TaskManager) UpdateConfig(cfg config.Config) {
 	tm.logger.Info("Updating TaskManager config")
-	tm.cfg = &cfg.Tasks
+	tm.cfg = cfg.Tasks
 	for tn := range tm.tasks {
 		logger := tm.logger.With(slog.String("taskName", tn))
 		oldTdAny, ok := tm.taskData.Load(tn)
@@ -203,7 +203,7 @@ func (tm *TaskManager) UpdateConfig(cfg config.Config) {
 
 	tasksToRemove := []string{}
 	for tn := range tm.tasks {
-		if t, ok := cfg.Tasks.Tasks[tn]; !ok || !t.Enabled {
+		if t, ok := cfg.Tasks[tn]; !ok || !t.Enabled {
 			tm.logger.Info("task was not present in new configuration. This task will not be rescheduled",
 				slog.String("taskName", tn))
 			tasksToRemove = append(tasksToRemove, tn)
@@ -214,7 +214,7 @@ func (tm *TaskManager) UpdateConfig(cfg config.Config) {
 		tm.taskData.Delete(tn)
 	}
 
-	for _, t := range cfg.Tasks.Tasks {
+	for _, t := range cfg.Tasks {
 		if !t.Enabled {
 			continue
 		}

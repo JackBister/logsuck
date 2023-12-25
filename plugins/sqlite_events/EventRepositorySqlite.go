@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackbister/logsuck/pkg/logsuck/config"
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
 	"github.com/jackbister/logsuck/pkg/logsuck/search"
 
@@ -40,7 +39,7 @@ const filterStreamPageSize = 1000
 type sqliteEventRepository struct {
 	db *sql.DB
 
-	cfg *config.SqliteConfig
+	cfg *Config
 
 	logger *slog.Logger
 }
@@ -49,7 +48,7 @@ type SqliteEventRepositoryParams struct {
 	dig.In
 
 	Db     *sql.DB
-	Cfg    *config.Config
+	Cfg    *Config
 	Logger *slog.Logger
 }
 
@@ -69,7 +68,7 @@ func NewSqliteEventRepository(p SqliteEventRepositoryParams) (events.Repository,
 	}
 	return &sqliteEventRepository{
 		db:     p.Db,
-		cfg:    p.Cfg.SQLite,
+		cfg:    p.Cfg,
 		logger: p.Logger,
 	}, nil
 }

@@ -22,15 +22,14 @@ import {
   ObjectFormField,
 } from "../components/Autoform/Autoform";
 
-import * as configSchema from "../../../../../logsuck-config.schema.json";
-import { LogsuckConfig } from "../api/config";
 import { LogsuckAppShell } from "../components/LogsuckAppShell";
 import { Alert, Card, Table } from "@mantine/core";
 import { TableRow } from "../components/TableRow";
 
 interface ConfigPageProps {
-  getConfig: () => Promise<LogsuckConfig>;
-  updateConfig: (value: LogsuckConfig) => Promise<any>;
+  getConfig: () => Promise<any>;
+  updateConfig: (value: any) => Promise<any>;
+  getConfigSchema: () => Promise<any>;
   getDynamicEnum: (enumName: string) => Promise<string[]>;
 
   getQueryParams: () => URLSearchParams;
@@ -49,7 +48,8 @@ interface ConfigPageStateLoading extends ConfigPageStateBase {
 
 interface ConfigPageStateLoaded extends ConfigPageStateBase {
   type: "loaded";
-  initialValues: LogsuckConfig;
+  initialValues: any;
+  form: ObjectFormField;
 }
 
 interface ConfigPageStateLoadingError extends ConfigPageStateBase {
@@ -60,11 +60,6 @@ type ConfigPageState =
   | ConfigPageStateLoading
   | ConfigPageStateLoaded
   | ConfigPageStateLoadingError;
-
-const CONFIG_SCHEMA_SPEC = jsonSchemaToFormSpec(
-  "",
-  configSchema
-) as ObjectFormField;
 
 export class ConfigPageComponent extends Component<
   ConfigPageProps,
@@ -79,6 +74,8 @@ export class ConfigPageComponent extends Component<
   }
 
   async componentDidMount() {
+    const schema = await this.props.getConfigSchema();
+    const spec = jsonSchemaToFormSpec("", schema) as ObjectFormField;
     const cfg = await this.props.getConfig();
     const queryParams = this.props.getQueryParams();
     let topLevelProperty = null;
@@ -89,11 +86,28 @@ export class ConfigPageComponent extends Component<
       type: "loaded",
       topLevelProperty,
       initialValues: cfg,
+      form: spec,
     });
   }
 
   render() {
-    const currentField = CONFIG_SCHEMA_SPEC.fields.filter(
+    if (this.state.type === "loading") {
+      return (
+        <LogsuckAppShell>
+          <p>Loading...</p>
+        </LogsuckAppShell>
+      );
+    }
+    if (this.state.type === "loadingerror") {
+      return (
+        <LogsuckAppShell>
+          <Alert title="Error" color="red">
+            Something went wrong. Try reloading the page.
+          </Alert>
+        </LogsuckAppShell>
+      );
+    }
+    const currentField = this.state.form.fields.filter(
       (f) => f.name === this.state.topLevelProperty
     )[0];
     let currentSpec: FormSpec | undefined;
@@ -116,7 +130,7 @@ export class ConfigPageComponent extends Component<
             <Card>
               <Table highlightOnHover>
                 <tbody>
-                  {CONFIG_SCHEMA_SPEC.fields.map((f) => (
+                  {this.state.form.fields.map((f) => (
                     <TableRow onClick={() => this.navigate(f.name)}>
                       <td>{f.name}</td>
                     </TableRow>
@@ -149,7 +163,7 @@ export class ConfigPageComponent extends Component<
                     key={this.state.topLevelProperty}
                     spec={currentSpec}
                     initialValues={this.state.initialValues}
-                    onSubmit={async (v: LogsuckConfig) => {
+                    onSubmit={async (v: any) => {
                       await this.props.updateConfig(v);
                       await this.reload();
                     }}
@@ -181,10 +195,13 @@ export class ConfigPageComponent extends Component<
     this.setState({
       type: "loading",
     });
+    const schema = await this.props.getConfigSchema();
+    const spec = jsonSchemaToFormSpec("", schema) as ObjectFormField;
     const cfg = await this.props.getConfig();
     this.setState({
       type: "loaded",
       initialValues: cfg,
+      form: spec,
     });
   }
 }

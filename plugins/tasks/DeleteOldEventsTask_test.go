@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackbister/logsuck/pkg/logsuck/config"
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
 
 	"github.com/jackbister/logsuck/plugins/sqlite_events"
@@ -109,8 +108,8 @@ func createRepo(t *testing.T) events.Repository {
 	}
 	repo, err := sqlite_events.NewSqliteEventRepository(sqlite_events.SqliteEventRepositoryParams{
 		Db: db,
-		Cfg: &config.Config{
-			SQLite: &config.SqliteConfig{},
+		Cfg: &sqlite_events.Config{
+			TrueBatch: true,
 		},
 		Logger: slog.Default(),
 	})
