@@ -345,9 +345,9 @@ func (repo *postgresEventRepository) GetByIds(ids []int64, sortMode events.SortM
 	return ret, nil
 }
 
-const surroundingBaseSQL = "SELECT source_id, offset FROM Events WHERE id=?"
-const surroundingUpSQL = "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.event_id = e.id WHERE e.source_id=? AND e.offset<=? ORDER BY e.offset DESC LIMIT ?"
-const surroundingDownSQL = "SELECT id, host, source, source_id, timestamp, raw FROM (SELECT e.id, e.host, e.source, e.source_id, e.timestamp, e.offset, r.raw FROM Events e INNER JOIN EventRaws r ON r.event_id = e.id WHERE e.source_id=? AND e.offset>? ORDER BY e.offset ASC LIMIT ?) ORDER BY offset DESC"
+const surroundingBaseSQL = "SELECT source_id, \"offset\" FROM Events WHERE id=$1"
+const surroundingUpSQL = "SELECT e.id, e.host, e.source, e.source_id, e.timestamp, r.raw FROM Events e INNER JOIN EventRaws r ON r.event_id = e.id WHERE e.source_id=$1 AND e.\"offset\"<=$2 ORDER BY e.\"offset\" DESC LIMIT $3"
+const surroundingDownSQL = "SELECT id, host, source, source_id, timestamp, raw FROM (SELECT e.id, e.host, e.source, e.source_id, e.timestamp, e.\"offset\", r.raw FROM Events e INNER JOIN EventRaws r ON r.event_id = e.id WHERE e.source_id=$1 AND e.\"offset\">$2 ORDER BY e.\"offset\" ASC LIMIT $3) x ORDER BY \"offset\" DESC"
 
 func (repo *postgresEventRepository) GetSurroundingEvents(id int64, count int) ([]events.EventWithId, error) {
 	row := repo.conn.QueryRow(context.TODO(), surroundingBaseSQL, id)
