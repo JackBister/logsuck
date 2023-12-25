@@ -131,12 +131,12 @@ func (repo *postgresEventRepository) DeleteBatch(ids []int64) error {
 	sb.WriteString(delSbBase)
 	rsb.WriteString(delRawSbBase)
 	for i := range ids {
+		str := "$" + strconv.Itoa(i+1)
+		sb.WriteString(str)
+		rsb.WriteString(str)
 		if i != len(ids)-1 {
-			sb.WriteString("?, ")
-			rsb.WriteString("?, ")
-		} else {
-			sb.WriteString("?")
-			rsb.WriteString("?")
+			sb.WriteString(", ")
+			rsb.WriteString(", ")
 		}
 	}
 	sb.WriteString(delSbSuffix)
