@@ -64,7 +64,7 @@ OR DELETE
 	ON
 	Config EXECUTE FUNCTION config_updated_function();`
 
-func NewPostgresConfigRepository(p PostgresConfigRepositoryParams) (config.ConfigRepository, error) {
+func NewPostgresConfigRepository(p PostgresConfigRepositoryParams) (config.Repository, error) {
 	_, err := p.Pool.Exec(p.Ctx, "CREATE TABLE IF NOT EXISTS Config (id SERIAL NOT NULL PRIMARY KEY, config_json JSONB, modified TIMESTAMP)")
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize PostgresConfigRepository: %w", err)

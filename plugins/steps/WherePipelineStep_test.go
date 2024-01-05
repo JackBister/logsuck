@@ -22,12 +22,12 @@ import (
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
-	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
+	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 func TestWherePipelineStep(t *testing.T) {
 	input, output := setup(t, map[string]string{"userId": "123"})
-	input <- api.PipelineStepResult{
+	input <- pipeline.StepResult{
 		Events: []events.EventWithExtractedFields{
 			{
 				Id: 1,
@@ -70,7 +70,7 @@ func TestWherePipelineStep(t *testing.T) {
 
 func TestWherePipelineStep_MultipleConditions(t *testing.T) {
 	input, output := setup(t, map[string]string{"userId": "123", "username": "charles"})
-	input <- api.PipelineStepResult{
+	input <- pipeline.StepResult{
 		Events: []events.EventWithExtractedFields{
 			{
 				Id: 1,
@@ -126,7 +126,7 @@ func TestWherePipelineStep_MultipleConditions(t *testing.T) {
 
 func TestWherePipelineStep_TableInput(t *testing.T) {
 	input, output := setup(t, map[string]string{"userId": "123"})
-	input <- api.PipelineStepResult{
+	input <- pipeline.StepResult{
 		TableRows: []map[string]string{
 			{
 				"userId":   "123",
@@ -153,14 +153,14 @@ func TestWherePipelineStep_TableInput(t *testing.T) {
 	}
 }
 
-func setup(t *testing.T, fieldValues map[string]string) (input chan api.PipelineStepResult, output chan api.PipelineStepResult) {
+func setup(t *testing.T, fieldValues map[string]string) (input chan pipeline.StepResult, output chan pipeline.StepResult) {
 	wps, err := compileWhereStep("", fieldValues)
 	if err != nil {
 		t.Fatalf("got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	params := api.PipelineParameters{
-		ConfigSource: &config.NullConfigSource{},
+	params := pipeline.Parameters{
+		ConfigSource: &config.NullSource{},
 		EventsRepo:   repo,
 
 		Logger: slog.Default(),

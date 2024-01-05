@@ -18,29 +18,28 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
-
 	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
-type JobState int32
+type State int32
 
 const (
-	JobStateRunning  JobState = 1
-	JobStateFinished JobState = 2
-	JobStateAborted  JobState = 3
+	StateRunning  State = 1
+	StateFinished State = 2
+	StateAborted  State = 3
 )
 
 type Job struct {
 	Id                 int64
-	State              JobState
+	State              State
 	Query              string
 	StartTime, EndTime *time.Time
 	SortMode           events.SortMode
-	OutputType         pipeline.PipelinePipeType
+	OutputType         pipeline.PipeType
 	ColumnOrder        []string // when OutputType is PipelinePipeTypeTable this is used to decide the order of the columns in the table, otherwise empty
 }
 
-type JobStats struct {
+type Stats struct {
 	EstimatedProgress    float32
 	NumMatchedEvents     int64
 	FieldOccurences      map[string]int

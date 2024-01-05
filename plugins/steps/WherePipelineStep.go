@@ -19,14 +19,14 @@ import (
 	"strings"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
-	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
+	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 type WherePipelineStep struct {
 	fieldValues map[string]string
 }
 
-func (s *WherePipelineStep) Execute(ctx context.Context, pipe api.PipelinePipe, params api.PipelineParameters) {
+func (s *WherePipelineStep) Execute(ctx context.Context, pipe pipeline.Pipe, params pipeline.Parameters) {
 	defer close(pipe.Output)
 
 	for {
@@ -75,15 +75,15 @@ func (s *WherePipelineStep) Name() string {
 	return "where"
 }
 
-func (r *WherePipelineStep) InputType() api.PipelinePipeType {
-	return api.PipelinePipeTypePropagate
+func (r *WherePipelineStep) InputType() pipeline.PipeType {
+	return pipeline.PipeTypePropagate
 }
 
-func (r *WherePipelineStep) OutputType() api.PipelinePipeType {
-	return api.PipelinePipeTypePropagate
+func (r *WherePipelineStep) OutputType() pipeline.PipeType {
+	return pipeline.PipeTypePropagate
 }
 
-func compileWhereStep(input string, options map[string]string) (api.PipelineStep, error) {
+func compileWhereStep(input string, options map[string]string) (pipeline.Step, error) {
 	return &WherePipelineStep{
 		fieldValues: options,
 	}, nil

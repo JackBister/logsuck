@@ -229,7 +229,7 @@ func (repo *sqliteJobRepository) GetNumMatchedEvents(id int64) (int64, error) {
 		return 0, fmt.Errorf("error when getting number of matched events for jobId=%v: %w", id, err)
 	}
 	stmt := "SELECT COUNT(1) FROM JobResults WHERE job_id=?"
-	if job.OutputType == pipeline.PipelinePipeTypeTable {
+	if job.OutputType == pipeline.PipeTypeTable {
 		stmt = "SELECT COUNT(1) FROM JobTableResults WHERE job_id=?"
 	}
 	res, err := repo.db.Query(stmt, id)
@@ -248,13 +248,13 @@ func (repo *sqliteJobRepository) GetNumMatchedEvents(id int64) (int64, error) {
 	return count, nil
 }
 
-func (repo *sqliteJobRepository) Insert(query string, startTime, endTime *time.Time, sortMode events.SortMode, outputType pipeline.PipelinePipeType, columnOrder []string) (*int64, error) {
+func (repo *sqliteJobRepository) Insert(query string, startTime, endTime *time.Time, sortMode events.SortMode, outputType pipeline.PipeType, columnOrder []string) (*int64, error) {
 	columnOrderJson, err := json.Marshal(columnOrder)
 	if err != nil {
 		return nil, fmt.Errorf("error when inserting new job: error marshaling columnOrder: %w", err)
 	}
 	res, err := repo.db.Exec("INSERT INTO Jobs (state, query, start_time, end_time, sort_mode, output_type, column_order_json) VALUES(?, ?, ?, ?, ?, ?, ?);",
-		jobs.JobStateRunning, query, startTime, endTime, sortMode, outputType, columnOrderJson)
+		jobs.StateRunning, query, startTime, endTime, sortMode, outputType, columnOrderJson)
 	if err != nil {
 		return nil, fmt.Errorf("error when inserting new job: %w", err)
 	}
@@ -266,7 +266,7 @@ func (repo *sqliteJobRepository) Insert(query string, startTime, endTime *time.T
 	return &id, nil
 }
 
-func (repo *sqliteJobRepository) UpdateState(id int64, state jobs.JobState) error {
+func (repo *sqliteJobRepository) UpdateState(id int64, state jobs.State) error {
 	_, err := repo.db.Exec("UPDATE Jobs SET state=? WHERE id=?;", state, id)
 	if err != nil {
 		return fmt.Errorf("error when updating jobId=%v to state=%v: %w", id, state, err)

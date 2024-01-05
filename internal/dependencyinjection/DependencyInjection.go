@@ -156,8 +156,8 @@ func provideConfigSource(c *dig.Container, logger *slog.Logger) error {
 	}) error {
 		if p.ForceStaticConfig {
 			logger.Info("Static configuration is forced. Configuration will not be saved to database and will only be read from the JSON configuration file. Remove the forceStaticConfig flag from the command line or configuration file in order to use dynamic configuration.")
-			err := c.Provide(func() config.ConfigSource {
-				return &config.StaticConfigSource{
+			err := c.Provide(func() config.Source {
+				return &config.StaticSource{
 					Config: *p.Cfg,
 				}
 			})
@@ -173,8 +173,8 @@ func provideConfigSource(c *dig.Container, logger *slog.Logger) error {
 		} else {
 			err := c.Provide(func(p struct {
 				dig.In
-				ConfigRepo config.ConfigRepository
-			}) config.ConfigSource {
+				ConfigRepo config.Repository
+			}) config.Source {
 				return p.ConfigRepo
 			})
 			if err != nil {

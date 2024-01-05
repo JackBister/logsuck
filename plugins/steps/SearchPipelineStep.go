@@ -25,7 +25,7 @@ import (
 	"github.com/jackbister/logsuck/internal/parser"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
-	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
+	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 	"github.com/jackbister/logsuck/pkg/logsuck/search"
 )
 
@@ -34,7 +34,7 @@ type SearchPipelineStep struct {
 	StartTime, EndTime *time.Time
 }
 
-func (s *SearchPipelineStep) Execute(ctx context.Context, pipe api.PipelinePipe, params api.PipelineParameters) {
+func (s *SearchPipelineStep) Execute(ctx context.Context, pipe pipeline.Pipe, params pipeline.Parameters) {
 	defer close(pipe.Output)
 
 	cfg, err := params.ConfigSource.Get()
@@ -86,7 +86,7 @@ func (s *SearchPipelineStep) Execute(ctx context.Context, pipe api.PipelinePipe,
 					})
 				}
 			}
-			pipe.Output <- api.PipelineStepResult{
+			pipe.Output <- pipeline.StepResult{
 				Events: retEvts,
 			}
 		}
@@ -97,15 +97,15 @@ func (s *SearchPipelineStep) Name() string {
 	return "search"
 }
 
-func (r *SearchPipelineStep) InputType() api.PipelinePipeType {
-	return api.PipelinePipeTypeNone
+func (r *SearchPipelineStep) InputType() pipeline.PipeType {
+	return pipeline.PipeTypeNone
 }
 
-func (r *SearchPipelineStep) OutputType() api.PipelinePipeType {
-	return api.PipelinePipeTypeEvents
+func (r *SearchPipelineStep) OutputType() pipeline.PipeType {
+	return pipeline.PipeTypeEvents
 }
 
-func compileSearchStep(input string, options map[string]string) (api.PipelineStep, error) {
+func compileSearchStep(input string, options map[string]string) (pipeline.Step, error) {
 	var startTime, endTime *time.Time
 	if t, ok := options["startTime"]; ok {
 		startTimeParsed, err := dateparse.ParseStrict(t)

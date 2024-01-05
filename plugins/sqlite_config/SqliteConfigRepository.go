@@ -43,7 +43,7 @@ type SqliteConfigRepositoryParams struct {
 	Logger            *slog.Logger
 }
 
-func NewSqliteConfigRepository(p SqliteConfigRepositoryParams) (config.ConfigRepository, error) {
+func NewSqliteConfigRepository(p SqliteConfigRepositoryParams) (config.Repository, error) {
 	_, err := p.Db.Exec("CREATE TABLE IF NOT EXISTS Config (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, config_json TEXT, modified DATETIME)")
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: %w", err)

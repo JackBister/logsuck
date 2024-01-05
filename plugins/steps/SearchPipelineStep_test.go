@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
-	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
+	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 func TestSearchPipelineStep(t *testing.T) {
@@ -30,7 +30,7 @@ func TestSearchPipelineStep(t *testing.T) {
 		t.Fatalf("TestSearchPipelineStep got unexpected error: %v", err)
 	}
 	repo := newInMemRepo(t)
-	params := api.PipelineParameters{
+	params := pipeline.Parameters{
 		ConfigSource: newConfigSource(),
 		EventsRepo:   repo,
 

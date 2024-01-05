@@ -85,7 +85,7 @@ type TaskManagerParams struct {
 
 	EventsRepo events.Repository
 	Ctx        context.Context
-	CfgSource  config.ConfigSource
+	CfgSource  config.Source
 	Logger     *slog.Logger
 
 	Tasks []tasks.Task `group:"tasks"`

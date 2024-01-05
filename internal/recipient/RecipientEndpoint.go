@@ -35,7 +35,7 @@ import (
 )
 
 type RecipientEndpoint struct {
-	configSource config.ConfigSource
+	configSource config.Source
 	staticConfig *config.Config
 	repo         events.Repository
 
@@ -45,7 +45,7 @@ type RecipientEndpoint struct {
 type RecipientEndpointParams struct {
 	dig.In
 
-	ConfigSource config.ConfigSource
+	ConfigSource config.Source
 	StaticConfig *config.Config
 	Repo         events.Repository
 	Logger       *slog.Logger

@@ -92,14 +92,14 @@ func TestSortMode_SurroundingPipeline(t *testing.T) {
 
 func TestTypePropagation_Events(t *testing.T) {
 	p, _ := newTestPipelineCompiler().Compile("| where x=y", nil, nil)
-	if p.OutputType() != api.PipelinePipeTypeEvents {
+	if p.OutputType() != api.PipeTypeEvents {
 		t.Error("unexpected output type, expected PipelinePipeTypeEvents since the where pipe should propagate the search pipe's output type", p.OutputType())
 	}
 }
 
 func TestTypePropagation_Table(t *testing.T) {
 	p, _ := newTestPipelineCompiler().Compile("| table \"x\" | where x=y", nil, nil)
-	if p.OutputType() != api.PipelinePipeTypeTable {
+	if p.OutputType() != api.PipeTypeTable {
 		t.Error("unexpected output type, expected PipelinePipeTypeTable since the where pipe should propagate the table pipe's output type", p.OutputType())
 	}
 }

@@ -19,14 +19,14 @@ import (
 	"fmt"
 	"strings"
 
-	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
+	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 type tablePipelineStep struct {
 	fields []string
 }
 
-func (s *tablePipelineStep) Execute(ctx context.Context, pipe api.PipelinePipe, params api.PipelineParameters) {
+func (s *tablePipelineStep) Execute(ctx context.Context, pipe pipeline.Pipe, params pipeline.Parameters) {
 	defer close(pipe.Output)
 
 	for {
@@ -59,15 +59,15 @@ func (s *tablePipelineStep) Name() string {
 	return "table"
 }
 
-func (r *tablePipelineStep) InputType() api.PipelinePipeType {
-	return api.PipelinePipeTypeEvents
+func (r *tablePipelineStep) InputType() pipeline.PipeType {
+	return pipeline.PipeTypeEvents
 }
 
-func (r *tablePipelineStep) OutputType() api.PipelinePipeType {
-	return api.PipelinePipeTypeTable
+func (r *tablePipelineStep) OutputType() pipeline.PipeType {
+	return pipeline.PipeTypeTable
 }
 
-func compileTableStep(input string, options map[string]string) (api.PipelineStep, error) {
+func compileTableStep(input string, options map[string]string) (pipeline.Step, error) {
 	fields := strings.Split(input, ",")
 	trimmedFields := make([]string, 0, len(fields))
 	for _, f := range fields {

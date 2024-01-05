@@ -25,7 +25,7 @@ import (
 	"github.com/jackbister/logsuck/internal/parser"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
-	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
+	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 type SurroundingPipelineStep struct {
@@ -33,7 +33,7 @@ type SurroundingPipelineStep struct {
 	count   int
 }
 
-func (s *SurroundingPipelineStep) Execute(ctx context.Context, pipe api.PipelinePipe, params api.PipelineParameters) {
+func (s *SurroundingPipelineStep) Execute(ctx context.Context, pipe pipeline.Pipe, params pipeline.Parameters) {
 	defer close(pipe.Output)
 
 	evts, err := params.EventsRepo.GetSurroundingEvents(s.eventId, s.count)
@@ -75,7 +75,7 @@ func (s *SurroundingPipelineStep) Execute(ctx context.Context, pipe api.Pipeline
 			Fields:    evtFields,
 		}
 	}
-	pipe.Output <- api.PipelineStepResult{
+	pipe.Output <- pipeline.StepResult{
 		Events: retEvts,
 	}
 }
@@ -84,19 +84,19 @@ func (s *SurroundingPipelineStep) Name() string {
 	return "surrounding"
 }
 
-func (r *SurroundingPipelineStep) InputType() api.PipelinePipeType {
-	return api.PipelinePipeTypeNone
+func (r *SurroundingPipelineStep) InputType() pipeline.PipeType {
+	return pipeline.PipeTypeNone
 }
 
-func (r *SurroundingPipelineStep) OutputType() api.PipelinePipeType {
-	return api.PipelinePipeTypeEvents
+func (r *SurroundingPipelineStep) OutputType() pipeline.PipeType {
+	return pipeline.PipeTypeEvents
 }
 
 func (r *SurroundingPipelineStep) SortMode() events.SortMode {
 	return events.SortModePreserveArgOrder
 }
 
-func compileSurroundingStep(input string, options map[string]string) (api.PipelineStep, error) {
+func compileSurroundingStep(input string, options map[string]string) (pipeline.Step, error) {
 	eventIdString, ok := options["eventId"]
 	if !ok {
 		return nil, fmt.Errorf("failed to compile surrounding: eventId must be provided")

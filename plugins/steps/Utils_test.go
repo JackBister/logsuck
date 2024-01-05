@@ -23,7 +23,7 @@ import (
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
-	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
+	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 
 	"github.com/jackbister/logsuck/plugins/sqlite_events"
 )
@@ -32,7 +32,7 @@ type TestConfigSource struct {
 	config config.Config
 }
 
-func newConfigSource() config.ConfigSource {
+func newConfigSource() config.Source {
 	return &TestConfigSource{
 		config: config.Config{
 			Files: map[string]config.FileConfig{
@@ -96,11 +96,11 @@ func newInMemRepo(t *testing.T) events.Repository {
 	return repo
 }
 
-func newPipe() (pipe api.PipelinePipe, in, out chan api.PipelineStepResult) {
-	in = make(chan api.PipelineStepResult)
-	out = make(chan api.PipelineStepResult)
+func newPipe() (pipe pipeline.Pipe, in, out chan pipeline.StepResult) {
+	in = make(chan pipeline.StepResult)
+	out = make(chan pipeline.StepResult)
 
-	pipe = api.PipelinePipe{
+	pipe = pipeline.Pipe{
 		Input:  in,
 		Output: out,
 	}

@@ -22,7 +22,7 @@ import (
 	"github.com/jackbister/logsuck/internal/parser"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
-	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
+	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 type RexPipelineStep struct {
@@ -30,7 +30,7 @@ type RexPipelineStep struct {
 	field     string
 }
 
-func (r *RexPipelineStep) Execute(ctx context.Context, pipe api.PipelinePipe, params api.PipelineParameters) {
+func (r *RexPipelineStep) Execute(ctx context.Context, pipe pipeline.Pipe, params pipeline.Parameters) {
 	defer close(pipe.Output)
 
 	for {
@@ -77,15 +77,15 @@ func (r *RexPipelineStep) Name() string {
 	return "rex"
 }
 
-func (r *RexPipelineStep) InputType() api.PipelinePipeType {
-	return api.PipelinePipeTypeEvents
+func (r *RexPipelineStep) InputType() pipeline.PipeType {
+	return pipeline.PipeTypeEvents
 }
 
-func (r *RexPipelineStep) OutputType() api.PipelinePipeType {
-	return api.PipelinePipeTypeEvents
+func (r *RexPipelineStep) OutputType() pipeline.PipeType {
+	return pipeline.PipeTypeEvents
 }
 
-func compileRexStep(input string, options map[string]string) (api.PipelineStep, error) {
+func compileRexStep(input string, options map[string]string) (pipeline.Step, error) {
 	field, ok := options["field"]
 	if !ok {
 		field = "_raw"

@@ -33,7 +33,7 @@ import (
 
 type Engine struct {
 	cancels          map[int64]func()
-	configSource     config.ConfigSource
+	configSource     config.Source
 	eventRepo        events.Repository
 	jobRepo          api.Repository
 	pipelineCompiler internalPipeline.PipelineCompiler
@@ -44,7 +44,7 @@ type Engine struct {
 type EngineParams struct {
 	dig.In
 
-	ConfigSource     config.ConfigSource
+	ConfigSource     config.Source
 	EventRepo        events.Repository
 	JobRepo          api.Repository
 	PipelineCompiler internalPipeline.PipelineCompiler
@@ -88,7 +88,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 		// TODO: This should probably be batched
 		results := pl.Execute(
 			ctx,
-			pipeline.PipelineParameters{
+			pipeline.Parameters{
 				ConfigSource: e.configSource,
 				EventsRepo:   e.eventRepo,
 
@@ -102,7 +102,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 				if !ok {
 					break out
 				}
-				if outputType == pipeline.PipelinePipeTypeEvents {
+				if outputType == pipeline.PipeTypeEvents {
 					evts := res.Events
 					if len(evts) > 0 {
 						converted := make([]events.EventIdAndTimestamp, len(evts))
@@ -126,7 +126,7 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 								slog.Any("error", err))
 						}
 					}
-				} else if outputType == pipeline.PipelinePipeTypeTable {
+				} else if outputType == pipeline.PipeTypeTable {
 					tableRows := res.TableRows
 					if len(tableRows) > 0 {
 						rows := make([]api.TableRow, 0, len(tableRows))
@@ -160,11 +160,11 @@ func (e *Engine) StartJob(query string, startTime, endTime *time.Time) (*int64, 
 			}
 		}
 		e.cancels[*id] = nil
-		var state api.JobState
+		var state api.State
 		if wasCancelled {
-			state = api.JobStateAborted
+			state = api.StateAborted
 		} else {
-			state = api.JobStateFinished
+			state = api.StateFinished
 		}
 		err = e.jobRepo.UpdateState(*id, state)
 		if err != nil {
@@ -188,9 +188,9 @@ func (e *Engine) Abort(jobId int64) error {
 		logger.Error("Got error when verifying that job is aborted or finished. The job is in an unknown state.")
 		return errors.New("job does not appear to be running, but the state in the repository could not be verified")
 	}
-	if job.State == api.JobStateRunning {
+	if job.State == api.StateRunning {
 		logger.Error("job has no entry in the cancels map, but state is running. Will set state to aborted. This may signify that there is a bug and the job may actually still be running.")
-		err = e.jobRepo.UpdateState(jobId, api.JobStateAborted)
+		err = e.jobRepo.UpdateState(jobId, api.StateAborted)
 		if err != nil {
 			return errors.New("job does not appear to be running, but the state in the repository could not be set to aborted")
 		}

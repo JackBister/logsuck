@@ -31,8 +31,8 @@ type Repository interface {
 	GetFieldOccurences(id int64) (map[string]int, error)
 	GetFieldValues(id int64, fieldName string) (map[string]int, error)
 	GetNumMatchedEvents(id int64) (int64, error)
-	Insert(query string, startTime, endTime *time.Time, sortMode events.SortMode, outputType pipeline.PipelinePipeType, columnOrder []string) (id *int64, err error)
-	UpdateState(id int64, state JobState) error
+	Insert(query string, startTime, endTime *time.Time, sortMode events.SortMode, outputType pipeline.PipeType, columnOrder []string) (id *int64, err error)
+	UpdateState(id int64, state State) error
 }
 
 type FieldStats struct {

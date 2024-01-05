@@ -44,7 +44,7 @@ type RemoteConfigSourceParams struct {
 	Logger *slog.Logger
 }
 
-func NewRemoteConfigSource(p RemoteConfigSourceParams) config.ConfigSource {
+func NewRemoteConfigSource(p RemoteConfigSourceParams) config.Source {
 	ret := RemoteConfigSource{
 		cfg: p.Cfg,
 		client: http.Client{

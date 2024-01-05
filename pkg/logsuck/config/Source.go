@@ -14,8 +14,37 @@
 
 package config
 
-type ConfigRepository interface {
-	Upsert(c *Config) error
-	Get() (*ConfigResponse, error)
+import "time"
+
+type ConfigResponse struct {
+	Modified time.Time
+	Cfg      Config
+}
+
+type Source interface {
 	Changes() <-chan struct{}
+	Get() (*ConfigResponse, error)
+}
+
+type NullSource struct {
+}
+
+func (n *NullSource) Changes() <-chan struct{} {
+	return make(<-chan struct{})
+}
+
+func (n *NullSource) Get() (*ConfigResponse, error) {
+	return &ConfigResponse{}, nil
+}
+
+type StaticSource struct {
+	Config Config
+}
+
+func (s *StaticSource) Get() (*ConfigResponse, error) {
+	return &ConfigResponse{Modified: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC), Cfg: s.Config}, nil
+}
+
+func (s *StaticSource) Changes() <-chan struct{} {
+	return make(<-chan struct{})
 }

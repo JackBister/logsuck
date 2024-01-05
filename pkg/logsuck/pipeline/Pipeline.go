@@ -8,54 +8,54 @@ import (
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
 )
 
-type PipelinePipeType int
+type PipeType int
 
 const (
-	PipelinePipeTypeNone   PipelinePipeType = 0
-	PipelinePipeTypeEvents PipelinePipeType = 1
-	PipelinePipeTypeTable  PipelinePipeType = 2
+	PipeTypeNone   PipeType = 0
+	PipeTypeEvents PipeType = 1
+	PipeTypeTable  PipeType = 2
 
-	PipelinePipeTypePropagate PipelinePipeType = 999
+	PipeTypePropagate PipeType = 999
 )
 
-type PipelineParameters struct {
-	ConfigSource config.ConfigSource
+type Parameters struct {
+	ConfigSource config.Source
 	EventsRepo   events.Repository
 
 	Logger *slog.Logger
 }
 
-type PipelineStepResult struct {
+type StepResult struct {
 	Events    []events.EventWithExtractedFields
 	TableRows []map[string]string
 }
 
-type PipelinePipe struct {
-	Input      <-chan PipelineStepResult
-	InputType  PipelinePipeType
-	Output     chan<- PipelineStepResult
-	OutputType PipelinePipeType
+type Pipe struct {
+	Input      <-chan StepResult
+	InputType  PipeType
+	Output     chan<- StepResult
+	OutputType PipeType
 }
 
-type PipelineStep interface {
-	Execute(ctx context.Context, pipe PipelinePipe, params PipelineParameters)
+type Step interface {
+	Execute(ctx context.Context, pipe Pipe, params Parameters)
 
 	// Returns the name of the operator that created this step, for example "rex"
 	Name() string
 
-	InputType() PipelinePipeType
-	OutputType() PipelinePipeType
+	InputType() PipeType
+	OutputType() PipeType
 }
 
-type PipelineStepWithSortMode interface {
+type StepWithSortMode interface {
 	SortMode() events.SortMode
 }
 
-type TableGeneratingPipelineStep interface {
+type TableGeneratingStep interface {
 	ColumnOrder() []string
 }
 
-type StepCompiler func(input string, options map[string]string) (PipelineStep, error)
+type StepCompiler func(input string, options map[string]string) (Step, error)
 
 type StepDefinition struct {
 	StepName string

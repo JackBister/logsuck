@@ -45,8 +45,8 @@ type Web interface {
 }
 
 type webImpl struct {
-	configSource  config.ConfigSource
-	configRepo    config.ConfigRepository
+	configSource  config.Source
+	configRepo    config.Repository
 	configSchema  map[string]any
 	staticConfig  *config.Config
 	eventRepo     events.Repository
@@ -69,8 +69,8 @@ func (w webError) Error() string {
 type WebParams struct {
 	dig.In
 
-	ConfigSource config.ConfigSource
-	ConfigRepo   config.ConfigRepository
+	ConfigSource config.Source
+	ConfigRepo   config.Repository
 	ConfigSchema map[string]any `name:"configSchema"`
 	StaticConfig *config.Config
 	EventRepo    events.Repository

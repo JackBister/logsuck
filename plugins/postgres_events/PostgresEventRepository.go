@@ -79,13 +79,6 @@ func (repo *postgresEventRepository) AddBatch(events []events.Event) error {
 	numberOfDuplicates := map[string]int64{}
 	for _, evt := range events {
 		res := tx.QueryRow(context.TODO(), "INSERT INTO Events(host, source, source_id, timestamp, \"offset\") VALUES($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id;", evt.Host, evt.Source, evt.SourceId, evt.Timestamp, evt.Offset)
-		// Surely this can't be the right way to check for this error...
-		/*
-			if err != nil && err.Error() == expectedConstraintViolationForDuplicates {
-				numberOfDuplicates[evt.Source]++
-				continue
-			}
-		*/
 		var id int64
 		err := res.Scan(&id)
 		if err == pgx.ErrNoRows {

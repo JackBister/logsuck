@@ -103,7 +103,7 @@ func main() {
 		dig.In
 
 		Ctx               context.Context
-		ConfigSource      config.ConfigSource
+		ConfigSource      config.Source
 		Publisher         internalEvents.EventPublisher
 		StaticConfig      *config.Config
 		RecipientEndpoint *recipient.RecipientEndpoint
