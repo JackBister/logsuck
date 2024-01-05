@@ -164,22 +164,22 @@ func provideConfigSource(c *dig.Container, logger *slog.Logger) error {
 			if err != nil {
 				return err
 			}
-		}
-		if p.Cfg.Forwarder.Enabled {
+		} else if p.Cfg.Forwarder.Enabled {
 			err := c.Provide(forwarder.NewRemoteConfigSource)
 			if err != nil {
 				return err
 			}
 			return nil
-		}
-		err := c.Provide(func(p struct {
-			dig.In
-			ConfigRepo config.ConfigRepository
-		}) config.ConfigSource {
-			return p.ConfigRepo
-		})
-		if err != nil {
-			return err
+		} else {
+			err := c.Provide(func(p struct {
+				dig.In
+				ConfigRepo config.ConfigRepository
+			}) config.ConfigSource {
+				return p.ConfigRepo
+			})
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})
