@@ -111,9 +111,11 @@ Enables "static config" mode. In this mode, you cannot modify the configuration 
 `-help`
 Print information about command line options and quit.
 
-`-json` Parse the given files as JSON instead of using Regex to parse. The fieldexctractor flag will be ignored. Disabled by default.
+`-json` Parse the given files as JSON instead of using Regex to parse. The fieldextractor flag will be ignored. Disabled by default.
 
 `-recipient <address>` Sets Logsuck to run in recipient mode and receives events on the given address. By default, this is disabled.
+
+`-schema` Print configuration schema and exit.
 
 `-timefield <string>` The name of the field which will contain the timestamp of the event. Default '\_time'.
 

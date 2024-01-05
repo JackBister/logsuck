@@ -12,8 +12,11 @@ All configuration properties can be modified from the GUI, but there are some co
 - `forwarder`
 - `host`
 - `recipient`
-- `sqlite`
 - `web`
+
+## Configuration schema
+
+A schema for the JSON configuration file is available [here](../logsuck-config.schema.json). This schema is valid for the core Logsuck build. If you customize Logsuck using [plugins](./Plugins.md) you can generate a schema matching your setup by running Logsuck with the `-schema` command line parameter. Using `-schema` will dump the current JSON schema to stdout.
 
 ## Initial configuration
 
