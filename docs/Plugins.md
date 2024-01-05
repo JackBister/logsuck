@@ -54,7 +54,7 @@ type MyPluginStep struct {
 	filter string
 }
 
-func (p *MyPluginStep) Execute(ctx context.Context, pipe pipeline.PipelinePipe, params pipeline.PipelineParameters) {
+func (p *MyPluginStep) Execute(ctx context.Context, pipe pipeline.Pipe, params pipeline.Parameters) {
 	defer close(pipe.Output)
 
 	for {
@@ -72,7 +72,7 @@ func (p *MyPluginStep) Execute(ctx context.Context, pipe pipeline.PipelinePipe, 
 					output = append(output, evt)
 				}
 			}
-			pipe.Output <- pipeline.PipelineStepResult{Events: output}
+			pipe.Output <- pipeline.StepResult{Events: output}
 		}
 	}
 }
@@ -81,16 +81,16 @@ func (p *MyPluginStep) Name() string {
 	return "MyPluginStep"
 }
 
-func (p *MyPluginStep) InputType() pipeline.PipelinePipeType {
-	return pipeline.PipelinePipeTypeEvents
+func (p *MyPluginStep) InputType() pipeline.PipeType {
+	return pipeline.PipeTypeEvents
 }
 
-func (p *MyPluginStep) OutputType() pipeline.PipelinePipeType {
-	return pipeline.PipelinePipeTypeEvents
+func (p *MyPluginStep) OutputType() pipeline.PipeType {
+	return pipeline.PipeTypeEvents
 }
 ```
 
-The MyPluginStep struct implements the PipelineStep interface which can be found in `pkg/logsuck/pipeline/Pipeline.go`. Plugins should only depend on code contained in the `pkg` directory, never on code contained in `internal`.
+The MyPluginStep struct implements the `pipeline.Step` interface which can be found in `pkg/logsuck/pipeline/Pipeline.go`. Plugins should only depend on code contained in the `pkg` directory, never on code contained in `internal`.
 
 ## Create the configuration schema
 
@@ -145,10 +145,10 @@ type Config struct {
 var Plugin = logsuck.Plugin{
 	Name: pluginName,
 	Provide: func(c *dig.Container, logger *slog.Logger) error {
-		err := c.Provide(func(configSource config.ConfigSource) pipeline.StepDefinition {
+		err := c.Provide(func(configSource config.Source) pipeline.StepDefinition {
 			return pipeline.StepDefinition{
 				StepName: "MyPluginStep",
-				Compiler: func(input string, options map[string]string) (pipeline.PipelineStep, error) {
+				Compiler: func(input string, options map[string]string) (pipeline.Step, error) {
 					cfg, err := GetConfig(configSource)
 					if err != nil {
 						return nil, err
@@ -174,7 +174,7 @@ var Plugin = logsuck.Plugin{
 	},
 }
 
-func GetConfig(configSource config.ConfigSource) (*Config, error) {
+func GetConfig(configSource config.Source) (*Config, error) {
 	cfg, err := configSource.Get()
 	if err != nil {
 		return nil, err
