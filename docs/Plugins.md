@@ -25,7 +25,7 @@ The following aspects of Logsuck can be customized:
 
 - A new pipeline step can be added by providing a constructor returning `pipeline.StepDefinition` and using `dig.Group("tasks")`
 - A new task can be added by providing a constructor returning `tasks.Task` and using `dig.Group("tasks")`
-- The configuration repository can be replaced by providing a constructor returning `config.ConfigRepository`
+- The configuration repository can be replaced by providing a constructor returning `config.Repository`
 - The job repository can be replaced by providing a constructor returning `jobs.Repository`
 - The events repository (including the full text search) can be replaced by providing a constructor returning `events.Repository`
 
