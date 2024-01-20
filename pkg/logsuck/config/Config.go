@@ -31,3 +31,10 @@ type Config struct {
 
 	Plugins map[string]any
 }
+
+// CorePlugins are plugins which are included in the core Logsuck build.
+// The configuration for these plugins is flattened in the config schema to make it cleaner.
+var CorePlugins = map[string]string{
+	"@logsuck/sqlite_common": "sqlite",
+	"@logsuck/sqlite_events": "sqlite",
+}

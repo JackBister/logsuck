@@ -74,7 +74,7 @@ func (er *RecipientEndpoint) Serve() error {
 		}
 		c.JSON(200, rpc.ConfigResponse{
 			Modified: &cfg.Modified,
-			Config:   *cfgJson,
+			Config:   cfgJson,
 		})
 	})
 

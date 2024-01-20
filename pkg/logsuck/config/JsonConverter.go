@@ -15,6 +15,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -90,7 +91,7 @@ type jsonTaskConfig struct {
 	Config   map[string]any `json:"config"`
 }
 
-type JsonConfig struct {
+type jsonConfig struct {
 	ForceStaticConfig bool                 `json:"forceStaticConfig"`
 	Host              *jsonHostConfig      `json:"host"`
 	Forwarder         *jsonForwarderConfig `json:"forwarder"`
@@ -126,10 +127,22 @@ var defaultConfig = Config{
 	},
 }
 
-func FromJSON(cfg JsonConfig, logger *slog.Logger) (*Config, error) {
+func FromJSON(jsonString []byte, logger *slog.Logger) (*Config, error) {
 	var err error
 	var hostName string
 	var hostType string
+	var cfg jsonConfig
+	err = json.Unmarshal(jsonString, &cfg)
+	if err != nil {
+		return nil, err
+	}
+	// In order to handle CorePlugins, which are "unknown properties", we also unmarshal to a map
+	// where the plugins will be available.
+	var cfgMap map[string]any
+	err = json.Unmarshal(jsonString, &cfgMap)
+	if err != nil {
+		return nil, err
+	}
 	if cfg.Host != nil {
 		if cfg.Host.Name == "" {
 			hostName, err = getDefaultHostName(logger)
@@ -302,6 +315,13 @@ func FromJSON(cfg JsonConfig, logger *slog.Logger) (*Config, error) {
 		}
 	}
 
+	plugins := cfg.Plugins
+	for k, k2 := range CorePlugins {
+		if v, ok := cfgMap[k2]; ok {
+			plugins[k] = v
+		}
+	}
+
 	return &Config{
 		HostName:          hostName,
 		HostType:          hostType,
@@ -317,7 +337,7 @@ func FromJSON(cfg JsonConfig, logger *slog.Logger) (*Config, error) {
 		HostTypes: hostTypes,
 		Tasks:     tasksConfig,
 
-		Plugins: cfg.Plugins,
+		Plugins: plugins,
 	}, nil
 }
 
@@ -332,7 +352,7 @@ func getDefaultHostName(logger *slog.Logger) (string, error) {
 	return hostName, nil
 }
 
-func ToJSON(c *Config) (*JsonConfig, error) {
+func ToJSON(c *Config) ([]byte, error) {
 	files := make([]jsonFileConfig, 0, len(c.Files))
 	for _, v := range c.Files {
 		files = append(files, jsonFileConfig{
@@ -395,7 +415,7 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 			Config:   v.Config,
 		}
 	}
-	jsonCfg := JsonConfig{
+	jsonCfg := jsonConfig{
 		ForceStaticConfig: c.ForceStaticConfig,
 		Host: &jsonHostConfig{
 			Name: c.HostName,
@@ -424,5 +444,34 @@ func ToJSON(c *Config) (*JsonConfig, error) {
 
 		Plugins: c.Plugins,
 	}
-	return &jsonCfg, nil
+	// This is all very ugly. We marshal the configuration and then unmarshal it to a map[string]any
+	// in order to move the CorePlugins around. When the surgery is done we re-marshal the result.
+	// A nicer way to do this would be if there was a function for converting from struct to map directly.
+	// Another alternative would be to remove the JsonConfig struct entirely and use maps from the get go.
+	// But then we lose some type safety.
+	jb1, err := json.Marshal(jsonCfg)
+	if err != nil {
+		return nil, err
+	}
+	var jm map[string]any
+	err = json.Unmarshal(jb1, &jm)
+	if err != nil {
+		return nil, err
+	}
+	pluginsToDelete := []string{}
+	for k, k2 := range CorePlugins {
+		if v, ok := c.Plugins[k]; ok {
+			pluginsToDelete = append(pluginsToDelete, k)
+			jm[k2] = v
+		}
+	}
+	for _, v := range pluginsToDelete {
+		delete(c.Plugins, v)
+	}
+	jm["plugins"] = c.Plugins
+	jb2, err := json.Marshal(jm)
+	if err != nil {
+		return nil, err
+	}
+	return jb2, nil
 }

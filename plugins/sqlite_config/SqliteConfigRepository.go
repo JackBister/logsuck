@@ -16,10 +16,8 @@ package sqlite_config
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
@@ -88,12 +86,7 @@ func (s *SqliteConfigRepository) Get() (*config.ConfigResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("got error when scanning config_json: %w", err)
 	}
-	var jsonCfg config.JsonConfig
-	err = json.NewDecoder(strings.NewReader(jsonString)).Decode(&jsonCfg)
-	if err != nil {
-		return nil, fmt.Errorf("got error when decoding config_json: %w", err)
-	}
-	cfg, err := config.FromJSON(jsonCfg, s.logger)
+	cfg, err := config.FromJSON([]byte(jsonString), s.logger)
 	if err != nil {
 		return nil, fmt.Errorf("got error when converting JSON config: %w", err)
 	}
@@ -117,11 +110,7 @@ func (s *SqliteConfigRepository) upsertInternal(c *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to serialize config: %w", err)
 	}
-	b, err := json.Marshal(jsonString)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-	_, err = s.db.Exec("INSERT INTO Config (config_json, modified) VALUES (?, ?)", string(b), time.Now())
+	_, err = s.db.Exec("INSERT INTO Config (config_json, modified) VALUES (?, ?)", string(jsonString), time.Now())
 	if err != nil {
 		return fmt.Errorf("failed to insert new config into Config table: %w", err)
 	}

@@ -16,8 +16,6 @@ package rpc
 
 import (
 	"time"
-
-	"github.com/jackbister/logsuck/pkg/logsuck/config"
 )
 
 type RawEvent struct {
@@ -35,5 +33,5 @@ type ReceiveEventsRequest struct {
 
 type ConfigResponse struct {
 	Modified *time.Time
-	Config   config.JsonConfig
+	Config   []byte
 }

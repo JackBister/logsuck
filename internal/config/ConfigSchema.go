@@ -18,6 +18,8 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
 )
 
 //go:embed "logsuck-config.schema.json"
@@ -48,6 +50,7 @@ func CreateSchema(pluginSchemas, taskSchemas map[string]any) (map[string]any, er
 	if err != nil {
 		return nil, err
 	}
+	configSchemaProperties := configSchema["properties"].(map[string]any)
 	ps := map[string]any{
 		"type": "object",
 		"autoform": map[string]any{
@@ -55,10 +58,29 @@ func CreateSchema(pluginSchemas, taskSchemas map[string]any) (map[string]any, er
 		},
 		"properties": map[string]any{},
 	}
-	ps["properties"] = MergeSchemas(ps["properties"].(map[string]any), pluginSchemas)
-	configSchema["properties"] = MergeSchemas(configSchema["properties"].(map[string]any), map[string]any{
-		"plugins": ps,
-	})
+	pluginSchemasToDelete := []string{}
+	for k, v := range pluginSchemas {
+		if k2, ok := config.CorePlugins[k]; ok {
+			pluginSchemasToDelete = append(pluginSchemasToDelete, k)
+			if v2, ok := configSchemaProperties[k2]; ok {
+				existingSchema := v2.(map[string]any)
+				existingSchemaProperties := existingSchema["properties"].(map[string]any)
+				existingSchema["properties"] = MergeSchemas(existingSchemaProperties, v.(map[string]any)["properties"].(map[string]any))
+				configSchemaProperties[k2] = existingSchema
+			} else {
+				configSchemaProperties[k2] = v
+			}
+		}
+	}
+	for _, v := range pluginSchemasToDelete {
+		delete(pluginSchemas, v)
+	}
+	if len(pluginSchemas) > 0 {
+		ps["properties"] = MergeSchemas(ps["properties"].(map[string]any), pluginSchemas)
+		configSchemaProperties = MergeSchemas(configSchemaProperties, map[string]any{
+			"plugins": ps,
+		})
+	}
 
 	tc := map[string]any{}
 	for k, v := range taskSchemas {
@@ -84,7 +106,7 @@ func CreateSchema(pluginSchemas, taskSchemas map[string]any) (map[string]any, er
 		},
 		"properties": tc,
 	}
-	configSchema["properties"] = MergeSchemas(configSchema["properties"].(map[string]any), tcm)
+	configSchema["properties"] = MergeSchemas(configSchemaProperties, tcm)
 	configSchema["tasks"] = tcm
 
 	return configSchema, nil

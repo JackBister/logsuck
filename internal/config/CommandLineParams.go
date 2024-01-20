@@ -15,9 +15,9 @@
 package config
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"regexp"
@@ -112,13 +112,12 @@ func (c *CommandLineFlags) ToConfig(logger *slog.Logger) *config.Config {
 	}
 	cfgFile, err := os.Open(c.CfgFile)
 	if err == nil {
-		var jsonCfg config.JsonConfig
-		err = json.NewDecoder(cfgFile).Decode(&jsonCfg)
+		cfgFileBytes, err := io.ReadAll(cfgFile)
 		if err != nil {
-			logger.Error("error decoding json from config file", slog.String("fileName", c.CfgFile), slog.Any("error", err))
+			logger.Error("error reading json from config file", slog.String("fileName", c.CfgFile), slog.Any("error", err))
 			os.Exit(1)
 		}
-		newCfg, err := config.FromJSON(jsonCfg, logger)
+		newCfg, err := config.FromJSON(cfgFileBytes, logger)
 		if err != nil {
 			logger.Error("error parsing configuration from config file", slog.String("fileName", c.CfgFile), slog.Any("error", err))
 			os.Exit(1)
