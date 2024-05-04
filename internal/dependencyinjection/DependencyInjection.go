@@ -20,6 +20,7 @@ import (
 
 	internalConfig "github.com/jackbister/logsuck/internal/config"
 	internalEvents "github.com/jackbister/logsuck/internal/events"
+	"github.com/jackbister/logsuck/internal/files"
 	"github.com/jackbister/logsuck/internal/forwarder"
 	"github.com/jackbister/logsuck/internal/jobs"
 	"github.com/jackbister/logsuck/internal/pipeline"
@@ -93,9 +94,16 @@ func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logg
 	if err != nil {
 		return nil, err
 	}
-	err = c.Provide(recipient.NewRecipientEndpoint)
-	if err != nil {
-		return nil, err
+	if cfg.Recipient.Enabled {
+		err = c.Provide(recipient.NewRecipientEndpoint)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err = c.Provide(files.NewGlobWatcherCoordinator)
+		if err != nil {
+			return nil, err
+		}
 	}
 	err = c.Provide(web.NewWeb)
 	if err != nil {

@@ -153,6 +153,8 @@ func FromJSON(jsonString []byte, logger *slog.Logger) (*Config, error) {
 			hostName = cfg.Host.Name
 		}
 		if cfg.Host.Type == "" {
+			hostType = "DEFAULT"
+		} else {
 			hostType = cfg.Host.Type
 		}
 	} else {

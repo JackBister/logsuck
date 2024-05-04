@@ -21,14 +21,16 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/util"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"go.uber.org/dig"
 )
 
 type PostgresConfigRepository struct {
-	pool    *pgxpool.Pool
-	changes chan struct{}
+	pool *pgxpool.Pool
+
+	broadcaster util.Broadcaster[struct{}]
 
 	logger *slog.Logger
 }
@@ -87,8 +89,7 @@ func NewPostgresConfigRepository(p PostgresConfigRepositoryParams) (config.Repos
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize PostgresConfigRepository: failed to close COUNT result: %w", err)
 	}
-	changes := make(chan struct{})
-	ret := &PostgresConfigRepository{pool: p.Pool, changes: changes, logger: p.Logger}
+	ret := &PostgresConfigRepository{pool: p.Pool, logger: p.Logger}
 	if c == 0 && !p.ForceStaticConfig {
 		err = ret.upsertInternal(p.Cfg)
 		if err != nil {
@@ -111,14 +112,14 @@ func NewPostgresConfigRepository(p PostgresConfigRepositoryParams) (config.Repos
 				p.Logger.Error("Got error when waiting for config_updated notification. Will shut down listener.", slog.Any("error", err))
 				return
 			}
-			ret.changes <- struct{}{}
+			ret.broadcaster.Broadcast(struct{}{})
 		}
 	}(conn)
 	return ret, nil
 }
 
 func (s *PostgresConfigRepository) Changes() <-chan struct{} {
-	return s.changes
+	return s.broadcaster.Subscribe()
 }
 
 func (s *PostgresConfigRepository) Get() (*config.ConfigResponse, error) {
@@ -144,7 +145,7 @@ func (s *PostgresConfigRepository) Upsert(c *config.Config) error {
 	if err != nil {
 		return err
 	}
-	s.changes <- struct{}{}
+	s.broadcaster.Broadcast(struct{}{})
 	return nil
 }
 

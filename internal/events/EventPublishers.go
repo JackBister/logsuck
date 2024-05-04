@@ -1,17 +1,3 @@
-// Copyright 2021 Jack Bister
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package events
 
 import (
@@ -21,20 +7,15 @@ import (
 
 	"github.com/jackbister/logsuck/internal/parser"
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
-	"github.com/jackbister/logsuck/pkg/logsuck/events"
-
+	api "github.com/jackbister/logsuck/pkg/logsuck/events"
 	"go.uber.org/dig"
 )
 
-type EventPublisher interface {
-	PublishEvent(evt events.RawEvent, timeLayout string, fileParser parser.FileParser)
-}
-
 type batchedRepositoryPublisher struct {
 	cfg  *config.Config
-	repo events.Repository
+	repo api.Repository
 
-	adder chan events.Event
+	adder chan api.Event
 
 	logger *slog.Logger
 }
@@ -43,15 +24,15 @@ type BatchedRepositoryPublisherParams struct {
 	dig.In
 
 	Cfg    *config.Config
-	Repo   events.Repository
+	Repo   api.Repository
 	Logger *slog.Logger
 }
 
-func BatchedRepositoryPublisher(p BatchedRepositoryPublisherParams) EventPublisher {
-	adder := make(chan events.Event, 5000)
+func BatchedRepositoryPublisher(p BatchedRepositoryPublisherParams) api.Publisher {
+	adder := make(chan api.Event, 5000)
 
 	go func() {
-		accumulated := make([]events.Event, 0, 5000)
+		accumulated := make([]api.Event, 0, 5000)
 		timeout := time.After(1 * time.Second)
 		for {
 			select {
@@ -87,8 +68,8 @@ func BatchedRepositoryPublisher(p BatchedRepositoryPublisherParams) EventPublish
 	}
 }
 
-func (ep *batchedRepositoryPublisher) PublishEvent(evt events.RawEvent, timeLayout string, fileParser parser.FileParser) {
-	processed := events.Event{
+func (ep *batchedRepositoryPublisher) PublishEvent(evt api.RawEvent, timeLayout string, fileParser parser.FileParser) {
+	processed := api.Event{
 		Raw:      evt.Raw,
 		Host:     ep.cfg.HostName,
 		SourceId: evt.SourceId,
@@ -121,14 +102,14 @@ func (ep *batchedRepositoryPublisher) PublishEvent(evt events.RawEvent, timeLayo
 
 type repositoryPublisher struct {
 	cfg        *config.Config
-	repository events.Repository
+	repository api.Repository
 }
 
 type nopEventPublisher struct {
 }
 
-func NopEventPublisher() EventPublisher {
+func NopEventPublisher() api.Publisher {
 	return &nopEventPublisher{}
 }
 
-func (ep *nopEventPublisher) PublishEvent(_ events.RawEvent, _ string, _ parser.FileParser) {}
+func (ep *nopEventPublisher) PublishEvent(_ api.RawEvent, _ string, _ parser.FileParser) {}

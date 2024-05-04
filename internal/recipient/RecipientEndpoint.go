@@ -51,11 +51,11 @@ type RecipientEndpointParams struct {
 	Logger       *slog.Logger
 }
 
-func NewRecipientEndpoint(p RecipientEndpointParams) *RecipientEndpoint {
+func NewRecipientEndpoint(p RecipientEndpointParams) events.Reader {
 	return &RecipientEndpoint{configSource: p.ConfigSource, staticConfig: p.StaticConfig, repo: p.Repo, logger: p.Logger}
 }
 
-func (er *RecipientEndpoint) Serve() error {
+func (er *RecipientEndpoint) Start() error {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(util.NewGinSlogger(slog.LevelInfo, *er.logger))

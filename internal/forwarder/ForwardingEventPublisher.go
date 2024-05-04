@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"time"
 
-	internalEvents "github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/parser"
 	"github.com/jackbister/logsuck/internal/rpc"
 
@@ -50,7 +49,7 @@ type ForwardingEventPublisherParams struct {
 	Logger *slog.Logger
 }
 
-func ForwardingEventPublisher(p ForwardingEventPublisherParams) internalEvents.EventPublisher {
+func ForwardingEventPublisher(p ForwardingEventPublisherParams) events.Publisher {
 	adder := make(chan events.RawEvent)
 	ep := forwardingEventPublisher{
 		cfg: p.Cfg,

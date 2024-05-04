@@ -22,6 +22,7 @@ import (
 
 	"github.com/jackbister/logsuck/internal/rpc"
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/util"
 	"go.uber.org/dig"
 )
 
@@ -29,10 +30,11 @@ type RemoteConfigSource struct {
 	cfg    *config.Config
 	client http.Client
 
-	changes chan struct{}
-	cached  *config.ConfigResponse
+	cached *config.ConfigResponse
 
 	ticker *time.Ticker
+
+	broadcaster util.Broadcaster[struct{}]
 
 	logger *slog.Logger
 }
@@ -51,7 +53,6 @@ func NewRemoteConfigSource(p RemoteConfigSourceParams) config.Source {
 			Timeout: p.Cfg.Forwarder.ConfigPollInterval,
 		},
 
-		changes: make(chan struct{}), // We need to buffer to avoid hanging on startup
 		cached: &config.ConfigResponse{
 			Modified: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
 			Cfg:      *p.Cfg,
@@ -71,7 +72,7 @@ func NewRemoteConfigSource(p RemoteConfigSourceParams) config.Source {
 			newModified := r.cached.Modified
 			newPollInterval := r.cached.Cfg.Forwarder.ConfigPollInterval
 			if newModified != oldModified {
-				r.changes <- struct{}{}
+				r.broadcaster.Broadcast(struct{}{})
 			}
 			if newPollInterval != oldPollInterval {
 				r.ticker.Stop()
@@ -83,7 +84,7 @@ func NewRemoteConfigSource(p RemoteConfigSourceParams) config.Source {
 }
 
 func (r *RemoteConfigSource) Changes() <-chan struct{} {
-	return r.changes
+	return r.broadcaster.Subscribe()
 }
 
 func (r *RemoteConfigSource) Get() (*config.ConfigResponse, error) {

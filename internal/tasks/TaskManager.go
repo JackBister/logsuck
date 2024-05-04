@@ -71,11 +71,12 @@ func (te *TaskEnumProvider) Values() ([]string, error) {
 }
 
 type TaskManager struct {
-	cfg         map[string]config.TaskConfig
-	taskContext TaskContext
-	tasks       map[string]tasks.Task
-	taskData    sync.Map //<string, TaskData>
-	ctx         context.Context
+	cfg          map[string]config.TaskConfig
+	taskContext  TaskContext
+	tasks        map[string]tasks.Task
+	taskData     sync.Map //<string, TaskData>
+	ctx          context.Context
+	configSource config.Source
 
 	logger *slog.Logger
 }
@@ -102,9 +103,10 @@ func NewTaskManager(p TaskManagerParams) (*TaskManager, error) {
 		taskContext: TaskContext{
 			EventsRepo: p.EventsRepo,
 		},
-		tasks:    map[string]tasks.Task{},
-		taskData: sync.Map{},
-		ctx:      p.Ctx,
+		tasks:        map[string]tasks.Task{},
+		taskData:     sync.Map{},
+		ctx:          p.Ctx,
+		configSource: p.CfgSource,
 
 		logger: p.Logger,
 	}
@@ -113,6 +115,21 @@ func NewTaskManager(p TaskManagerParams) (*TaskManager, error) {
 	}
 	tm.UpdateConfig(r.Cfg)
 	return tm, nil
+}
+
+func (tm *TaskManager) Start() {
+	go func() {
+		changes := tm.configSource.Changes()
+		for {
+			<-changes
+			cfg, err := tm.configSource.Get()
+			if err != nil {
+				tm.logger.Error("got error when getting updated task config. Task config will not be updated", slog.Any("error", err))
+				continue
+			}
+			tm.UpdateConfig(cfg.Cfg)
+		}
+	}()
 }
 
 func (tm *TaskManager) ScheduleTask(name string) error {

@@ -21,13 +21,14 @@ import (
 	"time"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/util"
 
 	"go.uber.org/dig"
 )
 
 type SqliteConfigRepository struct {
-	db      *sql.DB
-	changes chan struct{}
+	db          *sql.DB
+	broadcaster util.Broadcaster[struct{}]
 
 	logger *slog.Logger
 }
@@ -60,8 +61,7 @@ func NewSqliteConfigRepository(p SqliteConfigRepositoryParams) (config.Repositor
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize SqliteConfigRepository: failed to close COUNT result: %w", err)
 	}
-	changes := make(chan struct{})
-	ret := &SqliteConfigRepository{db: p.Db, changes: changes, logger: p.Logger}
+	ret := &SqliteConfigRepository{db: p.Db, logger: p.Logger}
 	if c == 0 && !p.ForceStaticConfig {
 		err = ret.upsertInternal(p.Cfg)
 		if err != nil {
@@ -72,7 +72,7 @@ func NewSqliteConfigRepository(p SqliteConfigRepositoryParams) (config.Repositor
 }
 
 func (s *SqliteConfigRepository) Changes() <-chan struct{} {
-	return s.changes
+	return s.broadcaster.Subscribe()
 }
 
 func (s *SqliteConfigRepository) Get() (*config.ConfigResponse, error) {
@@ -101,7 +101,7 @@ func (s *SqliteConfigRepository) Upsert(c *config.Config) error {
 	if err != nil {
 		return err
 	}
-	s.changes <- struct{}{}
+	s.broadcaster.Broadcast(struct{}{})
 	return nil
 }
 
