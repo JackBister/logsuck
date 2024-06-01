@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/jackbister/logsuck/plugins/sqlite_events/sqlite_events.schema.json",
-  "title": "@sqlite_events",
-  "description": "Configuration for @sqlite_events Logsuck plugin",
+  "title": "@logsuck/sqlite_events",
+  "description": "Configuration for @logsuck/sqlite_events Logsuck plugin",
   "type": "object",
   "additionalProperties": false,
   "autoform": {

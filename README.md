@@ -20,7 +20,8 @@ Logsuck is currently pre-1.0. This means that there may be changes made to the d
 3. [Search syntax](#search-syntax)
 4. [Need help?](#need-help)
 5. [Building](#building)
-6. [Upcoming features](#upcoming-features)
+6. [Customizing using plugins](#customizing-using-plugins)
+7. [Upcoming features](#upcoming-features)
 
 ## Getting started
 
@@ -255,6 +256,10 @@ If you are working on the frontend, you can do the following things to make your
 
 With those two steps done, you don't need to restart Logsuck to see the changes you've made to the frontend, and your changes will be compiled when you save. You just need to refresh your browser after making a change to see it in action.
 
+## Customizing using plugins
+
+Logsuck can be customized at build time using plugins. Read [docs/Plugins.md](docs/Plugins.md) for more information, or check out the included plugins in the [plugins](plugins directory).
+
 ## Upcoming features
 
 Logsuck is still heavily in development, so there are many features still being worked on.
@@ -266,7 +271,7 @@ Logsuck is still heavily in development, so there are many features still being 
 - [x] Ad hoc field extraction using pipes in the search command (equivalent to Splunk's "| rex")
 - [ ] E-mail alerts
 - [ ] Authentication and authorization
-- [ ] Plugins
+- [x] Plugins
 - [ ] Creating tables and charts from searches
 - [ ] Dashboards
 - [ ] Advanced search commands like dedup, eval, transaction, etc.
