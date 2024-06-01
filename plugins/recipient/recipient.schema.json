@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jackbister/logsuck/plugins/recipient/recipient.schema.json",
+  "title": "@logsuck/recipient",
+  "description": "Configuration for @logsuck/recipient Logsuck plugin",
+  "type": "object",
+  "additionalProperties": false,
+  "autoform": {
+    "readonly": true
+  },
+  "properties": {}
+}

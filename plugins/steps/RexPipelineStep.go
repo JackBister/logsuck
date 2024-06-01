@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/pkg/logsuck/parser"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
 	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"

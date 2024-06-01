@@ -20,8 +20,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/rpc"
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/rpc"
 	"github.com/jackbister/logsuck/pkg/logsuck/util"
 	"go.uber.org/dig"
 )

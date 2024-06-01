@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/araddon/dateparse"
-	"github.com/jackbister/logsuck/internal/indexedfiles"
-	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/pkg/logsuck/indexedfiles"
+	"github.com/jackbister/logsuck/pkg/logsuck/parser"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
 	"github.com/jackbister/logsuck/pkg/logsuck/pipeline"

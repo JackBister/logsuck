@@ -19,8 +19,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/parser"
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/parser"
 )
 
 // IndexedFileConfig contains configuration for a specific file which will be indexed

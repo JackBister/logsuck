@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/pkg/logsuck/parser"
 	"go.uber.org/dig"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/events"

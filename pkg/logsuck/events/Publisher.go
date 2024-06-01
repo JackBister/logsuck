@@ -15,7 +15,7 @@
 package events
 
 import (
-	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/pkg/logsuck/parser"
 )
 
 type Publisher interface {

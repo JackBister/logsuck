@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/jackbister/logsuck/internal/parser"
+	"github.com/jackbister/logsuck/pkg/logsuck/parser"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/events"
 )

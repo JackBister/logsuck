@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package files
+package filereader
 
 import (
 	"context"
@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/indexedfiles"
+	"github.com/jackbister/logsuck/pkg/logsuck/indexedfiles"
 	"go.uber.org/dig"
 
 	"github.com/jackbister/logsuck/pkg/logsuck/config"

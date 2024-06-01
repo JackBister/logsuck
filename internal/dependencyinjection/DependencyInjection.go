@@ -20,11 +20,9 @@ import (
 
 	internalConfig "github.com/jackbister/logsuck/internal/config"
 	internalEvents "github.com/jackbister/logsuck/internal/events"
-	"github.com/jackbister/logsuck/internal/files"
 	"github.com/jackbister/logsuck/internal/forwarder"
 	"github.com/jackbister/logsuck/internal/jobs"
 	"github.com/jackbister/logsuck/internal/pipeline"
-	"github.com/jackbister/logsuck/internal/recipient"
 	internalTasks "github.com/jackbister/logsuck/internal/tasks"
 	"github.com/jackbister/logsuck/internal/web"
 
@@ -42,7 +40,7 @@ func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logg
 	}
 
 	pluginSchemas := map[string]any{}
-	for _, p := range usedPlugins {
+	for _, p := range GetUsedPlugins(cfg) {
 		logger.Info("Loading plugin", slog.String("pluginName", p.Name))
 		err = p.Provide(c, logger)
 		if err != nil {
@@ -93,17 +91,6 @@ func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logg
 	err = c.Provide(jobs.NewEngine)
 	if err != nil {
 		return nil, err
-	}
-	if cfg.Recipient.Enabled {
-		err = c.Provide(recipient.NewRecipientEndpoint)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		err = c.Provide(files.NewGlobWatcherCoordinator)
-		if err != nil {
-			return nil, err
-		}
 	}
 	err = c.Provide(web.NewWeb)
 	if err != nil {

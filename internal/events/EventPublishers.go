@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/parser"
 	"github.com/jackbister/logsuck/pkg/logsuck/config"
 	api "github.com/jackbister/logsuck/pkg/logsuck/events"
+	"github.com/jackbister/logsuck/pkg/logsuck/parser"
 	"go.uber.org/dig"
 )
 

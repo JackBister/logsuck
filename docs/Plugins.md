@@ -4,8 +4,12 @@ Plugins can be used to customize Logsuck by replacing components or adding new b
 
 Plugins are included into Logsuck at build time. The plugins which are included can be found in the `internal/dependencyinjection/UsedPlugins.go` file.
 
+The support for plugins comes from using [dig](https://github.com/uber-go/dig) for dependency injection. A plugin works by providing its implementations into a dig context.
+
 The following plugins are included in the default Logsuck build:
 
+- `filereader`: Contains an event reader which reads logs from files. Used when running in forwarder or single mode.
+- `recipient`: Contains an event reader which receives logs from forwaders. Used when running in recipient mode.
 - `sqlite_common`: Contains SQLite infrastructure used by the other SQLite plugins.
 - `sqlite_config`: Contains an SQLite implementation of configuration management.
 - `sqlite_events`: Contains the SQLite implementation of event storage and full text search.
@@ -23,6 +27,7 @@ In addition, the following plugins are included in the Logsuck repository. These
 
 The following aspects of Logsuck can be customized:
 
+- A new event reader can be added by providing a constructor returning `events.Reader`.
 - A new pipeline step can be added by providing a constructor returning `pipeline.StepDefinition` and using `dig.Group("tasks")`
 - A new task can be added by providing a constructor returning `tasks.Task` and using `dig.Group("tasks")`
 - The configuration repository can be replaced by providing a constructor returning `config.Repository`
