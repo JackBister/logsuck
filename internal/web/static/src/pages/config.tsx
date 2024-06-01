@@ -15,7 +15,12 @@
  */
 
 import { h, hydrate } from "preact";
-import { getConfig, getDynamicEnum, updateConfig } from "../api/v1";
+import {
+  getConfig,
+  getConfigSchema,
+  getDynamicEnum,
+  updateConfig,
+} from "../api/v1";
 import { getQueryParams, setQueryParams } from "../queryParams";
 import { ConfigPageComponent } from "./ConfigPage";
 
@@ -25,6 +30,7 @@ function main() {
     <ConfigPageComponent
       getConfig={getConfig}
       updateConfig={updateConfig}
+      getConfigSchema={getConfigSchema}
       getDynamicEnum={getDynamicEnum}
       getQueryParams={getQueryParams}
       setQueryParams={setQueryParams}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jackbister/logsuck/plugins/sqlite_common/sqlite_common.schema.json",
+  "title": "@logsuck/sqlite_common",
+  "description": "Configuration for @logsuck/sqlite_common Logsuck plugin",
+  "type": "object",
+  "additionalProperties": false,
+  "autoform": {
+    "readonly": true
+  },
+  "properties": {
+    "fileName": {
+      "description": "The file name which will be used for the SQLite database. Default 'logsuck.db'.",
+      "type": "string"
+    }
+  }
+}

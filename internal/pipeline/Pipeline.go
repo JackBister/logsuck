@@ -17,40 +17,19 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
-	"github.com/jackbister/logsuck/internal/parser"
-)
+	"github.com/jackbister/logsuck/pkg/logsuck/parser"
+	"go.uber.org/dig"
 
-type PipelinePipeType int
-
-const (
-	PipelinePipeTypeNone   PipelinePipeType = 0
-	PipelinePipeTypeEvents PipelinePipeType = 1
-	PipelinePipeTypeTable  PipelinePipeType = 2
-
-	PipelinePipeTypePropagate PipelinePipeType = 999
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
 )
 
 type Pipeline struct {
-	steps   []pipelineStep
-	pipes   []pipelinePipe
-	outChan <-chan PipelineStepResult
-}
-
-type PipelineParameters struct {
-	ConfigSource config.ConfigSource
-	EventsRepo   events.Repository
-
-	Logger *slog.Logger
-}
-
-type PipelineStepResult struct {
-	Events    []events.EventWithExtractedFields
-	TableRows []map[string]string
+	steps   []api.Step
+	pipes   []api.Pipe
+	outChan <-chan api.StepResult
 }
 
 // TODO: What is a reasonable value? Configurable? Dynamic?
@@ -61,50 +40,35 @@ type PipelineStepResult struct {
 // the pipe.
 const pipeBufferSize = 100
 
-type pipelinePipe struct {
-	input      <-chan PipelineStepResult
-	inputType  PipelinePipeType
-	output     chan<- PipelineStepResult
-	outputType PipelinePipeType
+type PipelineCompiler struct {
+	stepDefinitions map[string]api.StepDefinition
 }
 
-type pipelineStep interface {
-	Execute(ctx context.Context, pipe pipelinePipe, params PipelineParameters)
+func NewPipelineCompiler(p struct {
+	dig.In
 
-	// Returns the name of the operator that created this step, for example "rex"
-	Name() string
-
-	InputType() PipelinePipeType
-	OutputType() PipelinePipeType
+	StepDefinitions []api.StepDefinition `group:"steps"`
+}) PipelineCompiler {
+	m := map[string]api.StepDefinition{}
+	for _, v := range p.StepDefinitions {
+		m[v.StepName] = v
+	}
+	return PipelineCompiler{
+		stepDefinitions: m,
+	}
 }
 
-type pipelineStepWithSortMode interface {
-	SortMode() events.SortMode
-}
-
-type tableGeneratingPipelineStep interface {
-	ColumnOrder() []string
-}
-
-var compilers = map[string]func(input string, options map[string]string) (pipelineStep, error){
-	"rex":         compileRexStep,
-	"search":      compileSearchStep,
-	"surrounding": compileSurroundingStep,
-	"table":       compileTableStep,
-	"where":       compileWhereStep,
-}
-
-func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, error) {
+func (pc *PipelineCompiler) Compile(input string, startTime, endTime *time.Time) (*Pipeline, error) {
 	pr, err := parser.ParsePipeline(input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile pipeline: %w", err)
 	}
 
-	compiledSteps := make([]pipelineStep, len(pr.Steps))
+	compiledSteps := make([]api.Step, len(pr.Steps))
 	for i, step := range pr.Steps {
-		compiler, ok := compilers[step.StepType]
+		stepDefinition, ok := pc.stepDefinitions[step.StepType]
 		if !ok {
-			return nil, fmt.Errorf("failed to compile pipeline: no compiler found for StepType=%v", step.StepType)
+			return nil, fmt.Errorf("failed to compile pipeline: no step definition found for StepType=%v", step.StepType)
 		}
 		// This feels pretty dumb
 		if i == 0 && step.StepType == "search" {
@@ -115,7 +79,7 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 				step.Args["endTime"] = endTime.Format(time.RFC3339Nano)
 			}
 		}
-		res, err := compiler(step.Value, step.Args)
+		res, err := stepDefinition.Compiler(step.Value, step.Args)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile pipeline: failed to compile step %v: %w", i, err)
 		}
@@ -124,7 +88,7 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 
 	lastGeneratorIndex := 0
 	for i, compiled := range compiledSteps {
-		if compiled.InputType() == PipelinePipeTypeNone {
+		if compiled.InputType() == api.PipeTypeNone {
 			lastGeneratorIndex = i
 		}
 	}
@@ -132,38 +96,38 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 
 	outputType := compiledSteps[0].OutputType()
 	for i, compiled := range compiledSteps {
-		if (compiled.InputType() == PipelinePipeTypePropagate || compiled.OutputType() == PipelinePipeTypePropagate) && compiled.InputType() != compiled.OutputType() {
+		if (compiled.InputType() == api.PipeTypePropagate || compiled.OutputType() == api.PipeTypePropagate) && compiled.InputType() != compiled.OutputType() {
 			return nil, fmt.Errorf("failed to compile pipeline: mismatching input/output type for propagating step. input=%v, output=%v. This is a bug", compiled.InputType(), compiled.OutputType())
 		}
-		if compiled.OutputType() != PipelinePipeTypePropagate {
+		if compiled.OutputType() != api.PipeTypePropagate {
 			outputType = compiled.OutputType()
 		}
 		if i == len(compiledSteps)-1 {
-			if outputType != PipelinePipeTypeEvents && outputType != PipelinePipeTypeTable {
+			if outputType != api.PipeTypeEvents && outputType != api.PipeTypeTable {
 				return nil, fmt.Errorf("failed to compile pipeline: invalid output type for last step: %v", compiled.Name())
 			}
 		} else {
-			if outputType != compiledSteps[i+1].InputType() && compiledSteps[i+1].InputType() != PipelinePipeTypePropagate {
+			if outputType != compiledSteps[i+1].InputType() && compiledSteps[i+1].InputType() != api.PipeTypePropagate {
 				return nil, fmt.Errorf("failed to compile pipeline: output type for step %v does not match input type for step %v", compiled.Name(), compiledSteps[i+1].Name())
 			}
 		}
 	}
 
-	lastOutput := make(chan PipelineStepResult, pipeBufferSize)
+	lastOutput := make(chan api.StepResult, pipeBufferSize)
 	lastOutputType := compiledSteps[0].OutputType()
 	close(lastOutput)
-	pipes := make([]pipelinePipe, len(compiledSteps))
+	pipes := make([]api.Pipe, len(compiledSteps))
 	for i := 0; i < len(compiledSteps); i++ {
 		currentOutputType := compiledSteps[i].OutputType()
-		if currentOutputType == PipelinePipeTypePropagate {
+		if currentOutputType == api.PipeTypePropagate {
 			currentOutputType = lastOutputType
 		}
-		outputEvents := make(chan PipelineStepResult, pipeBufferSize)
-		pipes[i] = pipelinePipe{
-			input:      lastOutput,
-			inputType:  lastOutputType,
-			output:     outputEvents,
-			outputType: currentOutputType,
+		outputEvents := make(chan api.StepResult, pipeBufferSize)
+		pipes[i] = api.Pipe{
+			Input:      lastOutput,
+			InputType:  lastOutputType,
+			Output:     outputEvents,
+			OutputType: currentOutputType,
 		}
 		lastOutput = outputEvents
 		lastOutputType = currentOutputType
@@ -178,10 +142,10 @@ func CompilePipeline(input string, startTime, endTime *time.Time) (*Pipeline, er
 
 func (p *Pipeline) ColumnOrder() ([]string, error) {
 	lastStep := p.steps[len(p.steps)-1]
-	if lastStep.OutputType() != PipelinePipeTypeTable {
+	if lastStep.OutputType() != api.PipeTypeTable {
 		return []string{}, nil
 	}
-	if t, ok := lastStep.(tableGeneratingPipelineStep); !ok {
+	if t, ok := lastStep.(api.TableGeneratingStep); !ok {
 		return []string{}, fmt.Errorf("failed to cast step=%v to tableGeneratingPipelineStep despite OutputType being PipelinePipeTypeTable. This is likely a bug! stepName=%v",
 			lastStep, lastStep.Name())
 	} else {
@@ -189,7 +153,7 @@ func (p *Pipeline) ColumnOrder() ([]string, error) {
 	}
 }
 
-func (p *Pipeline) Execute(ctx context.Context, params PipelineParameters) <-chan PipelineStepResult {
+func (p *Pipeline) Execute(ctx context.Context, params api.Parameters) <-chan api.StepResult {
 	for i, step := range p.steps {
 		go step.Execute(ctx, p.pipes[i], params)
 	}
@@ -204,10 +168,10 @@ func (p *Pipeline) GetStepNames() []string {
 	return ret
 }
 
-func (p *Pipeline) OutputType() PipelinePipeType {
+func (p *Pipeline) OutputType() api.PipeType {
 	outputType := p.steps[0].OutputType()
 	for _, s := range p.steps {
-		if s.OutputType() != PipelinePipeTypePropagate {
+		if s.OutputType() != api.PipeTypePropagate {
 			outputType = s.OutputType()
 		}
 	}
@@ -217,7 +181,7 @@ func (p *Pipeline) OutputType() PipelinePipeType {
 func (p *Pipeline) SortMode() events.SortMode {
 	sortMode := events.SortModeTimestampDesc
 	for _, s := range p.steps {
-		if ss, ok := s.(pipelineStepWithSortMode); ok {
+		if ss, ok := s.(api.StepWithSortMode); ok {
 			sortMode = ss.SortMode()
 		}
 	}

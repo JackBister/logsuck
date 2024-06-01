@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jackbister/logsuck/plugins/postgres_common/postgres_common.schema.json",
+  "title": "@logsuck/postgres_common",
+  "description": "Configuration for @logsuck/postgres_common Logsuck plugin",
+  "type": "object",
+  "additionalProperties": false,
+  "autoform": {
+    "readonly": true
+  },
+  "properties": {
+    "connectionString": {
+      "description": "The connection string used to connect to the database. For example 'postgres://postgres:password@localhost:5432/postgres'. Empty by default. Must be set.",
+      "type": "string"
+    }
+  }
+}

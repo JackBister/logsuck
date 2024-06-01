@@ -23,10 +23,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
-	"github.com/jackbister/logsuck/internal/parser"
-	"github.com/jackbister/logsuck/internal/rpc"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	"github.com/jackbister/logsuck/pkg/logsuck/parser"
+	"github.com/jackbister/logsuck/pkg/logsuck/rpc"
 	"go.uber.org/dig"
 )
 
@@ -48,7 +48,7 @@ type ForwardingEventPublisherParams struct {
 	Logger *slog.Logger
 }
 
-func ForwardingEventPublisher(p ForwardingEventPublisherParams) events.EventPublisher {
+func ForwardingEventPublisher(p ForwardingEventPublisherParams) events.Publisher {
 	adder := make(chan events.RawEvent)
 	ep := forwardingEventPublisher{
 		cfg: p.Cfg,

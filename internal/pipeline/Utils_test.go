@@ -15,101 +15,36 @@
 package pipeline
 
 import (
-	"database/sql"
 	"log/slog"
-	"regexp"
-	"testing"
-	"time"
 
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
-	"github.com/jackbister/logsuck/internal/parser"
+	api "github.com/jackbister/logsuck/pkg/logsuck/pipeline"
+	"go.uber.org/dig"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/jackbister/logsuck/plugins/steps"
 )
 
-type TestConfigSource struct {
-	config config.Config
-}
-
-func newConfigSource() config.ConfigSource {
-	return &TestConfigSource{
-		config: config.Config{
-
-			SQLite: &config.SqliteConfig{
-				DatabaseFile: ":memory:",
-				TrueBatch:    true,
-			},
-
-			Files: map[string]config.FileConfig{
-				"my-log.txt": {
-					Filename: "my-log.txt",
-				},
-			},
-
-			FileTypes: map[string]config.FileTypeConfig{
-				"DEFAULT": {
-					Name:         "DEFAULT",
-					TimeLayout:   "2006/01/02 15:04:05",
-					ReadInterval: 1 * time.Second,
-					ParserType:   config.ParserTypeRegex,
-					Regex: &parser.RegexParserConfig{
-						EventDelimiter: regexp.MustCompile("\n"),
-						FieldExtractors: []*regexp.Regexp{
-							regexp.MustCompile("(\\w+)=(\\w+)"),
-							regexp.MustCompile("^(?P<_time>\\d\\d\\d\\d/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d\\.\\d\\d\\d\\d\\d\\d)"),
-						},
-					},
-				},
-			},
-
-			HostTypes: map[string]config.HostTypeConfig{
-				"DEFAULT": {
-					Files: []config.HostFileConfig{
-						{
-							Name: "my-log.txt",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func (s *TestConfigSource) Get() (*config.ConfigResponse, error) {
-	return &config.ConfigResponse{Modified: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC), Cfg: s.config}, nil
-}
-
-func (s *TestConfigSource) Changes() <-chan struct{} {
-	return make(<-chan struct{})
-}
-
-func newInMemRepo(t *testing.T) events.Repository {
-	db, err := sql.Open("sqlite3", ":memory:")
+func newTestPipelineCompiler() *PipelineCompiler {
+	c := dig.New()
+	err := steps.Plugin.Provide(c, slog.Default())
 	if err != nil {
-		t.Fatalf("newInMemRepo got error when creating in-memory SQLite database: %v", err)
+		panic(err)
 	}
-	repo, err := events.SqliteRepository(events.SqliteEventRepositoryParams{
-		Db: db,
-		Cfg: &config.Config{
-			SQLite: &config.SqliteConfig{},
-		},
-		Logger: slog.Default(),
+	var ret PipelineCompiler
+	err = c.Invoke(func(p struct {
+		dig.In
+
+		StepDefinitions []api.StepDefinition `group:"steps"`
+	}) {
+		m := map[string]api.StepDefinition{}
+		for _, v := range p.StepDefinitions {
+			m[v.StepName] = v
+		}
+		ret = PipelineCompiler{
+			stepDefinitions: m,
+		}
 	})
 	if err != nil {
-		t.Fatalf("newInMemRepo got error when creating events repo: %v", err)
+		panic(err)
 	}
-	return repo
-}
-
-func newPipe() (pipe pipelinePipe, in, out chan PipelineStepResult) {
-	in = make(chan PipelineStepResult)
-	out = make(chan PipelineStepResult)
-
-	pipe = pipelinePipe{
-		input:  in,
-		output: out,
-	}
-
-	return pipe, in, out
+	return &ret
 }

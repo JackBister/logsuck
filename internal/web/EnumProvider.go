@@ -17,7 +17,7 @@ package web
 import (
 	"fmt"
 
-	"github.com/jackbister/logsuck/internal/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
 )
 
 type EnumProvider interface {
@@ -26,10 +26,10 @@ type EnumProvider interface {
 }
 
 type FileTypeEnumProvider struct {
-	configSource config.ConfigSource
+	configSource config.Source
 }
 
-func NewFileTypeEnumProvider(configSource config.ConfigSource) EnumProvider {
+func NewFileTypeEnumProvider(configSource config.Source) EnumProvider {
 	return &FileTypeEnumProvider{
 		configSource: configSource,
 	}
@@ -52,10 +52,10 @@ func (f *FileTypeEnumProvider) Values() ([]string, error) {
 }
 
 type FileEnumProvider struct {
-	configSource config.ConfigSource
+	configSource config.Source
 }
 
-func NewFileEnumProvider(configSource config.ConfigSource) EnumProvider {
+func NewFileEnumProvider(configSource config.Source) EnumProvider {
 	return &FileEnumProvider{
 		configSource: configSource,
 	}
@@ -78,10 +78,10 @@ func (f *FileEnumProvider) Values() ([]string, error) {
 }
 
 type HostTypeEnumProvider struct {
-	configSource config.ConfigSource
+	configSource config.Source
 }
 
-func NewHostTypeEnumProvider(configSource config.ConfigSource) EnumProvider {
+func NewHostTypeEnumProvider(configSource config.Source) EnumProvider {
 	return &HostTypeEnumProvider{
 		configSource: configSource,
 	}

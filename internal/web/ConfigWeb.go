@@ -15,16 +15,19 @@
 package web
 
 import (
-	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackbister/logsuck/internal/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
 )
 
 func addConfigEndpoints(g *gin.RouterGroup, wi *webImpl) {
 	g = g.Group("config")
 
+	g.GET("/schema", func(ctx *gin.Context) {
+		ctx.JSON(200, wi.configSchema)
+	})
 	g.GET("/enums/:name", func(ctx *gin.Context) {
 		providerName, _ := ctx.Params.Get("name")
 		provider, ok := wi.enumProviders[providerName]
@@ -50,7 +53,7 @@ func addConfigEndpoints(g *gin.RouterGroup, wi *webImpl) {
 			ctx.AbortWithError(500, fmt.Errorf("failed to convert config to json: %w", err))
 			return
 		}
-		ctx.JSON(200, cfgJson)
+		ctx.Data(200, "application/json", cfgJson)
 	})
 
 	g.POST("", func(ctx *gin.Context) {
@@ -63,10 +66,9 @@ func addConfigEndpoints(g *gin.RouterGroup, wi *webImpl) {
 			ctx.AbortWithError(400, fmt.Errorf("cannot save configuration because forceStaticConfig is enabled"))
 			return
 		}
-		var jsonCfg config.JsonConfig
-		err = json.NewDecoder(ctx.Request.Body).Decode(&jsonCfg)
+		jsonCfg, err := io.ReadAll(ctx.Request.Body)
 		if err != nil {
-			ctx.AbortWithError(500, fmt.Errorf("failed to decode json config: %w", err))
+			ctx.AbortWithError(500, fmt.Errorf("failed to read json config: %w", err))
 			return
 		}
 		cfgResp, err := config.FromJSON(jsonCfg, wi.logger)
@@ -81,4 +83,5 @@ func addConfigEndpoints(g *gin.RouterGroup, wi *webImpl) {
 		}
 		ctx.String(200, "ok")
 	})
+
 }

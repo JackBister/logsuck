@@ -28,11 +28,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
-	"github.com/jackbister/logsuck/internal/indexedfiles"
-	"github.com/jackbister/logsuck/internal/jobs"
-	"github.com/jackbister/logsuck/internal/parser"
+	internalJobs "github.com/jackbister/logsuck/internal/jobs"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/events"
+	"github.com/jackbister/logsuck/pkg/logsuck/indexedfiles"
+	"github.com/jackbister/logsuck/pkg/logsuck/jobs"
+	"github.com/jackbister/logsuck/pkg/logsuck/parser"
+	"github.com/jackbister/logsuck/pkg/logsuck/util"
+
 	"go.uber.org/dig"
 )
 
@@ -41,12 +45,13 @@ type Web interface {
 }
 
 type webImpl struct {
-	configSource  config.ConfigSource
-	configRepo    config.ConfigRepository
+	configSource  config.Source
+	configRepo    config.Repository
+	configSchema  map[string]any
 	staticConfig  *config.Config
 	eventRepo     events.Repository
 	jobRepo       jobs.Repository
-	jobEngine     *jobs.Engine
+	jobEngine     *internalJobs.Engine
 	enumProviders map[string]EnumProvider
 
 	logger *slog.Logger
@@ -64,12 +69,13 @@ func (w webError) Error() string {
 type WebParams struct {
 	dig.In
 
-	ConfigSource config.ConfigSource
-	ConfigRepo   config.ConfigRepository
+	ConfigSource config.Source
+	ConfigRepo   config.Repository
+	ConfigSchema map[string]any `name:"configSchema"`
 	StaticConfig *config.Config
 	EventRepo    events.Repository
 	JobRepo      jobs.Repository
-	JobEngine    *jobs.Engine
+	JobEngine    *internalJobs.Engine
 	Logger       *slog.Logger
 
 	EnumProviders []EnumProvider `group:"enumProviders"`
@@ -84,6 +90,7 @@ func NewWeb(p WebParams) Web {
 		staticConfig: p.StaticConfig,
 		configSource: p.ConfigSource,
 		configRepo:   p.ConfigRepo,
+		configSchema: p.ConfigSchema,
 		eventRepo:    p.EventRepo,
 		jobRepo:      p.JobRepo,
 		jobEngine:    p.JobEngine,
@@ -104,7 +111,10 @@ func (wi webImpl) Serve() error {
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	r := gin.Default()
+
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(util.NewGinSlogger(slog.LevelInfo, *wi.logger))
 	r.SetTrustedProxies(nil)
 
 	var filesys http.FileSystem

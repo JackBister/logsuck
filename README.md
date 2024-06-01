@@ -20,7 +20,8 @@ Logsuck is currently pre-1.0. This means that there may be changes made to the d
 3. [Search syntax](#search-syntax)
 4. [Need help?](#need-help)
 5. [Building](#building)
-6. [Upcoming features](#upcoming-features)
+6. [Customizing using plugins](#customizing-using-plugins)
+7. [Upcoming features](#upcoming-features)
 
 ## Getting started
 
@@ -111,9 +112,11 @@ Enables "static config" mode. In this mode, you cannot modify the configuration 
 `-help`
 Print information about command line options and quit.
 
-`-json` Parse the given files as JSON instead of using Regex to parse. The fieldexctractor flag will be ignored. Disabled by default.
+`-json` Parse the given files as JSON instead of using Regex to parse. The fieldextractor flag will be ignored. Disabled by default.
 
 `-recipient <address>` Sets Logsuck to run in recipient mode and receives events on the given address. By default, this is disabled.
+
+`-schema` Print configuration schema and exit.
 
 `-timefield <string>` The name of the field which will contain the timestamp of the event. Default '\_time'.
 
@@ -157,7 +160,7 @@ This part of the query may contain any combination of the following:
 
 A fragment is the Logsuck term for an unquoted or quoted string which should be searched for among the log events. For example, if you search for `"hello world"` only events containing the string "hello world" (case insensitive) will be matched.
 
-If you specify multiple fragments without any surrounding quotes, they will be matched independently of their order in the event. For example, `hello world` will match both events containing "hello world" and strings containing "world hello".
+If you specify multiple fragments without any surrounding quotes, they will be matched independently of their order in the event. For example, `hello world` will match both events containing "hello world" and events containing "world hello".
 
 You can use `*` as a wildcard character in fragments. For example, searching for `ab*` will match the strings "abc", "abcd", etc.
 
@@ -253,6 +256,10 @@ If you are working on the frontend, you can do the following things to make your
 
 With those two steps done, you don't need to restart Logsuck to see the changes you've made to the frontend, and your changes will be compiled when you save. You just need to refresh your browser after making a change to see it in action.
 
+## Customizing using plugins
+
+Logsuck can be customized at build time using plugins. Read [docs/Plugins.md](docs/Plugins.md) for more information, or check out the included plugins in the [plugins](plugins directory).
+
 ## Upcoming features
 
 Logsuck is still heavily in development, so there are many features still being worked on.
@@ -264,7 +271,7 @@ Logsuck is still heavily in development, so there are many features still being 
 - [x] Ad hoc field extraction using pipes in the search command (equivalent to Splunk's "| rex")
 - [ ] E-mail alerts
 - [ ] Authentication and authorization
-- [ ] Plugins
+- [x] Plugins
 - [ ] Creating tables and charts from searches
 - [ ] Dashboards
 - [ ] Advanced search commands like dedup, eval, transaction, etc.

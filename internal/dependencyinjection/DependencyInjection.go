@@ -16,16 +16,19 @@ package dependencyinjection
 
 import (
 	"context"
-	"database/sql"
 	"log/slog"
 
-	"github.com/jackbister/logsuck/internal/config"
-	"github.com/jackbister/logsuck/internal/events"
+	internalConfig "github.com/jackbister/logsuck/internal/config"
+	internalEvents "github.com/jackbister/logsuck/internal/events"
 	"github.com/jackbister/logsuck/internal/forwarder"
 	"github.com/jackbister/logsuck/internal/jobs"
-	"github.com/jackbister/logsuck/internal/recipient"
-	"github.com/jackbister/logsuck/internal/tasks"
+	"github.com/jackbister/logsuck/internal/pipeline"
+	internalTasks "github.com/jackbister/logsuck/internal/tasks"
 	"github.com/jackbister/logsuck/internal/web"
+
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/pkg/logsuck/tasks"
+
 	"go.uber.org/dig"
 )
 
@@ -35,15 +38,45 @@ func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logg
 	if err != nil {
 		return nil, err
 	}
-	err = provideSqlite(c)
+
+	pluginSchemas := map[string]any{}
+	for _, p := range GetUsedPlugins(cfg) {
+		logger.Info("Loading plugin", slog.String("pluginName", p.Name))
+		err = p.Provide(c, logger)
+		if err != nil {
+			return nil, err
+		}
+		if p.JsonSchema != nil {
+			schema, err := p.JsonSchema()
+			if err != nil {
+				return nil, err
+			}
+			pluginSchemas[p.Name] = schema
+		}
+	}
+	err = c.Provide(func(p struct {
+		dig.In
+		Tasks []tasks.Task `group:"tasks"`
+	}) (map[string]any, error) {
+		taskSchemas := map[string]any{}
+		for _, t := range p.Tasks {
+			taskSchemas[t.Name()] = t.ConfigSchema()
+		}
+		return internalConfig.CreateSchema(pluginSchemas, taskSchemas)
+	}, dig.Name("configSchema"))
 	if err != nil {
 		return nil, err
 	}
+
 	err = providePublisher(c)
 	if err != nil {
 		return nil, err
 	}
 	err = provideConfigSource(c, logger)
+	if err != nil {
+		return nil, err
+	}
+	err = providePipelines(c, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -56,10 +89,6 @@ func InjectionContextFromConfig(cfg *config.Config, forceStaticConfig bool, logg
 		return nil, err
 	}
 	err = c.Provide(jobs.NewEngine)
-	if err != nil {
-		return nil, err
-	}
-	err = c.Provide(recipient.NewRecipientEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -96,55 +125,6 @@ func provideBasics(c *dig.Container, forceStaticConfig bool, cfg *config.Config,
 	return nil
 }
 
-func provideSqlite(c *dig.Container) error {
-	err := c.Provide(func() string {
-		return "sqlite3"
-	}, dig.Name("sqlDriver"))
-	if err != nil {
-		return err
-	}
-	err = c.Provide(func(cfg *config.Config) string {
-		additionalSqliteParameters := "?_journal_mode=WAL"
-		if cfg.SQLite.DatabaseFile == ":memory:" {
-			// cache=shared breaks DeleteOldEventsTask. But not having it breaks everything in :memory: mode.
-			// So we set cache=shared for :memory: mode and assume people will not need to delete old tasks in that mode.
-			additionalSqliteParameters += "&cache=shared"
-		}
-		return "file:" + cfg.SQLite.DatabaseFile + additionalSqliteParameters
-	}, dig.Name("sqlDataSourceName"))
-	if err != nil {
-		return err
-	}
-	err = c.Provide(func(p struct {
-		dig.In
-
-		DriverName     string `name:"sqlDriver"`
-		DataSourceName string `name:"sqlDataSourceName"`
-	}) (*sql.DB, error) {
-		db, err := sql.Open(p.DriverName, p.DataSourceName)
-		if err != nil {
-			return nil, err
-		}
-		return db, nil
-	})
-	if err != nil {
-		return err
-	}
-	err = c.Provide(config.NewSqliteConfigRepository)
-	if err != nil {
-		return err
-	}
-	err = c.Provide(events.SqliteRepository)
-	if err != nil {
-		return err
-	}
-	err = c.Provide(jobs.SqliteRepository)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func providePublisher(c *dig.Container) error {
 	return c.Invoke(func(cfg *config.Config) error {
 		if cfg.Forwarder.Enabled {
@@ -153,7 +133,7 @@ func providePublisher(c *dig.Container) error {
 				return err
 			}
 		} else {
-			err := c.Provide(events.BatchedRepositoryPublisher)
+			err := c.Provide(internalEvents.BatchedRepositoryPublisher)
 			if err != nil {
 				return err
 			}
@@ -171,41 +151,45 @@ func provideConfigSource(c *dig.Container, logger *slog.Logger) error {
 	}) error {
 		if p.ForceStaticConfig {
 			logger.Info("Static configuration is forced. Configuration will not be saved to database and will only be read from the JSON configuration file. Remove the forceStaticConfig flag from the command line or configuration file in order to use dynamic configuration.")
-			err := c.Provide(func() config.ConfigSource {
-				return &config.StaticConfigSource{
+			err := c.Provide(func() config.Source {
+				return &config.StaticSource{
 					Config: *p.Cfg,
 				}
 			})
 			if err != nil {
 				return err
 			}
-		}
-		if p.Cfg.Forwarder.Enabled {
+		} else if p.Cfg.Forwarder.Enabled {
 			err := c.Provide(forwarder.NewRemoteConfigSource)
 			if err != nil {
 				return err
 			}
 			return nil
-		}
-		err := c.Provide(func(p struct {
-			dig.In
-			ConfigRepo config.ConfigRepository
-		}) config.ConfigSource {
-			return p.ConfigRepo
-		})
-		if err != nil {
-			return err
+		} else {
+			err := c.Provide(func(p struct {
+				dig.In
+				ConfigRepo config.Repository
+			}) config.Source {
+				return p.ConfigRepo
+			})
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})
 }
 
-func provideTasks(c *dig.Container, logger *slog.Logger) error {
-	err := c.Provide(tasks.NewDeleteOldEventsTask, dig.Group("tasks"))
+func providePipelines(c *dig.Container, logger *slog.Logger) error {
+	err := c.Provide(pipeline.NewPipelineCompiler)
 	if err != nil {
 		return err
 	}
-	err = c.Provide(tasks.NewTaskManager)
+	return nil
+}
+
+func provideTasks(c *dig.Container, logger *slog.Logger) error {
+	err := c.Provide(internalTasks.NewTaskManager)
 	if err != nil {
 		return err
 	}
@@ -213,7 +197,7 @@ func provideTasks(c *dig.Container, logger *slog.Logger) error {
 }
 
 func provideEnumProviders(c *dig.Container, logger *slog.Logger) error {
-	err := c.Provide(tasks.NewTaskEnumProvider, dig.Group("enumProviders"))
+	err := c.Provide(internalTasks.NewTaskEnumProvider, dig.Group("enumProviders"))
 	if err != nil {
 		return err
 	}

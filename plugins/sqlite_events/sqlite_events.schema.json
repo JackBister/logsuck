@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jackbister/logsuck/plugins/sqlite_events/sqlite_events.schema.json",
+  "title": "@logsuck/sqlite_events",
+  "description": "Configuration for @logsuck/sqlite_events Logsuck plugin",
+  "type": "object",
+  "additionalProperties": false,
+  "autoform": {
+    "readonly": true
+  },
+  "properties": {
+    "trueBatch": {
+      "description": "Whether Logsuck should use 'true batch' mode or not. True batch is significantly faster at saving events on average, but is slower at handling duplicates and relies on SQLite behavior which may not be guaranteed. Default true.",
+      "type": "boolean"
+    }
+  }
+}
