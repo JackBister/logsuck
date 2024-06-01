@@ -19,17 +19,32 @@ package dependencyinjection
 
 import (
 	"github.com/jackbister/logsuck/pkg/logsuck"
+	"github.com/jackbister/logsuck/pkg/logsuck/config"
+	"github.com/jackbister/logsuck/plugins/filereader"
 	"github.com/jackbister/logsuck/plugins/postgres"
 	"github.com/jackbister/logsuck/plugins/postgres_common"
 	"github.com/jackbister/logsuck/plugins/postgres_events"
+	"github.com/jackbister/logsuck/plugins/recipient"
+	"github.com/jackbister/logsuck/plugins/sqlite_jobs"
 	"github.com/jackbister/logsuck/plugins/steps"
 	"github.com/jackbister/logsuck/plugins/tasks"
 )
 
-var usedPlugins = []logsuck.Plugin{
-	postgres.Plugin,
-	postgres_common.Plugin,
-	postgres_events.Plugin,
-	steps.Plugin,
-	tasks.Plugin,
+func GetUsedPlugins(cfg *config.Config) []logsuck.Plugin {
+	var plugins = []logsuck.Plugin{
+		postgres.Plugin,
+		postgres_common.Plugin,
+		postgres_events.Plugin,
+		sqlite_jobs.Plugin,
+		steps.Plugin,
+		tasks.Plugin,
+	}
+
+	if cfg.Recipient.Enabled {
+		plugins = append(plugins, recipient.Plugin)
+	} else {
+		plugins = append(plugins, filereader.Plugin)
+	}
+
+	return plugins
 }
