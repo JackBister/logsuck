@@ -46,6 +46,7 @@ else
 fi
 kill $lspid
 
+sleep 1
 timeout 60s ./logsuck -dbfile ":memory:" -hostname "RECIPIENT" -recipient ":8081" -webaddr ":8080" log-forwarder.txt > log-recipient.txt 2>&1 &
 sleep 1
 timeout 60s ./logsuck -forwarder "http://localhost:8081" -hostname "FORWARDER" > log-forwarder.txt 2>&1 &
