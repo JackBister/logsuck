@@ -1,7 +1,7 @@
 {
   "name": "logsuck-fe",
   "scripts": {
-    "build": "webpack --mode=\"production\"",
+    "build": "webpack --env production --mode=\"production\"",
     "watch": "webpack --mode=\"development\" --watch",
     "postinstall": "echo \"\" > node_modules/go.mod"
   },

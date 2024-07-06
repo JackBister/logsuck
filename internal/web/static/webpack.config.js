@@ -17,68 +17,72 @@
 const CopyPlugin = require("copy-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 
-module.exports = {
-  devtool: "source-map",
-  plugins: [
-    new CopyPlugin({
-      patterns: [
-        { from: "./template.html", to: "./dist/template.html" },
-        { from: "./style.css", to: "./dist/style.css" },
-      ],
-    }),
-    new MiniCssExtractPlugin({
-      filename: "dist/[name].css",
-    }),
-  ],
-  module: {
-    rules: [
-      { test: /\.tsx?$/, loader: "ts-loader" },
-      {
-        test: /\.scss$/,
-        sideEffects: true,
-        use: [
-          MiniCssExtractPlugin.loader,
-          {
-            loader: "css-loader",
-            options: {
-              modules: {
-                localIdentName: "[local]_[hash:base64]",
-                namedExport: true,
+module.exports = (env) => {
+  console.log(env);
+  return {
+    mode: env.production ? "production" : "development",
+    devtool: env.production ? false : "source-map",
+    plugins: [
+      new CopyPlugin({
+        patterns: [
+          { from: "./template.html", to: "./dist/template.html" },
+          { from: "./style.css", to: "./dist/style.css" },
+        ],
+      }),
+      new MiniCssExtractPlugin({
+        filename: "dist/[name].css",
+      }),
+    ],
+    module: {
+      rules: [
+        { test: /\.tsx?$/, loader: "ts-loader" },
+        {
+          test: /\.scss$/,
+          sideEffects: true,
+          use: [
+            MiniCssExtractPlugin.loader,
+            {
+              loader: "css-loader",
+              options: {
+                modules: {
+                  localIdentName: "[local]_[hash:base64]",
+                  namedExport: true,
+                },
               },
             },
+            "sass-loader",
+          ],
+        },
+      ],
+    },
+    optimization: {
+      splitChunks: {
+        cacheGroups: {
+          commons: {
+            test: /[\\/]node_modules[\\/]/,
+            name: "vendors",
+            chunks: "all",
           },
-          "sass-loader",
-        ],
-      },
-    ],
-  },
-  optimization: {
-    splitChunks: {
-      cacheGroups: {
-        commons: {
-          test: /[\\/]node_modules[\\/]/,
-          name: "vendors",
-          chunks: "all",
         },
       },
     },
-  },
-  output: {
-    path: __dirname,
-    filename: "dist/[name].js",
-  },
-  entry: {
-    config: "./src/pages/config.tsx",
-    home: "./src/pages/home.tsx",
-    search: "./src/pages/search.tsx",
-  },
-  resolve: {
-    extensions: [".ts", ".tsx", ".js"],
-    alias: {
-      react: "preact/compat",
-      "react-dom/test-utils": "preact/test-utils",
-      "react-dom": "preact/compat", // Must be below test-utils
-      "react/jsx-runtime": "preact/jsx-runtime",
+    output: {
+      path: __dirname,
+      filename: "dist/[name].js",
     },
-  },
+    entry: {
+      config: "./src/pages/config.tsx",
+      home: "./src/pages/home.tsx",
+      search: "./src/pages/search.tsx",
+    },
+    resolve: {
+      extensions: [".ts", ".tsx", ".js"],
+      alias: {
+        react: "preact/compat",
+        "react-dom/test-utils": "preact/test-utils",
+        "react-dom": "preact/compat", // Must be below test-utils
+        "react/jsx-runtime": "preact/jsx-runtime",
+      },
+    },
+  };
 };
