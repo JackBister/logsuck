@@ -25,5 +25,6 @@ FROM scratch
 WORKDIR /
 COPY --from=BuildBackend /dist /
 COPY --from=BuildBackend /etc/passwd /etc/passwd
+USER 1001
 EXPOSE 8080
 ENTRYPOINT [ "/logsuck" ]
