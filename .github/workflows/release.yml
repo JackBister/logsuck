@@ -22,6 +22,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Set VERSIONNAME
         run: VERSIONNAME_DOTS=${GITHUB_REF##*/} && echo "VERSIONNAME_DOTS=$VERSIONNAME_DOTS" >> $GITHUB_ENV && VERSIONNAME=$(echo $VERSIONNAME_DOTS | sed 's/\./_/g') && echo "VERSIONNAME=$VERSIONNAME" >> $GITHUB_ENV
