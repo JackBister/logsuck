@@ -18,7 +18,7 @@ import { h, Component } from "preact";
 import { RecentSearch } from "../services/RecentSearches";
 import { RedirectSearchInput } from "../components/SearchInput";
 import { createSearchUrl } from "../createSearchUrl";
-import { Card, Table, Title, useMantineTheme } from "@mantine/core";
+import { Card, Table, Title } from "@mantine/core";
 import { LogsuckAppShell } from "../components/LogsuckAppShell";
 import { TableRow } from "../components/TableRow";
 
@@ -45,7 +45,6 @@ export class HomeComponent extends Component<HomeProps, HomeState> {
   }
 
   render() {
-    const theme = useMantineTheme();
     return (
       <LogsuckAppShell>
         <RedirectSearchInput navigateTo={this.props.navigateTo} />

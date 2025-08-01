@@ -18,18 +18,17 @@ import { JSX, h } from "preact";
 import {
   Anchor,
   AppShell,
-  Flex,
   Group,
-  Header,
-  Navbar,
   MantineProvider,
   Text,
   ThemeIcon,
   Title,
   UnstyledButton,
-  useMantineTheme,
+  useMantineColorScheme,
 } from "@mantine/core";
 import { IconSearch, IconSettings } from "@tabler/icons-preact";
+
+import '@mantine/core/styles.css';
 
 interface MainLinkProps {
   iconSvg: JSX.Element;
@@ -38,21 +37,22 @@ interface MainLinkProps {
 }
 
 const MainLink = ({ iconSvg, href, label }: MainLinkProps) => {
+  const { colorScheme } = useMantineColorScheme();
   return (
     <UnstyledButton
       component="a"
       href={href}
-      sx={(theme) => ({
+      style={(theme) => ({
         display: "block",
         width: "100%",
         padding: theme.spacing.xs,
         borderRadius: theme.radius.sm,
         color:
-          theme.colorScheme === "dark" ? theme.colors.dark[0] : theme.black,
+          colorScheme === "dark" ? theme.colors.dark[0] : theme.black,
 
         "&:hover": {
           backgroundColor:
-            theme.colorScheme === "dark"
+            colorScheme === "dark"
               ? theme.colors.dark[6]
               : theme.colors.gray[0],
         },
@@ -67,36 +67,13 @@ const MainLink = ({ iconSvg, href, label }: MainLinkProps) => {
 };
 
 export const LogsuckAppShell = (props: any) => {
-  const theme = useMantineTheme();
   return (
-    <MantineProvider withGlobalStyles>
+    <MantineProvider>
       <div id="app">
         <AppShell
           padding="md"
           navbar={
-            <MantineProvider theme={{ colorScheme: "dark" }}>
-              <Navbar width={{ base: 160 }} top={0}>
-                <Navbar.Section>
-                  <Title>
-                    <Anchor href="/" px="xs">
-                      Logsuck
-                    </Anchor>
-                  </Title>
-                </Navbar.Section>
-                <Navbar.Section>
-                  <MainLink
-                    label="Search"
-                    iconSvg={<IconSearch />}
-                    href="/search"
-                  ></MainLink>
-                  <MainLink
-                    label="Config"
-                    iconSvg={<IconSettings />}
-                    href="/config"
-                  ></MainLink>
-                </Navbar.Section>
-              </Navbar>
-            </MantineProvider>
+            { width: 160, breakpoint: 'sm' }
           }
           styles={(theme: any) => ({
             main: {
@@ -107,9 +84,32 @@ export const LogsuckAppShell = (props: any) => {
             },
           })}
         >
-          {props.children}
+          <AppShell.Navbar>
+            <AppShell.Section>
+              <Anchor href="/">
+                <Title px={8}>
+                  Logsuck
+                </Title>
+              </Anchor>
+            </AppShell.Section>
+            <AppShell.Section>
+              <MainLink
+                label="Search"
+                iconSvg={<IconSearch />}
+                href="/search"
+              ></MainLink>
+              <MainLink
+                label="Config"
+                iconSvg={<IconSettings />}
+                href="/config"
+              ></MainLink>
+            </AppShell.Section>
+          </AppShell.Navbar>
+          <AppShell.Main>
+            {props.children}
+          </AppShell.Main>
         </AppShell>
       </div>
-    </MantineProvider>
+    </MantineProvider >
   );
 };

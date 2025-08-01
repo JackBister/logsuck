@@ -6,21 +6,21 @@
     "postinstall": "echo \"\" > node_modules/go.mod"
   },
   "devDependencies": {
-    "copy-webpack-plugin": "11.0.0",
-    "css-loader": "6.8.1",
-    "mini-css-extract-plugin": "2.7.6",
-    "sass": "1.63.6",
-    "sass-loader": "13.3.2",
-    "ts-loader": "9.4.4",
-    "typescript": "5.1.6",
-    "webpack": "5.88.1",
-    "webpack-cli": "5.1.4"
+    "copy-webpack-plugin": "13.0.0",
+    "css-loader": "7.1.2",
+    "mini-css-extract-plugin": "2.9.2",
+    "sass": "1.89.2",
+    "sass-loader": "16.0.5",
+    "ts-loader": "9.5.2",
+    "typescript": "5.9.2",
+    "webpack": "5.101.0",
+    "webpack-cli": "6.0.1"
   },
   "dependencies": {
-    "@emotion/react": "11.11.1",
-    "@mantine/core": "6.0.15",
-    "@tabler/icons-preact": "2.23.0",
-    "formik": "2.4.2",
-    "preact": "10.15.1"
+    "@emotion/react": "11.14.0",
+    "@mantine/core": "8.2.2",
+    "@tabler/icons-preact": "3.34.1",
+    "formik": "2.4.6",
+    "preact": "10.27.0"
   }
 }

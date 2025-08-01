@@ -119,12 +119,14 @@ func (wi webImpl) Serve() error {
 
 	var filesys http.FileSystem
 	if wi.staticConfig.Web.UsePackagedFiles {
+		wi.logger.Info("Using packaged static files")
 		assets, err := fs.Sub(Assets, "static/dist")
 		if err != nil {
 			return fmt.Errorf("failed to Sub into static/dist directory: %w", err)
 		}
 		filesys = http.FS(assets)
 	} else {
+		wi.logger.Info("Using local static files from internal/web/static/dist")
 		filesys = http.Dir("internal/web/static/dist")
 	}
 

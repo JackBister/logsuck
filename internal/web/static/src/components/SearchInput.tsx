@@ -38,12 +38,12 @@ export const SearchInput = (props: SearchInputProps) => (
       props.onSearch();
     }}
   >
-    <Flex direction="row" style="width: 100%" align="flex-end" gap="xs">
+    <Flex direction="row" style={{ width: "100%" }} align="flex-end" gap="xs">
       <TextInput
         id="searchinput"
         name="searchinput"
         label="Search"
-        style="flex-grow: 1"
+        style={{ flexGrow: 1 }}
         onInput={(evt: any) => props.setSearchString((evt.target as any).value)}
         value={props.searchString}
       />
@@ -54,7 +54,7 @@ export const SearchInput = (props: SearchInputProps) => (
       <Button
         disabled={props.isButtonDisabled}
         type="submit"
-        buttonType="primary"
+        variant="primary"
       >
         Search
       </Button>

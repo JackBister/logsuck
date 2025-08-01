@@ -11,17 +11,27 @@ Logsuck is currently pre-1.0. This means that there may be changes made to the d
 
 ![a screenshot of the Logsuck GUI](https://jackbister.com/content/logsuck_v0_gui_mantine.png)
 
-1. [Getting started](#getting-started)
-   - [Single mode](#single-mode)
-   - [Forwarder/Recipient mode](#forwarderrecipient-mode)
-2. [Configuration](#configuration)
-   - [Command line options](#command-line-options)
-   - [JSON configuration](#json-configuration)
-3. [Search syntax](#search-syntax)
-4. [Need help?](#need-help)
-5. [Building](#building)
-6. [Customizing using plugins](#customizing-using-plugins)
-7. [Upcoming features](#upcoming-features)
+- [Logsuck](#logsuck)
+  - [Getting started](#getting-started)
+    - [Single mode](#single-mode)
+    - [Forwarder/Recipient mode](#forwarderrecipient-mode)
+  - [Configuration](#configuration)
+    - [Command line options](#command-line-options)
+    - [JSON configuration](#json-configuration)
+  - [Search syntax](#search-syntax)
+    - [`[search]`](#search)
+      - [Fragments](#fragments)
+      - [Fields](#fields)
+    - [Commands](#commands)
+      - [`| rex [field=<field>] "<regex>"`](#-rex-fieldfield-regex)
+      - [`| search startTime="<time>" endTime="<time>" "<search>"`](#-search-starttimetime-endtimetime-search)
+      - [`| surrounding [count=<number>] eventId=<id>`](#-surrounding-countnumber-eventidid)
+      - [`| table "<field1>,<field2>,..."`](#-table-field1field2)
+      - [`| where <field1>=<value1> <field2>=<value2>...`](#-where-field1value1-field2value2)
+  - [Need help?](#need-help)
+  - [Building](#building)
+  - [Customizing using plugins](#customizing-using-plugins)
+  - [Upcoming features](#upcoming-features)
 
 ## Getting started
 
@@ -218,7 +228,11 @@ If you have any questions about using Logsuck after reading the documentation, p
 
 ## Building
 
-In order to build Logsuck, you will need a recent version of Go (1.18 is used when building in CI), as well as a fairly recent Node/npm installation (Node v12 and npm v6 are used in CI). If cross compiling for Windows, you need [gcc-mingw-w64](http://mingw-w64.org/doku.php/download).
+In order to build Logsuck, you will need a recent version of Go (1.21 is used when building in CI), as well as a fairly recent Node/npm installation.
+
+Because Logsuck uses CGO, if you are building on Linux, you need to have `gcc` installed and available on your `PATH`.
+
+If cross compiling for Windows, you need [gcc-mingw-w64](http://mingw-w64.org/doku.php/download).
 
 Logsuck consists of two parts: A Go application for the backend and a [preact](https://preactjs.com/) GUI for the frontend. When the Go application is built, the frontend is bundled into the executable using [the embed package](https://golang.org/pkg/embed). This bundling step allows Logsuck to be deployed as a single executable.
 
@@ -236,7 +250,7 @@ It is easier to build the backend on Linux than it is on Windows. If using Windo
 If compiling for Linux, all you need to do is:
 
 ```sh
-go build ./cmd/logsuck/main.go
+CGO_ENABLED=1 go build ./cmd/logsuck/main.go
 ```
 
 to create a `./main` file you can run.

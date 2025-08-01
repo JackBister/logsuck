@@ -35,8 +35,7 @@ const JsonArrayView = (props: {
       {"["}
       <Button
         variant="light"
-        compact
-        size="sm"
+        size="compact-sm"
         onClick={() => setCollapsed(!isCollapsed)}
       >
         {isCollapsed ? "+" : "-"}
@@ -77,8 +76,7 @@ const JsonObjectView = (props: {
       {"{"}
       <Button
         variant="light"
-        compact
-        size="sm"
+        size="compact-sm"
         onClick={() => setCollapsed(!isCollapsed)}
       >
         {isCollapsed ? "+" : "-"}

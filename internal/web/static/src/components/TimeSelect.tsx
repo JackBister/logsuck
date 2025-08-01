@@ -165,7 +165,7 @@ export class TimeSelect extends Component<TimeSelectProps, TimeSelectState> {
           {options.map((o) => (
             <Menu.Item
               type="button"
-              isCurrent={selection === o.value}
+              color={o.value === selection ? "blue" : undefined}
               onClick={() => this.onSelection(o)}
             >
               {o.name}
@@ -216,7 +216,7 @@ export class TimeSelect extends Component<TimeSelectProps, TimeSelectState> {
                 type="time"
                 step="1"
                 placeholder="HH:mm:ss"
-                style="flex-grow: 1"
+                style={{ flexGrow: 1 }}
                 onChange={(evt: any) => {
                   evt.preventDefault();
                   this.onTimeUpdated(
@@ -273,7 +273,7 @@ export class TimeSelect extends Component<TimeSelectProps, TimeSelectState> {
                 type="time"
                 step="1"
                 placeholder="HH:mm:ss"
-                style="flex-grow: 1"
+                style={{ flexGrow: 1 }}
                 onChange={(evt: any) => {
                   evt.preventDefault();
                   this.onTimeUpdated(

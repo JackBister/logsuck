@@ -239,7 +239,7 @@ interface AutoformFieldProps {
   formikProps: FormikProps<any>;
 }
 
-interface AutoformFieldState {}
+interface AutoformFieldState { }
 
 const getPath = (o: any, s: string): any => {
   s = s.replace(/\[(\w+)\]/g, ".$1"); // convert indexes to properties
@@ -439,7 +439,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                                   !this.props.spec.readonly && (
                                     <Button
                                       variant="subtle"
-                                      compact
+                                      size="compact-xs"
                                       onClick={() => fa.remove(i)}
                                     >
                                       Remove
@@ -481,7 +481,7 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
                             !this.props.spec.readonly && (
                               <Button
                                 variant="subtle"
-                                compact
+                                size="compact-xs"
                                 style={{ marginTop: "25px" }}
                                 onClick={() => fa.remove(i)}
                               >
@@ -575,13 +575,13 @@ class AutoformField extends Component<AutoformFieldProps, AutoformFieldState> {
               name={this.props.path}
               disabled={this.props.readonly || this.props.spec.readonly}
               readonly={this.props.readonly || this.props.spec.readonly}
-              onChange={(v: boolean) => {
-                this.props.formikProps.setFieldValue(this.props.path, v);
+              onChange={(v: string) => {
+                this.props.formikProps.setFieldValue(this.props.path, v === "true");
               }}
               value={getPath(this.props.formikProps.values, this.props.path)}
               data={[
-                { value: false, label: "false" },
-                { value: true, label: "true" },
+                { value: "false", label: "false" },
+                { value: "true", label: "true" },
               ]}
             ></Field>
           </div>
@@ -689,12 +689,12 @@ export class Autoform<Values extends FormikValues> extends Component<
                   displayHeading={true}
                   dynamicEnums={this.state.dynamicEnums}
                   formikProps={p}
-                ></AutoformField>
+                />
               ))}
               <Space h="md" />
               {!this.props.readonly &&
                 this.props.spec.fields.filter((f) => !f.readonly).length !==
-                  0 && (
+                0 && (
                   <Flex gap="md">
                     <Button type="submit">Save</Button>
                     <Button
